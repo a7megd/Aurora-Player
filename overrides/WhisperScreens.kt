@@ -23,11 +23,12 @@ fun WhisperPlaylistsScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
     var refresh by remember { mutableIntStateOf(0) }
     var showCreate by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
+    val selectedIds = remember { mutableStateListOf<Long>() }
     val names = remember(refresh) { prefs.all.keys.filter { it.startsWith("playlist:") }.map { it.removePrefix("playlist:") }.sorted() }
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Playlists", style = MaterialTheme.typography.headlineMedium)
-            Button(onClick = { showCreate = true }) { Text("Create playlist") }
+            Button(onClick = { name = ""; selectedIds.clear(); showCreate = true }) { Text("Create playlist") }
         }
         if (names.isEmpty()) Text("Create your first playlist", modifier = Modifier.padding(top = 24.dp))
         LazyColumn {
@@ -45,18 +46,42 @@ fun WhisperPlaylistsScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
     }
     if (showCreate) AlertDialog(
         onDismissRequest = { showCreate = false },
-        title = { Text("New playlist") },
-        text = { OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Playlist name") }, singleLine = true) },
+        title = { Text("Create playlist") },
+        text = {
+            Column(Modifier.fillMaxWidth()) {
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Playlist name") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                Text("Choose songs", style = MaterialTheme.typography.titleSmall)
+                LazyColumn(Modifier.heightIn(max = 300.dp)) {
+                    items(songs) { song ->
+                        val checked = song.id in selectedIds
+                        Row(Modifier.fillMaxWidth().clickable {
+                            if (checked) selectedIds.remove(song.id) else selectedIds.add(song.id)
+                        }.padding(vertical = 2.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            Checkbox(checked = checked, onCheckedChange = {
+                                if (it) { if (song.id !in selectedIds) selectedIds.add(song.id) } else selectedIds.remove(song.id)
+                            })
+                            Column(Modifier.weight(1f)) {
+                                Text(song.title, maxLines = 1)
+                                Text(song.artist, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                            }
+                        }
+                    }
+                }
+                Text("${selectedIds.size} selected", style = MaterialTheme.typography.labelSmall)
+            }
+        },
         confirmButton = {
             TextButton(onClick = {
                 val clean = name.trim()
-                if (clean.isNotEmpty()) {
-                    prefs.edit().putString("playlist:$clean", songs.joinToString(",") { it.id.toString() }).apply()
+                if (clean.isNotEmpty() && selectedIds.isNotEmpty()) {
+                    prefs.edit().putString("playlist:$clean", selectedIds.joinToString(",")).apply()
                     refresh++
                     name = ""
+                    selectedIds.clear()
                     showCreate = false
                 }
-            }) { Text("Create") }
+            }, enabled = name.isNotBlank() && selectedIds.isNotEmpty()) { Text("Create") }
         },
         dismissButton = { TextButton(onClick = { showCreate = false }) { Text("Cancel") } }
     )
