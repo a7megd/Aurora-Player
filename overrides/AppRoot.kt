@@ -13,6 +13,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -92,7 +96,22 @@ fun AppRoot() {
     val nav = rememberNavController()
     val current by nav.currentBackStackEntryAsState()
     val route = current?.destination?.route
-    val wallpaperUri = remember(context) { context.getSharedPreferences("whisper_preferences", android.content.Context.MODE_PRIVATE).getString("wallpaper_uri", null) }
+    var wallpaperUri by remember(context) { mutableStateOf(context.getSharedPreferences("whisper_preferences", android.content.Context.MODE_PRIVATE).getString("wallpaper_uri", null)) }
+    var favoriteRefresh by remember { mutableIntStateOf(0) }
+    val currentIsFavorite = remember(favoriteRefresh, playingSongId) {
+        playingSongId?.let { id ->
+            context.getSharedPreferences("whisper_favorites", android.content.Context.MODE_PRIVATE)
+                .getStringSet("ids", emptySet()).orEmpty().contains(id.toString())
+        } ?: false
+    }
+    fun toggleCurrentFavorite() {
+        val id = playingSongId ?: return
+        val prefs = context.getSharedPreferences("whisper_favorites", android.content.Context.MODE_PRIVATE)
+        val ids = prefs.getStringSet("ids", emptySet()).orEmpty().toMutableSet()
+        if (!ids.add(id.toString())) ids.remove(id.toString())
+        prefs.edit().putStringSet("ids", ids).apply()
+        favoriteRefresh++
+    }
     val playingSongId = controller?.currentMediaItem?.localConfiguration?.uri?.lastPathSegment?.toLongOrNull()
         ?: controller?.currentMediaItem?.mediaId?.toLongOrNull()
 
@@ -101,6 +120,40 @@ fun AppRoot() {
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             Column {
+                if (controller?.currentMediaItem != null && route != Routes.NOW_PLAYING) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp).clickable {
+                            nav.navigate(Routes.NOW_PLAYING) { launchSingleTop = true }
+                        },
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.88f),
+                        tonalElevation = 7.dp,
+                        shadowElevation = 10.dp
+                    ) {
+                        Row(Modifier.fillMaxWidth().heightIn(min = 62.dp).padding(horizontal = 8.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.MusicNote, contentDescription = "الصوت يعمل", tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(7.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(playbackTitle.ifBlank { "الصوت يعمل" }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
+                                Text("Whisper Player", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            IconButton(onClick = { controller?.seekToPreviousMediaItem() }, enabled = (controller?.mediaItemCount ?: 0) > 1) {
+                                Icon(Icons.Rounded.SkipPrevious, contentDescription = "السابق")
+                            }
+                            IconButton(onClick = { if (playbackPlaying) controller?.pause() else controller?.play() }) {
+                                Icon(if (playbackPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, contentDescription = if (playbackPlaying) "إيقاف مؤقت" else "تشغيل")
+                            }
+                            IconButton(onClick = { controller?.seekToNextMediaItem() }, enabled = (controller?.mediaItemCount ?: 0) > 1) {
+                                Icon(Icons.Rounded.SkipNext, contentDescription = "التالي")
+                            }
+                            IconButton(onClick = { toggleCurrentFavorite() }) {
+                                Icon(if (currentIsFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                                    contentDescription = if (currentIsFavorite) "إزالة من المفضلة" else "إضافة للمفضلة",
+                                    tint = if (currentIsFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
                 if (bottomTabs.any { it.route == route }) {
                     NavigationBar(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)) {
                         bottomTabs.forEach { tab ->
@@ -116,29 +169,6 @@ fun AppRoot() {
                                 icon = { Icon(tab.icon, contentDescription = tab.label) },
                                 label = { Text(tab.label) },
                             )
-                        }
-                    }
-                }
-                if (controller?.currentMediaItem != null && route != Routes.NOW_PLAYING) {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp).clickable {
-                            nav.navigate(Routes.NOW_PLAYING) { launchSingleTop = true }
-                        },
-                        shape = MaterialTheme.shapes.extraLarge,
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.78f),
-                        tonalElevation = 5.dp,
-                        shadowElevation = 8.dp
-                    ) {
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.MusicNote, contentDescription = "الصوت يعمل", tint = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(playbackTitle.ifBlank { "الصوت يعمل" }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
-                                Text("Whisper Player", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            IconButton(onClick = { if (playbackPlaying) controller?.pause() else controller?.play() }) {
-                                Icon(if (playbackPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, contentDescription = if (playbackPlaying) "إيقاف مؤقت" else "تشغيل")
-                            }
                         }
                     }
                 }
@@ -220,7 +250,8 @@ fun AppRoot() {
                         r == Routes.FAVORITES -> WhisperFavoritesScreen(songs) { song -> playback.play(song, songs); nav.navigate(Routes.NOW_PLAYING) }
                         r == Routes.QUEUE -> WhisperQueueScreen(controller)
                         r == Routes.LYRICS -> WhisperLyricsScreen(controller)
-                        r == Routes.SETTINGS -> WhisperSettingsScreen(app.container.settingsRepository, controller)
+                        r == Routes.SETTINGS -> WhisperSettingsScreen(app.container.settingsRepository, controller, onWallpaperChanged = { wallpaperUri = it })
+                        r == Routes.EQUALIZER -> WhisperEqualizerScreen()
                         else -> ScaffoldScreen(title)
                     }
                 }
