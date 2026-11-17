@@ -851,7 +851,8 @@ fun WhisperHomeScreen(
     activeSongId: Long? = null
 ) {
     var selectedSong by remember { mutableStateOf<Song?>(null) }
-    val profilePrefs = remember { LocalContext.current.getSharedPreferences("tayer_profile", Context.MODE_PRIVATE) }
+    val context = LocalContext.current
+    val profilePrefs = remember(context) { context.getSharedPreferences("tayer_profile", Context.MODE_PRIVATE) }
     val displayName = profilePrefs.getString("display_name", "").orEmpty().trim()
     val profilePhoto = profilePrefs.getString("photo_uri", null)
     val homeSongs = remember(songs) { songs.take(40) }
