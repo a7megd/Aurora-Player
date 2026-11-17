@@ -138,7 +138,7 @@ fun AppRoot() {
                                 AnimatedContent(targetState = playbackTitle.ifBlank { "الصوت يعمل" }, label = "miniPlayerTrackChange") { title ->
                                     Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
                                 }
-                                Text("tayer", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("Tayer_player", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             IconButton(onClick = { controller?.seekToPreviousMediaItem() }, enabled = (controller?.mediaItemCount ?: 0) > 1) {
                                 Icon(Icons.Rounded.SkipPrevious, contentDescription = "السابق")
@@ -275,8 +275,10 @@ fun AppRoot() {
                     modifier = Modifier.size(230.dp)
                 )
                 Spacer(Modifier.height(18.dp))
-                Text("tayer", color = Color.White, style = MaterialTheme.typography.headlineSmall)
-                Text("تطوير: أحمد عبد الحميد", color = Color(0xFF168BFF), style = MaterialTheme.typography.labelLarge)
+                Text("Tayer_player", color = Color.White, style = MaterialTheme.typography.headlineSmall)
+                Text("by dr Ahmed Abdelhamid", color = Color(0xFFCE1126), style = MaterialTheme.typography.labelLarge)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 12.dp)) { listOf(Color(0xFF111111), Color.White, Color(0xFFCE1126), Color(0xFF007A3D)).forEach { stripe -> Box(Modifier.width(28.dp).height(4.dp).background(stripe, androidx.compose.foundation.shape.RoundedCornerShape(2.dp))) } }
+                Text("🇵🇸  •  كوفية فلسطينية", color = Color(0xFFECE8DE), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
             }
         }
     }
