@@ -23,6 +23,9 @@ jobs:
         run: |
           install -D overrides/AppRoot.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/AppRoot.kt
           install -D overrides/NowPlayingScreen.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/NowPlayingScreen.kt
+          install -D overrides/WhisperScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/WhisperScreens.kt
+          install -D overrides/Routes.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/Routes.kt
+          install -D overrides/strings.xml AuroraPlayer/app/src/main/res/values/strings.xml
 
       - name: Set up Java
         uses: actions/setup-java@v4
