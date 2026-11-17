@@ -94,21 +94,46 @@ fun AppRoot() {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            if (bottomTabs.any { it.route == route }) {
-                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                    bottomTabs.forEach { tab ->
-                        NavigationBarItem(
-                            selected = route == tab.route,
-                            onClick = {
-                                nav.navigate(tab.route) {
-                                    popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = { Icon(tab.icon, contentDescription = tab.label) },
-                            label = { Text(tab.label) },
-                        )
+            Column {
+                if (bottomTabs.any { it.route == route }) {
+                    NavigationBar(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)) {
+                        bottomTabs.forEach { tab ->
+                            NavigationBarItem(
+                                selected = route == tab.route,
+                                onClick = {
+                                    nav.navigate(tab.route) {
+                                        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                },
+                                icon = { Icon(tab.icon, contentDescription = tab.label) },
+                                label = { Text(tab.label) },
+                            )
+                        }
+                    }
+                }
+                if (controller?.currentMediaItem != null && route != Routes.NOW_PLAYING) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp).clickable {
+                            nav.navigate(Routes.NOW_PLAYING) { launchSingleTop = true }
+                        },
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.78f),
+                        tonalElevation = 5.dp,
+                        shadowElevation = 8.dp
+                    ) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.GraphicEq, contentDescription = "الصوت يعمل", tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(playbackTitle.ifBlank { "الصوت يعمل" }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
+                                Text("Whisper Player", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            IconButton(onClick = { if (playbackPlaying) controller?.pause() else controller?.play() }) {
+                                Icon(if (playbackPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, contentDescription = if (playbackPlaying) "إيقاف مؤقت" else "تشغيل")
+                            }
+                        }
                     }
                 }
             }
