@@ -587,7 +587,6 @@ fun WhisperHomeScreen(
         }
     }
         }
-    }
     selectedSong?.let { song ->
         SongContextDialog(song, onDismiss = { selectedSong = null },
             onPlayNext = { onPlayNext(song) }, onFavorite = { onFavorite(song) },
