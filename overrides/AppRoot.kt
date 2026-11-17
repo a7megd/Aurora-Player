@@ -122,6 +122,16 @@ fun AppRoot() {
                         }
                     }
                 }
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+                    listOf(Routes.QUEUE to "Queue", Routes.LYRICS to "Lyrics", Routes.EQUALIZER to "Equalizer", Routes.SETTINGS to "Settings").forEach { (target, label) ->
+                        NavigationBarItem(
+                            selected = route == target,
+                            onClick = { nav.navigate(target) { launchSingleTop = true } },
+                            icon = { Text(when (target) { Routes.QUEUE -> "≡"; Routes.LYRICS -> "♫"; Routes.EQUALIZER -> "〰"; else -> "⚙" }) },
+                            label = { Text(label) },
+                        )
+                    }
+                }
             }
         },
     ) { padding ->
