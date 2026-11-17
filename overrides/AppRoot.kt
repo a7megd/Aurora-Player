@@ -24,6 +24,8 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.*
@@ -90,6 +92,9 @@ fun AppRoot() {
     val nav = rememberNavController()
     val current by nav.currentBackStackEntryAsState()
     val route = current?.destination?.route
+    val wallpaperUri = remember(context) { context.getSharedPreferences("whisper_preferences", android.content.Context.MODE_PRIVATE).getString("wallpaper_uri", null) }
+    val playingSongId = controller?.currentMediaItem?.localConfiguration?.uri?.lastPathSegment?.toLongOrNull()
+        ?: controller?.currentMediaItem?.mediaId?.toLongOrNull()
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
     Scaffold(
@@ -140,6 +145,8 @@ fun AppRoot() {
             }
         },
     ) { padding ->
+        Box(Modifier.fillMaxSize()) {
+        if (wallpaperUri != null) AsyncImage(model = wallpaperUri, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), alpha = 0.22f)
         NavHost(nav, startDestination = Routes.HOME, modifier = Modifier.padding(padding)) {
             allRoutes.forEach { (r, title) ->
                 composable(r) {
@@ -163,7 +170,8 @@ fun AppRoot() {
                                 ids.add(song.id.toString())
                                 prefs.edit().putStringSet("ids", ids).apply()
                             },
-                            onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } }
+                            onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } },
+                            activeSongId = playingSongId
                         )
                         r == Routes.ALBUMS || r == Routes.ARTISTS || r == Routes.FOLDERS ->
                             LibraryScreen(
@@ -191,7 +199,7 @@ fun AppRoot() {
                             ids.add(song.id.toString())
                             prefs.edit().putStringSet("ids", ids).apply()
                         },
-                        onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } })
+                        onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } }, activeSongId = playingSongId)
                         r == Routes.SEARCH -> WhisperSearchScreen(songs, onPlay = { song -> playback.play(song, songs); nav.navigate(Routes.NOW_PLAYING) }, onPlayNext = { song -> controller?.let { player ->
                             val mediaItem = androidx.media3.common.MediaItem.fromUri(android.content.ContentUris.withAppendedId(android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, song.id).toString())
                             val insertAt = (player.currentMediaItemIndex + 1).coerceAtLeast(0).coerceAtMost(player.mediaItemCount)
@@ -207,7 +215,7 @@ fun AppRoot() {
                             ids.add(song.id.toString())
                             prefs.edit().putStringSet("ids", ids).apply()
                         },
-                        onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } })
+                        onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } }, activeSongId = playingSongId)
                         r == Routes.PLAYLISTS -> WhisperPlaylistsScreen(songs) { song -> playback.play(song, songs); nav.navigate(Routes.NOW_PLAYING) }
                         r == Routes.FAVORITES -> WhisperFavoritesScreen(songs) { song -> playback.play(song, songs); nav.navigate(Routes.NOW_PLAYING) }
                         r == Routes.QUEUE -> WhisperQueueScreen(controller)
@@ -217,6 +225,7 @@ fun AppRoot() {
                     }
                 }
             }
+        }
         }
     }
     }
