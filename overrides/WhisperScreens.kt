@@ -33,6 +33,7 @@ import coil.compose.AsyncImage
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.media3.session.MediaController
+import androidx.media3.common.Player
 import com.aurora.player.data.prefs.SettingsRepository
 import com.aurora.player.domain.model.Song
 import com.aurora.player.domain.model.ThemeMode
@@ -167,36 +168,165 @@ fun WhisperFavoritesScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
 }
 
 @Composable
-fun WhisperQueueScreen(controller: MediaController?) {
+fun WhisperQueueScreen(controller: MediaController?, songs: List<Song>) {
+    val context = LocalContext.current
     var tick by remember { mutableIntStateOf(0) }
-    LaunchedEffect(controller) { while (true) { tick++; kotlinx.coroutines.delay(500) } }
+    var showAdd by remember { mutableStateOf(false) }
+    var selectedToAdd by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var showSave by remember { mutableStateOf(false) }
+    var playlistName by remember { mutableStateOf("قائمة الانتظار") }
+    var menuExpanded by remember { mutableStateOf(false) }
+    val prefs = remember { context.getSharedPreferences("whisper_playlists", Context.MODE_PRIVATE) }
+    LaunchedEffect(controller) { while (true) { tick++; kotlinx.coroutines.delay(350) } }
     val count = controller?.mediaItemCount ?: 0
     val current = controller?.currentMediaItemIndex ?: -1
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("قائمة التشغيل الحالية", style = MaterialTheme.typography.headlineMedium)
-        Text("$count مقطعًا في قائمة الانتظار", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-            OutlinedButton(onClick = { controller?.clearMediaItems() }, enabled = count > 0) { Text("مسح قائمة الانتظار") }
+    val queueIds = remember(tick, count) {
+        (0 until count).mapNotNull { index ->
+            controller?.getMediaItemAt(index)?.mediaId?.toLongOrNull()
+                ?: controller?.getMediaItemAt(index)?.localConfiguration?.uri?.lastPathSegment?.toLongOrNull()
+        }.toSet()
+    }
+    val shuffle = controller?.shuffleModeEnabled == true
+    val repeat = controller?.repeatMode ?: Player.REPEAT_MODE_OFF
+    fun mediaItem(song: Song) = androidx.media3.common.MediaItem.Builder()
+        .setMediaId(song.id.toString())
+        .setUri(android.content.ContentUris.withAppendedId(android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, song.id))
+        .setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(song.title).setArtist(song.artist).build())
+        .build()
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("قائمة الانتظار", style = MaterialTheme.typography.headlineMedium)
+                Text("$count مقطعًا • ${if (current >= 0) "يعمل ${current + 1} من $count" else "لا يوجد تشغيل"}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            }
+            IconButton(onClick = { showAdd = true }) { Icon(Icons.Rounded.Add, contentDescription = "إضافة مقاطع") }
+            Box {
+                IconButton(onClick = { menuExpanded = true }, enabled = count > 0) { Icon(Icons.Rounded.MoreVert, contentDescription = "خيارات القائمة") }
+                DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                    DropdownMenuItem(text = { Text("حفظ كقائمة تشغيل") }, leadingIcon = { Icon(Icons.Rounded.PlaylistAdd, null) }, onClick = { showSave = true; menuExpanded = false })
+                    DropdownMenuItem(text = { Text("مسح ما بعد المقطع الحالي") }, leadingIcon = { Icon(Icons.Rounded.ClearAll, null) }, onClick = {
+                        if (controller != null) for (i in count - 1 downTo (current + 1).coerceAtLeast(0)) controller.removeMediaItem(i)
+                        tick++; menuExpanded = false
+                    }, enabled = current >= 0 && current < count - 1)
+                    DropdownMenuItem(text = { Text("مسح قائمة الانتظار بالكامل") }, leadingIcon = { Icon(Icons.Rounded.DeleteSweep, null) }, onClick = { controller?.clearMediaItems(); tick++; menuExpanded = false })
+                }
+            }
         }
-        LazyColumn {
-            items(count) { index ->
-                val item = controller?.getMediaItemAt(index)
-                ListItem(
-                    headlineContent = { Text(item?.mediaMetadata?.title?.toString().orEmpty().ifBlank { "مقطع ${index + 1}" }) },
-                    supportingContent = { Text(item?.mediaMetadata?.artist?.toString().orEmpty()) },
-                    leadingContent = { Text(if (index == current) "▶" else "${index + 1}") },
-                    trailingContent = {
-                        Row {
-                            IconButton(onClick = { if (index > 0) controller?.moveMediaItem(index, index - 1) }, enabled = index > 0) { Text("↑") }
-                            IconButton(onClick = { if (index < count - 1) controller?.moveMediaItem(index, index + 1) }, enabled = index < count - 1) { Text("↓") }
-                            IconButton(onClick = { controller?.removeMediaItem(index) }) { Text("×") }
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { controller?.shuffleModeEnabled = !shuffle; tick++ }, enabled = count > 1, modifier = Modifier.weight(1f)) {
+                Icon(Icons.Rounded.Shuffle, null); Spacer(Modifier.width(6.dp)); Text(if (shuffle) "خلط مفعّل" else "خلط")
+            }
+            OutlinedButton(onClick = {
+                controller?.repeatMode = when (repeat) {
+                    Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+                    Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+                    else -> Player.REPEAT_MODE_OFF
+                }; tick++
+            }, enabled = count > 0, modifier = Modifier.weight(1f)) {
+                Icon(if (repeat == Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat, null)
+                Spacer(Modifier.width(6.dp))
+                Text(when (repeat) { Player.REPEAT_MODE_ALL -> "تكرار الكل"; Player.REPEAT_MODE_ONE -> "تكرار مقطع"; else -> "بدون تكرار" })
+            }
+        }
+        if (count == 0) {
+            Card(Modifier.fillMaxWidth().padding(top = 18.dp)) {
+                Column(Modifier.fillMaxWidth().padding(28.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                    Icon(Icons.Rounded.QueueMusic, null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
+                    Text("قائمة الانتظار فارغة", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+                    Text("أضف مقاطع من مكتبتك أو شغّل ألبومًا لتبدأ.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Button(onClick = { showAdd = true }, modifier = Modifier.padding(top = 12.dp)) { Text("إضافة مقاطع") }
+                }
+            }
+        } else {
+            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                items(count, key = { index -> controller?.getMediaItemAt(index)?.mediaId ?: "queue_$index" }) { index ->
+                    val item = controller?.getMediaItemAt(index)
+                    val active = index == current
+                    val title = item?.mediaMetadata?.title?.toString().orEmpty().ifBlank { "مقطع ${index + 1}" }
+                    val artist = item?.mediaMetadata?.artist?.toString().orEmpty()
+                    Card(
+                        modifier = Modifier.fillMaxWidth().animateContentSize().clickable { controller?.seekTo(index, 0L); controller?.play() },
+                        colors = CardDefaults.cardColors(containerColor = if (active) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.82f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.50f)),
+                        border = if (active) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
+                    ) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            Box(Modifier.size(38.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                                if (active) Icon(Icons.Rounded.Equalizer, null, tint = MaterialTheme.colorScheme.primary)
+                                else Text("${index + 1}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Column(Modifier.weight(1f).padding(horizontal = 7.dp)) {
+                                Text(title, maxLines = 1, style = MaterialTheme.typography.titleSmall, color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                                Text(artist.ifBlank { " " }, maxLines = 1, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (active) Text("يعمل الآن", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                            }
+                            Column {
+                                Row {
+                                    IconButton(onClick = { if (index > 0) { controller?.moveMediaItem(index, index - 1); tick++ } }, enabled = index > 0) { Icon(Icons.Rounded.KeyboardArrowUp, "تحريك لأعلى") }
+                                    IconButton(onClick = { if (index < count - 1) { controller?.moveMediaItem(index, index + 1); tick++ } }, enabled = index < count - 1) { Icon(Icons.Rounded.KeyboardArrowDown, "تحريك لأسفل") }
+                                }
+                                Row {
+                                    IconButton(onClick = { controller?.addMediaItem((current + 1).coerceAtLeast(0).coerceAtMost(controller.mediaItemCount), item!!); tick++ }, enabled = item != null && index != current) { Icon(Icons.Rounded.SkipNext, "تشغيل بعد الحالي") }
+                                    IconButton(onClick = { controller?.removeMediaItem(index); tick++ }) { Icon(Icons.Rounded.Close, "إزالة من الانتظار", tint = MaterialTheme.colorScheme.error) }
+                                }
+                            }
                         }
-                    },
-                    modifier = Modifier.clickable { controller?.seekTo(index, 0L); controller?.play() }
-                )
+                    }
+                }
             }
         }
     }
+    if (showAdd) {
+        val available = songs.filter { it.id !in queueIds }
+        AlertDialog(
+            onDismissRequest = { showAdd = false; selectedToAdd = emptySet() },
+            title = { Text("إضافة إلى قائمة الانتظار") },
+            text = {
+                Column {
+                    Text("${selectedToAdd.size} مقطع محدد", color = MaterialTheme.colorScheme.primary)
+                    LazyColumn(Modifier.heightIn(max = 420.dp)) {
+                        items(available, key = { it.id }) { song ->
+                            Row(Modifier.fillMaxWidth().clickable {
+                                selectedToAdd = if (song.id in selectedToAdd) selectedToAdd - song.id else selectedToAdd + song.id
+                            }.padding(vertical = 5.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                Checkbox(checked = song.id in selectedToAdd, onCheckedChange = { checked ->
+                                    selectedToAdd = if (checked) selectedToAdd + song.id else selectedToAdd - song.id
+                                })
+                                Column(Modifier.weight(1f)) {
+                                    Text(song.title, maxLines = 1)
+                                    Text(song.artist, maxLines = 1, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    selectedToAdd.forEach { id -> songs.firstOrNull { it.id == id }?.let { controller?.addMediaItem(mediaItem(it)) } }
+                    if (controller?.playWhenReady == false && current < 0) controller?.prepare()
+                    tick++; selectedToAdd = emptySet(); showAdd = false
+                }, enabled = selectedToAdd.isNotEmpty()) { Text("إضافة (${selectedToAdd.size})") }
+            },
+            dismissButton = { TextButton(onClick = { showAdd = false; selectedToAdd = emptySet() }) { Text("إلغاء") } }
+        )
+    }
+    if (showSave) AlertDialog(
+        onDismissRequest = { showSave = false },
+        title = { Text("حفظ قائمة الانتظار") },
+        text = { OutlinedTextField(value = playlistName, onValueChange = { playlistName = it }, label = { Text("اسم القائمة") }, singleLine = true) },
+        confirmButton = {
+            TextButton(onClick = {
+                val ids = (0 until (controller?.mediaItemCount ?: 0)).mapNotNull { index ->
+                    val media = controller?.getMediaItemAt(index)
+                    media?.mediaId?.toLongOrNull() ?: media?.localConfiguration?.uri?.lastPathSegment?.toLongOrNull()
+                }.distinct()
+                if (playlistName.isNotBlank() && ids.isNotEmpty()) prefs.edit().putString("playlist:${playlistName.trim()}", ids.joinToString(",")).apply()
+                showSave = false
+            }, enabled = playlistName.isNotBlank() && count > 0) { Text("حفظ") }
+        },
+        dismissButton = { TextButton(onClick = { showSave = false }) { Text("إلغاء") } }
+    )
 }
 
 private data class TimedLyric(val timeMs: Long, val text: String)
