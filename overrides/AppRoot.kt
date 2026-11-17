@@ -163,7 +163,7 @@ fun AppRoot() {
                             prefs.edit().putStringSet("ids", ids).apply()
                         },
                         onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } })
-                        r == Routes.SEARCH -> WhisperSearchScreen(songs, onPlay = { song -> playback.play(song, songs) }, onPlayNext = { song -> controller?.let { player ->
+                        r == Routes.SEARCH -> WhisperSearchScreen(songs, onPlay = { song -> playback.play(song, songs); nav.navigate(Routes.NOW_PLAYING) }, onPlayNext = { song -> controller?.let { player ->
                             val mediaItem = androidx.media3.common.MediaItem.fromUri(android.content.ContentUris.withAppendedId(android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, song.id).toString())
                             val insertAt = (player.currentMediaItemIndex + 1).coerceAtLeast(0).coerceAtMost(player.mediaItemCount)
                             player.addMediaItem(insertAt, mediaItem)
@@ -203,7 +203,7 @@ fun AppRoot() {
                 )
                 Spacer(Modifier.height(18.dp))
                 Text("Whisper Player", color = Color.White, style = MaterialTheme.typography.headlineSmall)
-                Text("Developed by Ahmed Abdelhamid", color = Color(0xFF168BFF), style = MaterialTheme.typography.labelLarge)
+                Text("تطوير: أحمد عبد الحميد", color = Color(0xFF168BFF), style = MaterialTheme.typography.labelLarge)
             }
         }
     }
