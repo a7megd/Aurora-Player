@@ -28,9 +28,9 @@ object Routes {
 data class BottomTab(val route: String, val label: String, val icon: ImageVector)
 
 val bottomTabs = listOf(
-    BottomTab(Routes.HOME, "Home", Icons.Rounded.Home),
-    BottomTab(Routes.SONGS, "Songs", Icons.Rounded.MusicNote),
-    BottomTab(Routes.ALBUMS, "Albums", Icons.Rounded.Album),
-    BottomTab(Routes.ARTISTS, "Artists", Icons.Rounded.Person),
-    BottomTab(Routes.PLAYLISTS, "Playlists", Icons.AutoMirrored.Rounded.QueueMusic),
+    BottomTab(Routes.HOME, "الرئيسية", Icons.Rounded.Home),
+    BottomTab(Routes.SONGS, "الأغاني", Icons.Rounded.MusicNote),
+    BottomTab(Routes.ALBUMS, "الألبومات", Icons.Rounded.Album),
+    BottomTab(Routes.ARTISTS, "الفنانون", Icons.Rounded.Person),
+    BottomTab(Routes.PLAYLISTS, "القوائم", Icons.AutoMirrored.Rounded.QueueMusic),
 )
