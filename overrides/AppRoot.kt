@@ -122,16 +122,6 @@ fun AppRoot() {
                         }
                     }
                 }
-                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                    listOf(Routes.SEARCH to "Search", Routes.QUEUE to "Queue", Routes.LYRICS to "Lyrics", Routes.FAVORITES to "Favorites", Routes.EQUALIZER to "Equalizer", Routes.SETTINGS to "Settings").forEach { (target, label) ->
-                        NavigationBarItem(
-                            selected = route == target,
-                            onClick = { nav.navigate(target) { launchSingleTop = true } },
-                            icon = { Text(when (target) { Routes.QUEUE -> "≡"; Routes.LYRICS -> "♫"; Routes.EQUALIZER -> "〰"; else -> "⚙" }) },
-                            label = { Text(label) },
-                        )
-                    }
-                }
             }
         },
     ) { padding ->
@@ -139,7 +129,7 @@ fun AppRoot() {
             allRoutes.forEach { (r, title) ->
                 composable(r) {
                     when {
-                        r == Routes.NOW_PLAYING -> NowPlayingScreen(controller)
+                        r == Routes.NOW_PLAYING -> NowPlayingScreen(controller, onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } })
                         r == Routes.SONGS || r == Routes.ALBUMS || r == Routes.ARTISTS || r == Routes.FOLDERS ->
                             LibraryScreen(
                                 title = title, songs = songs, albums = albums, artists = artists, folders = folders,
@@ -152,7 +142,7 @@ fun AppRoot() {
                                 onPlayAll = { playback.playQueue(songs) },
                             )
                         r == Routes.HOME -> WhisperHomeScreen(songs, { song -> playback.play(song, songs) }, { target -> nav.navigate(target) })
-                        r == Routes.SEARCH -> WhisperSearchScreen(songs) { song -> playback.play(song, songs) }
+                        r == Routes.SEARCH -> WhisperSearchScreen(songs, onPlay = { song -> playback.play(song, songs) }, onPlayNext = { song -> controller?.let { player -> player.addMediaItem((player.currentMediaItemIndex + 1).coerceAtLeast(0), androidx.media3.common.MediaItem.fromUri(android.content.ContentUris.withAppendedId(android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, song.id).toString())) } }, onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } })
                         r == Routes.PLAYLISTS -> WhisperPlaylistsScreen(songs) { song -> playback.play(song, songs) }
                         r == Routes.FAVORITES -> WhisperFavoritesScreen(songs) { song -> playback.play(song, songs) }
                         r == Routes.QUEUE -> WhisperQueueScreen(controller)
