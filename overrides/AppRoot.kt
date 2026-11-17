@@ -161,7 +161,7 @@ fun AppRoot() {
                                 onSongClick = { song -> playback.play(song, songs); nav.navigate(Routes.NOW_PLAYING) },
                                 onPlayAll = { playback.playQueue(songs) },
                             )
-                        r == Routes.HOME -> WhisperHomeScreen(songs, onPlay = { song -> playback.play(song, songs) }, onPlayNext = { song -> controller?.let { player ->
+                        r == Routes.HOME -> WhisperHomeScreen(songs, onPlay = { song -> playback.play(song, songs); nav.navigate(Routes.NOW_PLAYING) }, onPlayNext = { song -> controller?.let { player ->
                             val mediaItem = androidx.media3.common.MediaItem.fromUri(android.content.ContentUris.withAppendedId(android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, song.id).toString())
                             val insertAt = (player.currentMediaItemIndex + 1).coerceAtLeast(0).coerceAtMost(player.mediaItemCount)
                             player.addMediaItem(insertAt, mediaItem)
