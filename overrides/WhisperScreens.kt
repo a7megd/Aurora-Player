@@ -21,6 +21,7 @@ import java.util.Locale
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -539,6 +540,11 @@ fun WhisperSongListScreen(
         "plays" -> songs.sortedByDescending { prefs.getInt("plays:" + it.id, 0) }
         else -> songs.sortedByDescending { it.id }
     } }
+    val listState = rememberLazyListState()
+    LaunchedEffect(activeSongId, sortedSongs) {
+        val activeIndex = sortedSongs.indexOfFirst { it.id == activeSongId }
+        if (activeIndex >= 0) listState.animateScrollToItem(activeIndex)
+    }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Text("كل الأصوات", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(vertical = 16.dp))
@@ -552,7 +558,7 @@ fun WhisperSongListScreen(
                 }
             }
         }
-        LazyColumn {
+        LazyColumn(state = listState) {
             items(sortedSongs) { song ->
                 SongLongPressRow(song, onPlay = { onPlay(song) }, onLongPress = { selectedSong = song }, activeSongId = activeSongId)
             }
@@ -576,7 +582,12 @@ fun WhisperHomeScreen(
     activeSongId: Long? = null
 ) {
     var selectedSong by remember { mutableStateOf<Song?>(null) }
-    val context = LocalContext.current
+    val homeSongs = remember(songs) { songs.take(40) }
+    val listState = rememberLazyListState()
+    LaunchedEffect(activeSongId, homeSongs) {
+        val activeIndex = homeSongs.indexOfFirst { it.id == activeSongId }
+        if (activeIndex >= 0) listState.animateScrollToItem(activeIndex)
+    }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
@@ -600,8 +611,8 @@ fun WhisperHomeScreen(
         if (songs.isEmpty()) {
             Text("ستظهر ملفاتك الصوتية هنا بعد السماح بالوصول إلى الموسيقى.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
-            LazyColumn {
-                items(songs.take(40)) { song ->
+            LazyColumn(state = listState) {
+                items(homeSongs) { song ->
                     SongLongPressRow(song, onPlay = { onPlay(song) }, onLongPress = { selectedSong = song })
                 }
             }
@@ -636,6 +647,11 @@ fun WhisperSearchScreen(
             }
         }
     }
+    val listState = rememberLazyListState()
+    LaunchedEffect(activeSongId, filtered) {
+        val activeIndex = filtered.indexOfFirst { it.id == activeSongId }
+        if (activeIndex >= 0) listState.animateScrollToItem(activeIndex)
+    }
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("ابحث في مكتبتك", style = MaterialTheme.typography.headlineMedium)
         OutlinedTextField(
@@ -649,7 +665,7 @@ fun WhisperSearchScreen(
             Text("لا توجد نتائج مطابقة", modifier = Modifier.padding(top = 16.dp))
         } else {
             Text("${filtered.size} نتيجة", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
-            LazyColumn {
+            LazyColumn(state = listState) {
                 items(filtered) { song ->
                     SongLongPressRow(song, onPlay = { onPlay(song) }, onLongPress = { selectedSong = song })
                 }
