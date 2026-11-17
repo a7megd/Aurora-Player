@@ -297,7 +297,7 @@ private fun SleepTimerCard(controller: MediaController?) {
 fun WhisperEqualizerScreen() {
     val effect = remember { runCatching { Equalizer(0, 0).apply { enabled = true } }.getOrNull() }
     var enabled by remember(effect) { mutableStateOf(effect?.enabled == true) }
-    var levels by remember(effect) { mutableStateOf(effect?.let { eq -> (0 until eq.numberOfBands.toInt()).map { eq.getBandLevel(it.toShort()).toFloat() } } ?: emptyList()) }
+    var levels by remember(effect) { mutableStateOf<List<Float>>(effect?.let { eq -> (0 until eq.numberOfBands.toInt()).map { band -> eq.getBandLevel(band.toShort()).toFloat() } } ?: emptyList()) }
     val presetNames = remember(effect) { effect?.let { eq -> (0 until eq.numberOfPresets.toInt()).map { eq.getPresetName(it.toShort()).toString() } } ?: emptyList() }
     var presetExpanded by remember { mutableStateOf(false) }
     val range = remember(effect) { effect?.bandLevelRange?.let { it[0].toFloat()..it[1].toFloat() } ?: (-1500f..1500f) }
