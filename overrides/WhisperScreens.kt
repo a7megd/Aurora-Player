@@ -163,3 +163,72 @@ fun WhisperSettingsScreen(repository: SettingsRepository) {
         }
     }
 }
+
+@Composable
+fun WhisperHomeScreen(songs: List<Song>, onPlay: (Song) -> Unit, onNavigate: (String) -> Unit) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            Column {
+                Text("Good evening", style = MaterialTheme.typography.headlineMedium)
+                Text("Your music, your way", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            TextButton(onClick = { onNavigate(Routes.SETTINGS) }) { Text("Settings") }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Search" to Routes.SEARCH, "Library" to Routes.SONGS, "Playlists" to Routes.PLAYLISTS).forEach { (label, route) ->
+                FilledTonalButton(onClick = { onNavigate(route) }) { Text(label) }
+            }
+        }
+        Text("Recently added", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 20.dp, bottom = 8.dp))
+        if (songs.isEmpty()) {
+            Text("Your local music will appear here after you grant audio permission.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            LazyColumn {
+                items(songs.take(40)) { song ->
+                    ListItem(
+                        headlineContent = { Text(song.title, maxLines = 1) },
+                        supportingContent = { Text(song.artist, maxLines = 1) },
+                        leadingContent = { Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.medium) {
+                            Box(Modifier.size(48.dp), contentAlignment = androidx.compose.ui.Alignment.Center) { Text("♫", style = MaterialTheme.typography.titleLarge) }
+                        } },
+                        trailingContent = { TextButton(onClick = { onPlay(song) }) { Text("Play") } },
+                        modifier = Modifier.clickable { onPlay(song) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun WhisperSearchScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
+    var query by remember { mutableStateOf("") }
+    val filtered = remember(songs, query) {
+        if (query.isBlank()) emptyList() else songs.filter {
+            it.title.contains(query, ignoreCase = true) || it.artist.contains(query, ignoreCase = true)
+        }
+    }
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Text("Search your music", style = MaterialTheme.typography.headlineMedium)
+        OutlinedTextField(
+            value = query, onValueChange = { query = it },
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            label = { Text("Songs or artists") }, singleLine = true
+        )
+        if (query.isBlank()) {
+            Text("Search songs and artists in your device library.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 16.dp))
+        } else if (filtered.isEmpty()) {
+            Text("No matches found", modifier = Modifier.padding(top = 16.dp))
+        } else {
+            LazyColumn {
+                items(filtered) { song ->
+                    ListItem(
+                        headlineContent = { Text(song.title, maxLines = 1) },
+                        supportingContent = { Text(song.artist, maxLines = 1) },
+                        modifier = Modifier.clickable { onPlay(song) }
+                    )
+                }
+            }
+        }
+    }
+}
