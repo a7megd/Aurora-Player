@@ -430,7 +430,7 @@ private fun SongLongPressRow(
         leadingContent = {
             Surface(color = if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f), shape = RoundedCornerShape(15.dp)) {
                 Box(Modifier.size(48.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                    if (active) Icon(Icons.Rounded.GraphicEq, contentDescription = "الأغنية تعمل الآن", tint = MaterialTheme.colorScheme.primary)
+                    if (active) Icon(Icons.Rounded.MusicNote, contentDescription = "الأغنية تعمل الآن", tint = MaterialTheme.colorScheme.primary)
                     else Text("♫", style = MaterialTheme.typography.titleLarge)
                 }
             }
@@ -473,7 +473,7 @@ private fun SongContextDialog(
                 TextButton(onClick = { onPlayNext(); onDismiss() }) { Icon(Icons.Rounded.SkipNext, null); Spacer(Modifier.width(8.dp)); Text("تشغيل بعد الحالي") }
                 TextButton(onClick = { choosePlaylist = true }) { Icon(Icons.Rounded.PlaylistAdd, null); Spacer(Modifier.width(8.dp)); Text("إضافة إلى قائمة تشغيل") }
                 TextButton(onClick = { onFavorite(); onDismiss() }) { Icon(Icons.Rounded.FavoriteBorder, null); Spacer(Modifier.width(8.dp)); Text("إضافة إلى المفضلة") }
-                TextButton(onClick = { onRadio(); onDismiss() }) { Icon(Icons.Rounded.GraphicEq, null); Spacer(Modifier.width(8.dp)); Text("تشغيل مقاطع مشابهة للفنان") }
+                TextButton(onClick = { onRadio(); onDismiss() }) { Icon(Icons.Rounded.MusicNote, null); Spacer(Modifier.width(8.dp)); Text("تشغيل مقاطع مشابهة للفنان") }
                 TextButton(onClick = { onLyrics(); onDismiss() }) { Icon(Icons.Rounded.MusicNote, null); Spacer(Modifier.width(8.dp)); Text("فتح كلمات الأغنية") }
             }
         },
@@ -613,7 +613,7 @@ fun WhisperHomeScreen(
         } else {
             LazyColumn(state = listState) {
                 items(homeSongs) { song ->
-                    SongLongPressRow(song, onPlay = { onPlay(song) }, onLongPress = { selectedSong = song })
+                    SongLongPressRow(song, onPlay = { onPlay(song) }, onLongPress = { selectedSong = song }, activeSongId = activeSongId)
                 }
             }
         }
