@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -17,7 +19,7 @@ import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
 
 @Composable
-fun NowPlayingScreen(controller: MediaController?) {
+fun NowPlayingScreen(controller: MediaController?, onNavigate: (String) -> Unit = {}) {
     var position by remember(controller) { mutableLongStateOf(0L) }
     var duration by remember(controller) { mutableLongStateOf(0L) }
     var title by remember(controller) { mutableStateOf("") }
@@ -28,6 +30,15 @@ fun NowPlayingScreen(controller: MediaController?) {
     var repeat by remember(controller) { mutableIntStateOf(Player.REPEAT_MODE_OFF) }
     var speed by remember(controller) { mutableFloatStateOf(1f) }
     var dragging by remember { mutableStateOf(false) }
+    var showTimer by remember { mutableStateOf(false) }
+    var timerMinutes by remember { mutableIntStateOf(30) }
+    var timerActive by remember { mutableStateOf(false) }
+    var timerRemaining by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(timerActive) {
+        while (timerActive && timerRemaining > 0) { delay(60_000); timerRemaining-- }
+        if (timerActive && timerRemaining <= 0) { controller?.pause(); timerActive = false }
+    }
 
     LaunchedEffect(controller) {
         while (true) {
@@ -138,6 +149,32 @@ fun NowPlayingScreen(controller: MediaController?) {
                 }
             }
         }
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            TextButton(onClick = { onNavigate(Routes.QUEUE) }) { Text("Queue") }
+            TextButton(onClick = { onNavigate(Routes.LYRICS) }) { Text("Lyrics") }
+            TextButton(onClick = { showTimer = true }) { Text(if (timerActive) "Timer ${timerRemaining}m" else "Sleep timer") }
+            TextButton(onClick = { onNavigate(Routes.EQUALIZER) }) { Text("Equalizer") }
+        }
+        if (showTimer) AlertDialog(
+            onDismissRequest = { showTimer = false },
+            title = { Text("Sleep timer") },
+            text = {
+                Column {
+                    Text(if (timerActive) "${timerRemaining} minutes remaining" else "$timerMinutes minutes")
+                    Slider(value = timerMinutes.toFloat(), onValueChange = { timerMinutes = it.toInt().coerceIn(1, 180) }, valueRange = 1f..180f, enabled = !timerActive)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { timerRemaining = timerMinutes; timerActive = true; showTimer = false }) { Text("Start") }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { timerActive = false; timerRemaining = 0 }) { Text("Cancel timer") }
+                    TextButton(onClick = { showTimer = false }) { Text("Close") }
+                }
+            }
+        )
     }
 }
 
