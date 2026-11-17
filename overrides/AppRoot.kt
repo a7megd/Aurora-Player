@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -124,7 +125,7 @@ fun AppRoot() {
                         shadowElevation = 8.dp
                     ) {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.GraphicEq, contentDescription = "الصوت يعمل", tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.Rounded.MusicNote, contentDescription = "الصوت يعمل", tint = MaterialTheme.colorScheme.primary)
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(playbackTitle.ifBlank { "الصوت يعمل" }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
