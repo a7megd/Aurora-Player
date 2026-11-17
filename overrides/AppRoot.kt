@@ -278,7 +278,7 @@ fun AppRoot() {
                 Text("Tayer_player", color = Color.White, style = MaterialTheme.typography.headlineSmall)
                 Text("by dr Ahmed Abdelhamid", color = Color(0xFFCE1126), style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 12.dp)) { listOf(Color(0xFF111111), Color.White, Color(0xFFCE1126), Color(0xFF007A3D)).forEach { stripe -> Box(Modifier.width(28.dp).height(4.dp).background(stripe, androidx.compose.foundation.shape.RoundedCornerShape(2.dp))) } }
-                Text("🇵🇸  •  كوفية فلسطينية", color = Color(0xFFECE8DE), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
+                Text("🇵🇸  •  ◇ ╳ ◇ ╳ ◇  •  كوفية فلسطينية", color = Color(0xFFECE8DE), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
             }
         }
     }
