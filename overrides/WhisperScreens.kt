@@ -526,6 +526,16 @@ fun WhisperSettingsScreen(repository: SettingsRepository, controller: MediaContr
     val context = LocalContext.current
     val wallpaperPrefs = remember { context.getSharedPreferences("whisper_preferences", Context.MODE_PRIVATE) }
     var wallpaper by remember { mutableStateOf(wallpaperPrefs.getString("wallpaper_uri", null)) }
+    val profilePrefs = remember { context.getSharedPreferences("tayer_profile", Context.MODE_PRIVATE) }
+    var profileName by remember { mutableStateOf(profilePrefs.getString("display_name", "").orEmpty()) }
+    var profilePhoto by remember { mutableStateOf(profilePrefs.getString("photo_uri", null)) }
+    val profilePhotoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            profilePhoto = uri.toString()
+            profilePrefs.edit().putString("photo_uri", profilePhoto).apply()
+        }
+    }
     val wallpaperPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             runCatching { context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
@@ -541,6 +551,36 @@ fun WhisperSettingsScreen(repository: SettingsRepository, controller: MediaContr
             Text("تخصيص المظهر", style = MaterialTheme.typography.headlineMedium)
         }
         Text("تحكم في ألوان التطبيق وطريقة عرضه بما يناسبك.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp, bottom = 18.dp))
+        Card(Modifier.fillMaxWidth().padding(bottom = 14.dp)) {
+            Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                Text("الملف الشخصي", style = MaterialTheme.typography.titleMedium)
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, modifier = Modifier.padding(top = 10.dp)) {
+                    if (profilePhoto != null) {
+                        AsyncImage(model = profilePhoto, contentDescription = "الصورة الشخصية", contentScale = ContentScale.Crop,
+                            modifier = Modifier.size(68.dp).clip(RoundedCornerShape(50)))
+                    } else {
+                        Surface(modifier = Modifier.size(68.dp), shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surfaceVariant) {
+                            Box(contentAlignment = androidx.compose.ui.Alignment.Center) { Icon(Icons.Rounded.Person, null, modifier = Modifier.size(34.dp)) }
+                        }
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        OutlinedTextField(value = profileName, onValueChange = {
+                            profileName = it
+                            profilePrefs.edit().putString("display_name", it).apply()
+                        }, label = { Text("اسمك داخل التطبيق") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
+                    OutlinedButton(onClick = { profilePhotoPicker.launch(arrayOf("image/*")) }) { Text("رفع صورة شخصية") }
+                    if (profilePhoto != null) TextButton(onClick = {
+                        profilePhoto = null
+                        profilePrefs.edit().remove("photo_uri").apply()
+                    }) { Text("إزالة الصورة") }
+                }
+                Text("الاسم والصورة اختياريان ويُحفظان على جهازك.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {
                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
