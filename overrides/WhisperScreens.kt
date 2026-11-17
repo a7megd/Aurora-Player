@@ -273,7 +273,7 @@ private fun SleepTimerCard(controller: MediaController?) {
     Card(Modifier.fillMaxWidth().padding(top = 18.dp)) {
         Column(Modifier.padding(16.dp)) {
             Text("مؤقت النوم", style = MaterialTheme.typography.titleMedium)
-            Text(if (running) "$remaining minutes remaining" else "$minutes دقيقة")
+            Text(if (running) "متبقي $remaining دقيقة" else "$minutes دقيقة")
             Slider(value = minutes.toFloat(), onValueChange = { minutes = it.toInt().coerceIn(1, 180) }, valueRange = 1f..180f, enabled = !running)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { remaining = minutes; running = true }, enabled = !running) { Text("بدء") }
@@ -347,9 +347,6 @@ fun WhisperSettingsScreen(repository: SettingsRepository, controller: MediaContr
                     Text("أدوات التشغيل", style = MaterialTheme.typography.titleMedium)
                 }
                 Text("يمكنك ضبط مؤقت النوم من شاشة تشغيل الأغنية.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                OutlinedButton(onClick = { /* navigation is handled by the player screen */ }, enabled = false, modifier = Modifier.padding(top = 8.dp)) {
-                    Text("مؤقت النوم داخل شاشة التشغيل")
-                }
             }
         }
         Card(Modifier.fillMaxWidth().padding(top = 14.dp)) {
