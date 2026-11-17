@@ -2,6 +2,7 @@ package com.aurora.player.ui.navigation
 
 import android.content.Context
 import android.net.Uri
+import android.media.audiofx.Equalizer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.verticalScroll
@@ -293,7 +294,74 @@ private fun SleepTimerCard(controller: MediaController?) {
 }
 
 @Composable
-fun WhisperSettingsScreen(repository: SettingsRepository, controller: MediaController?) {
+fun WhisperEqualizerScreen() {
+    val effect = remember { runCatching { Equalizer(0).apply { enabled = true } }.getOrNull() }
+    var enabled by remember(effect) { mutableStateOf(effect?.enabled == true) }
+    var levels by remember(effect) { mutableStateOf(effect?.let { eq -> (0 until eq.numberOfBands.toInt()).map { eq.getBandLevel(it.toShort()).toFloat() } } ?: emptyList()) }
+    val presetNames = remember(effect) { effect?.let { eq -> (0 until eq.numberOfPresets.toInt()).map { eq.getPresetName(it.toShort()).toString() } } ?: emptyList() }
+    var presetExpanded by remember { mutableStateOf(false) }
+    val range = remember(effect) { effect?.bandLevelRange?.let { it[0].toFloat()..it[1].toFloat() } ?: (-1500f..1500f) }
+    DisposableEffect(effect) { onDispose { runCatching { effect?.release() } } }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp)) {
+        Text("موازن الصوت", style = MaterialTheme.typography.headlineMedium)
+        Text("اضبط ترددات الصوت أثناء التشغيل.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 5.dp, bottom = 14.dp))
+        if (effect == null) {
+            Text("تعذّر تشغيل موازن الصوت على هذا الجهاز. تحقق من دعم الجهاز للمؤثرات الصوتية.", color = MaterialTheme.colorScheme.error)
+        } else {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("تفعيل موازن الصوت", style = MaterialTheme.typography.titleMedium)
+                            Text("تأثير صوت النظام", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = enabled, onCheckedChange = { enabled = it; runCatching { effect.enabled = it } })
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Box {
+                        OutlinedButton(onClick = { presetExpanded = true }, enabled = presetNames.isNotEmpty()) { Text("اختيار نمط جاهز") }
+                        DropdownMenu(expanded = presetExpanded, onDismissRequest = { presetExpanded = false }) {
+                            presetNames.forEachIndexed { index, name ->
+                                DropdownMenuItem(text = { Text(name) }, onClick = {
+                                    runCatching { effect.usePreset(index.toShort()) }
+                                    levels = (0 until effect.numberOfBands.toInt()).map { effect.getBandLevel(it.toShort()).toFloat() }
+                                    enabled = true
+                                    runCatching { effect.enabled = true }
+                                    presetExpanded = false
+                                })
+                            }
+                        }
+                    }
+                }
+            }
+            Card(Modifier.fillMaxWidth().padding(top = 14.dp)) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("مستويات التردد", style = MaterialTheme.typography.titleMedium)
+                    levels.forEachIndexed { index, level ->
+                        val hz = runCatching { effect.getCenterFreq(index.toShort()).toInt() / 1000f }.getOrDefault(0f)
+                        Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(if (hz >= 1f) "${hz.toInt()} kHz" else "${(hz * 1000).toInt()} Hz", style = MaterialTheme.typography.labelMedium)
+                                Text("${level.toInt()} mB", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Slider(value = level, onValueChange = { value ->
+                                val next = levels.toMutableList(); next[index] = value; levels = next
+                                runCatching { effect.setBandLevel(index.toShort(), value.toInt().toShort()) }
+                            }, valueRange = range, enabled = enabled)
+                        }
+                    }
+                    Text("إعادة الضبط", color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable {
+                        levels.indices.forEach { runCatching { effect.setBandLevel(it.toShort(), 0) } }; levels = levels.map { 0f }
+                    }.padding(top = 10.dp))
+                }
+            }
+            Text("يعتمد تأثير موازن الصوت على دعم إصدار Android والجهاز لمؤثرات الصوت.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp))
+        }
+    }
+}
+
+@Composable
+fun WhisperSettingsScreen(repository: SettingsRepository, controller: MediaController?, onWallpaperChanged: (String?) -> Unit = {}) {
     val settings by repository.settings.collectAsState(initial = com.aurora.player.domain.model.AppSettings())
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -304,6 +372,7 @@ fun WhisperSettingsScreen(repository: SettingsRepository, controller: MediaContr
             runCatching { context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
             wallpaper = uri.toString()
             wallpaperPrefs.edit().putString("wallpaper_uri", wallpaper).apply()
+            onWallpaperChanged(wallpaper)
         }
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
@@ -366,9 +435,10 @@ fun WhisperSettingsScreen(repository: SettingsRepository, controller: MediaContr
                     Text("خلفية الواجهة", style = MaterialTheme.typography.titleMedium)
                 }
                 Text(if (wallpaper == null) "لا توجد خلفية مخصصة" else "تم اختيار خلفية مخصصة", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (wallpaper != null) AsyncImage(model = wallpaper, contentDescription = "معاينة الخلفية", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxWidth().height(110.dp).clip(RoundedCornerShape(16.dp)))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { wallpaperPicker.launch(arrayOf("image/*")) }) { Text("اختيار صورة") }
-                    if (wallpaper != null) OutlinedButton(onClick = { wallpaper = null; wallpaperPrefs.edit().remove("wallpaper_uri").apply() }) { Text("إزالة الخلفية") }
+                    if (wallpaper != null) OutlinedButton(onClick = { wallpaper = null; wallpaperPrefs.edit().remove("wallpaper_uri").apply(); onWallpaperChanged(null) }) { Text("إزالة الخلفية") }
                 }
             }
         }
