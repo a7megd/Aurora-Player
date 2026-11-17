@@ -287,35 +287,78 @@ private fun SleepTimerCard(controller: MediaController?) {
 fun WhisperSettingsScreen(repository: SettingsRepository, controller: MediaController?) {
     val settings by repository.settings.collectAsState(initial = com.aurora.player.domain.model.AppSettings())
     val scope = rememberCoroutineScope()
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("المظهر", style = MaterialTheme.typography.headlineMedium)
-        SleepTimerCard(controller = controller)
-        Text("السمة", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
-        listOf(ThemeMode.SYSTEM to "حسب إعداد الجهاز", ThemeMode.DARK to "داكن", ThemeMode.LIGHT to "فاتح").forEach { (mode, label) ->
-            Row(Modifier.fillMaxWidth().clickable { scope.launch { repository.setThemeMode(mode) } }.padding(vertical = 8.dp)) {
-                RadioButton(selected = settings.themeMode == mode, onClick = { scope.launch { repository.setThemeMode(mode) } })
-                Text(label, modifier = Modifier.padding(start = 8.dp, top = 12.dp))
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Icon(Icons.Rounded.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(10.dp))
+            Text("تخصيص المظهر", style = MaterialTheme.typography.headlineMedium)
+        }
+        Text("تحكم في ألوان التطبيق وطريقة عرضه بما يناسبك.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp, bottom = 18.dp))
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp)) {
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.DarkMode, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("نمط العرض", style = MaterialTheme.typography.titleMedium)
+                }
+                listOf(ThemeMode.SYSTEM to "حسب إعداد الجهاز", ThemeMode.DARK to "داكن", ThemeMode.LIGHT to "فاتح").forEach { (mode, label) ->
+                    Row(Modifier.fillMaxWidth().clickable { scope.launch { repository.setThemeMode(mode) } }.padding(vertical = 5.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        RadioButton(selected = settings.themeMode == mode, onClick = { scope.launch { repository.setThemeMode(mode) } })
+                        Text(label, modifier = Modifier.padding(start = 8.dp))
+                    }
+                }
+                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                Row(Modifier.fillMaxWidth().clickable { scope.launch { repository.setAmoled(!settings.amoled) } }, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Contrast, null)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("الوضع الأسود العميق")
+                        Text("خلفية سوداء مناسبة لشاشات AMOLED", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(checked = settings.amoled, onCheckedChange = { scope.launch { repository.setAmoled(it) } })
+                }
             }
         }
-        Row(Modifier.fillMaxWidth().clickable { scope.launch { repository.setAmoled(!settings.amoled) } }.padding(vertical = 8.dp)) {
-            Checkbox(checked = settings.amoled, onCheckedChange = { scope.launch { repository.setAmoled(it) } })
-            Text("خلفية سوداء لتوفير الطاقة على شاشات AMOLED", modifier = Modifier.padding(start = 8.dp, top = 12.dp))
-        }
-        Text("اللون الأساسي", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(0xFF168BFF, 0xFF7C5CFF, 0xFF00C2A8, 0xFFFF5C8A, 0xFFFFB020, 0xFF8BE04E).forEach { color ->
-                Surface(
-                    color = androidx.compose.ui.graphics.Color(color),
-                    shape = MaterialTheme.shapes.large,
-                    modifier = Modifier.size(38.dp).clickable { scope.launch { repository.setAccent(color.toInt()) } }
-                ) {}
+        Card(Modifier.fillMaxWidth().padding(top = 14.dp)) {
+            Column(Modifier.padding(16.dp)) {
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.ColorLens, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("اللون الرئيسي", style = MaterialTheme.typography.titleMedium)
+                }
+                Text("اختر اللون الذي يظهر في الأزرار والعناصر النشطة.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    listOf(0xFF168BFF, 0xFF7C5CFF, 0xFF00C2A8, 0xFFFF5C8A, 0xFFFFB020, 0xFF8BE04E).forEach { color ->
+                        Surface(
+                            color = androidx.compose.ui.graphics.Color(color),
+                            shape = MaterialTheme.shapes.extraLarge,
+                            border = if (settings.accentColor == color.toInt()) androidx.compose.foundation.BorderStroke(3.dp, MaterialTheme.colorScheme.onSurface) else null,
+                            modifier = Modifier.size(38.dp).clickable { scope.launch { repository.setAccent(color.toInt()) } }
+                        ) {}
+                    }
+                }
             }
         }
-        Spacer(Modifier.height(28.dp))
-        HorizontalDivider()
-        Column(Modifier.fillMaxWidth().padding(top = 22.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-            Text("Whisper Player", style = MaterialTheme.typography.titleLarge)
-            Text("تطوير: أحمد عبد الحميد", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Card(Modifier.fillMaxWidth().padding(top = 14.dp)) {
+            Column(Modifier.padding(16.dp)) {
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Tune, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("أدوات التشغيل", style = MaterialTheme.typography.titleMedium)
+                }
+                Text("يمكنك ضبط مؤقت النوم من شاشة تشغيل الأغنية.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedButton(onClick = { /* navigation is handled by the player screen */ }, enabled = false, modifier = Modifier.padding(top = 8.dp)) {
+                    Text("مؤقت النوم داخل شاشة التشغيل")
+                }
+            }
+        }
+        Card(Modifier.fillMaxWidth().padding(top = 14.dp)) {
+            Column(Modifier.fillMaxWidth().padding(18.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                Icon(Icons.Rounded.MusicNote, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+                Text("Whisper Player", style = MaterialTheme.typography.titleLarge)
+                Text("تطوير: أحمد عبد الحميد", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("مشغل موسيقى محلي", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }
