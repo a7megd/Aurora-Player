@@ -17,6 +17,9 @@ import androidx.compose.material3.Slider
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import java.util.Locale
 import androidx.compose.foundation.layout.*
@@ -175,6 +178,7 @@ fun WhisperQueueScreen(controller: MediaController?, songs: List<Song>) {
     var selectedToAdd by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var showSave by remember { mutableStateOf(false) }
     var playlistName by remember { mutableStateOf("قائمة الانتظار") }
+    val queueListState = rememberLazyListState()
     var menuExpanded by remember { mutableStateOf(false) }
     val prefs = remember { context.getSharedPreferences("whisper_playlists", Context.MODE_PRIVATE) }
     LaunchedEffect(controller) { while (true) { tick++; kotlinx.coroutines.delay(350) } }
@@ -239,16 +243,41 @@ fun WhisperQueueScreen(controller: MediaController?, songs: List<Song>) {
                 }
             }
         } else {
-            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            LazyColumn(state = queueListState, modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 items(count, key = { index -> controller?.getMediaItemAt(index)?.mediaId ?: "queue_$index" }) { index ->
                     val item = controller?.getMediaItemAt(index)
                     val active = index == current
                     val title = item?.mediaMetadata?.title?.toString().orEmpty().ifBlank { "مقطع ${index + 1}" }
                     val artist = item?.mediaMetadata?.artist?.toString().orEmpty()
+                    var dragDistance by remember { mutableFloatStateOf(0f) }
+                    var dragging by remember { mutableStateOf(false) }
                     Card(
-                        modifier = Modifier.fillMaxWidth().animateContentSize().clickable { controller?.seekTo(index, 0L); controller?.play() },
-                        colors = CardDefaults.cardColors(containerColor = if (active) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.82f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.50f)),
-                        border = if (active) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
+                        modifier = Modifier.fillMaxWidth()
+                            .animateContentSize()
+                            .then(if (dragging) Modifier.graphicsLayer { translationY = dragDistance; scaleX = 1.025f; scaleY = 1.025f } else Modifier)
+                            .pointerInput(index, count) {
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = { dragging = true; dragDistance = 0f },
+                                    onDrag = { change, amount -> change.consume(); dragDistance += amount.y },
+                                    onDragEnd = {
+                                        val start = queueListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == (controller?.getMediaItemAt(index)?.mediaId ?: "queue_$index") }
+                                        val draggedCenter = (start?.offset ?: 0) + (start?.size ?: 0) / 2 + dragDistance.toInt()
+                                        val target = queueListState.layoutInfo.visibleItemsInfo
+                                            .minByOrNull { kotlin.math.abs((it.offset + it.size / 2) - draggedCenter) }
+                                            ?.index
+                                        if (target != null && target != index) controller?.moveMediaItem(index, target)
+                                        dragging = false
+                                        dragDistance = 0f
+                                        tick++
+                                    },
+                                    onDragCancel = { dragging = false; dragDistance = 0f }
+                                )
+                            }
+                            .clickable { controller?.seekTo(index, 0L); controller?.play() }
+                            .animateItemPlacement(),
+                        colors = CardDefaults.cardColors(containerColor = if (active) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.88f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.56f)),
+                        border = if (active || dragging) androidx.compose.foundation.BorderStroke(if (dragging) 2.dp else 1.dp, MaterialTheme.colorScheme.primary) else null,
+                        elevation = CardDefaults.cardElevation(defaultElevation = if (dragging) 12.dp else 1.dp)
                     ) {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                             Box(Modifier.size(38.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
@@ -260,11 +289,8 @@ fun WhisperQueueScreen(controller: MediaController?, songs: List<Song>) {
                                 Text(artist.ifBlank { " " }, maxLines = 1, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 if (active) Text("يعمل الآن", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                             }
-                            Column {
-                                Row {
-                                    IconButton(onClick = { if (index > 0) { controller?.moveMediaItem(index, index - 1); tick++ } }, enabled = index > 0) { Icon(Icons.Rounded.KeyboardArrowUp, "تحريك لأعلى") }
-                                    IconButton(onClick = { if (index < count - 1) { controller?.moveMediaItem(index, index + 1); tick++ } }, enabled = index < count - 1) { Icon(Icons.Rounded.KeyboardArrowDown, "تحريك لأسفل") }
-                                }
+                            Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                                Icon(Icons.Rounded.DragHandle, contentDescription = "اضغط مطولًا واسحب لأعلى أو لأسفل", tint = if (dragging) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp).size(28.dp))
                                 Row {
                                     IconButton(onClick = { controller?.addMediaItem((current + 1).coerceAtLeast(0).coerceAtMost(controller.mediaItemCount), item!!); tick++ }, enabled = item != null && index != current) { Icon(Icons.Rounded.SkipNext, "تشغيل بعد الحالي") }
                                     IconButton(onClick = { controller?.removeMediaItem(index); tick++ }) { Icon(Icons.Rounded.Close, "إزالة من الانتظار", tint = MaterialTheme.colorScheme.error) }
@@ -789,11 +815,18 @@ fun WhisperHomeScreen(
         if (activeIndex >= 0) listState.animateScrollToItem(activeIndex)
     }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        Surface(color = Color(0xFF17191D), shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("🇵🇸", style = MaterialTheme.typography.titleMedium)
+                Text("فلسطين في القلب  •  كوفية", color = Color(0xFFF2F0E9), style = MaterialTheme.typography.labelSmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) { listOf(Color(0xFF111111), Color.White, Color(0xFFCE1126), Color(0xFF007A3D)).forEach { stripe -> Box(Modifier.width(8.dp).height(18.dp).background(stripe, RoundedCornerShape(2.dp))) } }
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
                 Text("مساء الخير", style = MaterialTheme.typography.headlineMedium)
                 Text("الصوت، بطريقتك", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("تطوير: أحمد عبد الحميد", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                Text("by dr Ahmed Abdelhamid", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
             IconButton(onClick = { onNavigate(Routes.SETTINGS) }) { Icon(Icons.Rounded.Settings, contentDescription = "الإعدادات") }
         }
