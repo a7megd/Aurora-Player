@@ -75,3 +75,5 @@ jobs:
           path: AuroraPlayer/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
+
+# Rebuild after tayer launcher icon update
