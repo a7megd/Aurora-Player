@@ -26,6 +26,9 @@ jobs:
           install -D overrides/WhisperScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/WhisperScreens.kt
           install -D overrides/Routes.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/Routes.kt
           install -D overrides/strings.xml AuroraPlayer/app/src/main/res/values/strings.xml
+          install -D overrides/ic_whisper_mark.xml AuroraPlayer/app/src/main/res/drawable/ic_whisper_mark.xml
+          install -D overrides/ic_launcher.xml AuroraPlayer/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          install -D overrides/whisper_icon_colors.xml AuroraPlayer/app/src/main/res/values/whisper_icon_colors.xml
 
       - name: Set up Java
         uses: actions/setup-java@v4
