@@ -59,9 +59,9 @@ fun NowPlayingScreen(controller: MediaController?, onNavigate: (String) -> Unit 
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 18.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 18.dp).verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Top
     ) {
         Text("NOW PLAYING", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.height(24.dp))
