@@ -9,6 +9,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Slider
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import java.util.Locale
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -315,14 +318,129 @@ fun WhisperSettingsScreen(repository: SettingsRepository, controller: MediaContr
     }
 }
 
+private fun normalizeMusicSearch(value: String): String {
+    return value.lowercase(Locale.ROOT)
+        .replace(Regex("[\\u064B-\\u065F\\u0670]"), "")
+        .replace(Regex("[أإآٱ]"), "ا")
+        .replace("ى", "ي")
+        .replace("ة", "ه")
+        .replace("ؤ", "و")
+        .replace("ئ", "ي")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+}
+
 @Composable
-fun WhisperHomeScreen(songs: List<Song>, onPlay: (Song) -> Unit, onNavigate: (String) -> Unit) {
+private fun SongLongPressRow(
+    song: Song,
+    onPlay: () -> Unit,
+    onLongPress: () -> Unit
+) {
+    ListItem(
+        headlineContent = { Text(song.title, maxLines = 1) },
+        supportingContent = { Text(song.artist, maxLines = 1) },
+        leadingContent = {
+            Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.medium) {
+                Box(Modifier.size(48.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                    Text("♫", style = MaterialTheme.typography.titleLarge)
+                }
+            }
+        },
+        trailingContent = { Text("⋮", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+        modifier = Modifier.pointerInput(song.id) {
+            detectTapGestures(onTap = { onPlay() }, onLongPress = { onLongPress() })
+        }
+    )
+}
+
+@Composable
+private fun SongContextDialog(
+    song: Song,
+    onDismiss: () -> Unit,
+    onPlayNext: () -> Unit,
+    onFavorite: () -> Unit,
+    onRadio: () -> Unit,
+    onLyrics: () -> Unit
+) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("whisper_playlists", Context.MODE_PRIVATE) }
+    var choosePlaylist by remember { mutableStateOf(false) }
+    var createPlaylist by remember { mutableStateOf(false) }
+    var playlistName by remember { mutableStateOf("") }
+    var refresh by remember { mutableIntStateOf(0) }
+    val names = remember(refresh) { prefs.all.keys.filter { it.startsWith("playlist:") }.map { it.removePrefix("playlist:") }.sorted() }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(song.title, maxLines = 2) },
+        text = {
+            Column {
+                Text(song.artist, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(onClick = { onPlayNext(); onDismiss() }) { Text("▶ Play next") }
+                TextButton(onClick = { choosePlaylist = true }) { Text("＋ Add to playlist") }
+                TextButton(onClick = { onFavorite(); onDismiss() }) { Text("♡ Add to favorites") }
+                TextButton(onClick = { onRadio(); onDismiss() }) { Text("♫ Start artist radio") }
+                TextButton(onClick = { onLyrics(); onDismiss() }) { Text("♪ Open lyrics") }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
+    )
+    if (choosePlaylist) AlertDialog(
+        onDismissRequest = { choosePlaylist = false },
+        title = { Text("Add to playlist") },
+        text = {
+            Column {
+                names.forEach { name ->
+                    TextButton(onClick = {
+                        val key = "playlist:$name"
+                        val ids = prefs.getString(key, "").orEmpty().split(',').mapNotNull { it.toLongOrNull() }.toMutableSet()
+                        ids.add(song.id)
+                        prefs.edit().putString(key, ids.joinToString(",")).apply()
+                        choosePlaylist = false
+                        onDismiss()
+                    }) { Text(name) }
+                }
+                if (names.isEmpty()) Text("No playlists yet. Create one below.")
+                TextButton(onClick = { createPlaylist = true; choosePlaylist = false }) { Text("＋ Create new playlist") }
+            }
+        },
+        confirmButton = { TextButton(onClick = { choosePlaylist = false }) { Text("Cancel") } }
+    )
+    if (createPlaylist) AlertDialog(
+        onDismissRequest = { createPlaylist = false },
+        title = { Text("New playlist") },
+        text = { OutlinedTextField(value = playlistName, onValueChange = { playlistName = it }, label = { Text("Playlist name") }, singleLine = true) },
+        confirmButton = {
+            TextButton(onClick = {
+                val name = playlistName.trim()
+                if (name.isNotEmpty()) {
+                    prefs.edit().putString("playlist:$name", song.id.toString()).apply()
+                    refresh++
+                    createPlaylist = false
+                    onDismiss()
+                }
+            }, enabled = playlistName.isNotBlank()) { Text("Create and add") }
+        },
+        dismissButton = { TextButton(onClick = { createPlaylist = false }) { Text("Cancel") } }
+    )
+}
+
+@Composable
+fun WhisperHomeScreen(
+    songs: List<Song>,
+    onPlay: (Song) -> Unit,
+    onNavigate: (String) -> Unit,
+    onPlayNext: (Song) -> Unit = {},
+    onRadio: (Song) -> Unit = {},
+    onFavorite: (Song) -> Unit = {}
+) {
+    var selectedSong by remember { mutableStateOf<Song?>(null) }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
                 Text("Good evening", style = MaterialTheme.typography.headlineMedium)
                 Text("Your music, your way", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("By Ahmed Abdelhamid", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                Text("Developed by Ahmed Abdelhamid", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
             TextButton(onClick = { onNavigate(Routes.SETTINGS) }) { Text("Settings") }
         }
@@ -337,27 +455,37 @@ fun WhisperHomeScreen(songs: List<Song>, onPlay: (Song) -> Unit, onNavigate: (St
         } else {
             LazyColumn {
                 items(songs.take(40)) { song ->
-                    ListItem(
-                        headlineContent = { Text(song.title, maxLines = 1) },
-                        supportingContent = { Text(song.artist, maxLines = 1) },
-                        leadingContent = { Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.medium) {
-                            Box(Modifier.size(48.dp), contentAlignment = androidx.compose.ui.Alignment.Center) { Text("♫", style = MaterialTheme.typography.titleLarge) }
-                        } },
-                        trailingContent = { TextButton(onClick = { onPlay(song) }) { Text("Play") } },
-                        modifier = Modifier.clickable { onPlay(song) }
-                    )
+                    SongLongPressRow(song, onPlay = { onPlay(song) }, onLongPress = { selectedSong = song })
                 }
             }
         }
     }
+    selectedSong?.let { song ->
+        SongContextDialog(song, onDismiss = { selectedSong = null },
+            onPlayNext = { onPlayNext(song) }, onFavorite = { onFavorite(song) },
+            onRadio = { onRadio(song) }, onLyrics = { onNavigate(Routes.LYRICS) })
+    }
 }
 
 @Composable
-fun WhisperSearchScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
+fun WhisperSearchScreen(
+    songs: List<Song>,
+    onPlay: (Song) -> Unit,
+    onPlayNext: (Song) -> Unit = {},
+    onNavigate: (String) -> Unit = {},
+    onRadio: (Song) -> Unit = {},
+    onFavorite: (Song) -> Unit = {}
+) {
     var query by remember { mutableStateOf("") }
-    val filtered = remember(songs, query) {
-        if (query.isBlank()) emptyList() else songs.filter {
-            it.title.contains(query, ignoreCase = true) || it.artist.contains(query, ignoreCase = true)
+    var selectedSong by remember { mutableStateOf<Song?>(null) }
+    val normalizedQuery = remember(query) { normalizeMusicSearch(query) }
+    val filtered = remember(songs, normalizedQuery) {
+        if (normalizedQuery.isBlank()) emptyList() else {
+            val terms = normalizedQuery.split(" ").filter { it.isNotBlank() }
+            songs.filter { song ->
+                val searchable = normalizeMusicSearch("${song.title} ${song.artist} ${song.id}")
+                terms.all { term -> searchable.contains(term) }
+            }
         }
     }
     Column(Modifier.fillMaxSize().padding(16.dp)) {
@@ -365,22 +493,24 @@ fun WhisperSearchScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
         OutlinedTextField(
             value = query, onValueChange = { query = it },
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-            label = { Text("Songs or artists") }, singleLine = true
+            label = { Text("Songs, artists — Arabic & English") }, singleLine = true
         )
         if (query.isBlank()) {
-            Text("Search songs and artists in your device library.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 16.dp))
+            Text("Type any part of a song or artist name. Arabic and English search are supported.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 16.dp))
         } else if (filtered.isEmpty()) {
             Text("No matches found", modifier = Modifier.padding(top = 16.dp))
         } else {
+            Text("${filtered.size} results", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
             LazyColumn {
                 items(filtered) { song ->
-                    ListItem(
-                        headlineContent = { Text(song.title, maxLines = 1) },
-                        supportingContent = { Text(song.artist, maxLines = 1) },
-                        modifier = Modifier.clickable { onPlay(song) }
-                    )
+                    SongLongPressRow(song, onPlay = { onPlay(song) }, onLongPress = { selectedSong = song })
                 }
             }
         }
+    }
+    selectedSong?.let { song ->
+        SongContextDialog(song, onDismiss = { selectedSong = null },
+            onPlayNext = { onPlayNext(song) }, onFavorite = { onFavorite(song) },
+            onRadio = { onRadio(song) }, onLyrics = { onNavigate(Routes.LYRICS) })
     }
 }
