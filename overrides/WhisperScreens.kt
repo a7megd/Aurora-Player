@@ -6,6 +6,8 @@ import android.media.audiofx.Equalizer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.ui.draw.clip
@@ -18,6 +20,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.graphics.graphicsLayer
 import java.util.Locale
 import androidx.compose.foundation.layout.*
@@ -168,6 +172,7 @@ fun WhisperFavoritesScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
     )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun WhisperQueueScreen(controller: MediaController?, songs: List<Song>) {
     val context = LocalContext.current
