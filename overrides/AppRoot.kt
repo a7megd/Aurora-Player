@@ -32,11 +32,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
 private val allRoutes = listOf(
-    Routes.HOME to "Home", Routes.SONGS to "Songs", Routes.ALBUMS to "Albums",
-    Routes.ARTISTS to "Artists", Routes.PLAYLISTS to "Playlists", Routes.FOLDERS to "Folders",
-    Routes.FAVORITES to "Favorites", Routes.RECENT to "Recently Played",
-    Routes.NOW_PLAYING to "Now Playing", Routes.QUEUE to "Current playlist", Routes.LYRICS to "Lyrics", Routes.SEARCH to "Search",
-    Routes.EQUALIZER to "Equalizer", Routes.SETTINGS to "Settings",
+    Routes.HOME to "الرئيسية", Routes.SONGS to "الأغاني", Routes.ALBUMS to "الألبومات",
+    Routes.ARTISTS to "الفنانون", Routes.PLAYLISTS to "قوائم التشغيل", Routes.FOLDERS to "المجلدات",
+    Routes.FAVORITES to "المفضلة", Routes.RECENT to "شُغّلت مؤخرًا",
+    Routes.NOW_PLAYING to "تعمل الآن", Routes.QUEUE to "قائمة التشغيل الحالية", Routes.LYRICS to "كلمات الأغاني", Routes.SEARCH to "بحث",
+    Routes.EQUALIZER to "معادل الصوت", Routes.SETTINGS to "الإعدادات",
 )
 
 private fun audioPermission(): String =
@@ -91,42 +91,21 @@ fun AppRoot() {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            Column {
-                if (playbackTitle.isNotBlank() && route != Routes.NOW_PLAYING) {
-                    Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
-                        Row(
-                            Modifier.fillMaxWidth().clickable { nav.navigate(Routes.NOW_PLAYING) }
-                                .padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(playbackTitle, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(if (playbackPlaying) "Playing" else "Paused", style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            IconButton(onClick = { if (controller?.isPlaying == true) controller?.pause() else controller?.play() }) {
-                                Icon(if (playbackPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, contentDescription = "Play or pause")
-                            }
-                            IconButton(onClick = { controller?.seekToNextMediaItem() }) { Text("Next") }
-                        }
-                    }
-                }
-                if (bottomTabs.any { it.route == route }) {
-                    NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                        bottomTabs.forEach { tab ->
-                            NavigationBarItem(
-                                selected = route == tab.route,
-                                onClick = {
-                                    nav.navigate(tab.route) {
-                                        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                },
-                                icon = { Icon(tab.icon, contentDescription = tab.label) },
-                                label = { Text(tab.label) },
-                            )
-                        }
+            if (bottomTabs.any { it.route == route }) {
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+                    bottomTabs.forEach { tab ->
+                        NavigationBarItem(
+                            selected = route == tab.route,
+                            onClick = {
+                                nav.navigate(tab.route) {
+                                    popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                            icon = { Icon(tab.icon, contentDescription = tab.label) },
+                            label = { Text(tab.label) },
+                        )
                     }
                 }
             }
@@ -219,7 +198,7 @@ fun AppRoot() {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Image(
                     painter = painterResource(id = com.aurora.player.R.drawable.ic_whisper_mark),
-                    contentDescription = "Whisper Player logo",
+                    contentDescription = "شعار همس",
                     modifier = Modifier.size(230.dp)
                 )
                 Spacer(Modifier.height(18.dp))
