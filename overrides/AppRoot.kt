@@ -123,7 +123,7 @@ fun AppRoot() {
                     }
                 }
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                    listOf(Routes.SEARCH to "Search", Routes.QUEUE to "Queue", Routes.LYRICS to "Lyrics", Routes.EQUALIZER to "Equalizer", Routes.SETTINGS to "Settings").forEach { (target, label) ->
+                    listOf(Routes.SEARCH to "Search", Routes.QUEUE to "Queue", Routes.LYRICS to "Lyrics", Routes.FAVORITES to "Favorites", Routes.EQUALIZER to "Equalizer", Routes.SETTINGS to "Settings").forEach { (target, label) ->
                         NavigationBarItem(
                             selected = route == target,
                             onClick = { nav.navigate(target) { launchSingleTop = true } },
