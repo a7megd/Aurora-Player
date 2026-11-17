@@ -851,6 +851,9 @@ fun WhisperHomeScreen(
     activeSongId: Long? = null
 ) {
     var selectedSong by remember { mutableStateOf<Song?>(null) }
+    val profilePrefs = remember { LocalContext.current.getSharedPreferences("tayer_profile", Context.MODE_PRIVATE) }
+    val displayName = profilePrefs.getString("display_name", "").orEmpty().trim()
+    val profilePhoto = profilePrefs.getString("photo_uri", null)
     val homeSongs = remember(songs) { songs.take(40) }
     val listState = rememberLazyListState()
     LaunchedEffect(activeSongId, homeSongs) {
@@ -867,11 +870,14 @@ fun WhisperHomeScreen(
         }
         Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
-                Text("مساء الخير", style = MaterialTheme.typography.headlineMedium)
+                Text(if (displayName.isBlank()) "مساء الخير" else "أهلاً، $displayName", style = MaterialTheme.typography.headlineMedium)
                 Text("الصوت، بطريقتك", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("by dr Ahmed Abdelhamid", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
-            IconButton(onClick = { onNavigate(Routes.SETTINGS) }) { Icon(Icons.Rounded.Settings, contentDescription = "الإعدادات") }
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                if (profilePhoto != null) AsyncImage(model = profilePhoto, contentDescription = "الصورة الشخصية", contentScale = ContentScale.Crop, modifier = Modifier.size(42.dp).clip(RoundedCornerShape(50.dp)))
+                IconButton(onClick = { onNavigate(Routes.SETTINGS) }) { Icon(Icons.Rounded.Settings, contentDescription = "الإعدادات") }
+            }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(
