@@ -23,6 +23,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.media3.session.MediaController
@@ -551,7 +553,10 @@ fun WhisperHomeScreen(
     onFavorite: (Song) -> Unit = {}
 ) {
     var selectedSong by remember { mutableStateOf<Song?>(null) }
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    val wallpaperUri = remember { LocalContext.current.getSharedPreferences("whisper_preferences", Context.MODE_PRIVATE).getString("wallpaper_uri", null) }
+    Box(Modifier.fillMaxSize()) {
+        if (wallpaperUri != null) AsyncImage(model = wallpaperUri, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), alpha = 0.18f)
+        Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
                 Text("مساء الخير", style = MaterialTheme.typography.headlineMedium)
@@ -579,6 +584,8 @@ fun WhisperHomeScreen(
                     SongLongPressRow(song, onPlay = { onPlay(song) }, onLongPress = { selectedSong = song })
                 }
             }
+        }
+    }
         }
     }
     selectedSong?.let { song ->
