@@ -6,6 +6,8 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
@@ -14,6 +16,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -25,6 +29,7 @@ import com.aurora.player.MusicApp
 import com.aurora.player.playback.PlaybackConnection
 import com.aurora.player.ui.library.LibraryScreen
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 private val allRoutes = listOf(
     Routes.HOME to "Home", Routes.SONGS to "Songs", Routes.ALBUMS to "Albums",
@@ -46,6 +51,8 @@ fun AppRoot() {
     val playback = remember { PlaybackConnection(context) }
     DisposableEffect(playback) { onDispose { playback.release() } }
     val controller by playback.controller.collectAsState()
+    var showBrandSplash by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) { delay(1400); showBrandSplash = false }
     var playbackTitle by remember { mutableStateOf("") }
     var playbackPlaying by remember { mutableStateOf(false) }
 
@@ -201,6 +208,23 @@ fun AppRoot() {
                         else -> ScaffoldScreen(title)
                     }
                 }
+            }
+        }
+    }
+    if (showBrandSplash) {
+        Box(
+            Modifier.fillMaxSize().background(Color(0xFF05060A)),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Image(
+                    painter = painterResource(id = com.aurora.player.R.drawable.ic_whisper_mark),
+                    contentDescription = "Whisper Player logo",
+                    modifier = Modifier.size(230.dp)
+                )
+                Spacer(Modifier.height(18.dp))
+                Text("Whisper Player", color = Color.White, style = MaterialTheme.typography.headlineSmall)
+                Text("Developed by Ahmed Abdelhamid", color = Color(0xFF168BFF), style = MaterialTheme.typography.labelLarge)
             }
         }
     }
