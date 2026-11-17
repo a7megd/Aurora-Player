@@ -1,19 +1,28 @@
-
 name: Build Aurora Player APK
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - codex/aurora-player-next
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Extract Aurora project
         run: unzip -o AuroraPlayer-stage3-continuation.zip -d .
+
+      - name: Apply maintained source overrides
+        run: |
+          install -D overrides/AppRoot.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/AppRoot.kt
+          install -D overrides/NowPlayingScreen.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/NowPlayingScreen.kt
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -24,18 +33,17 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
-         packages: platform-tools
+          packages: platform-tools
+
       - name: Install Android SDK packages
         run: |
           yes | sdkmanager --licenses
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
-      
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-
 
       - name: Build Debug APK
         run: gradle -p AuroraPlayer assembleDebug
@@ -46,3 +54,4 @@ jobs:
           name: Aurora-Player-APK
           path: AuroraPlayer/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+          retention-days: 14
