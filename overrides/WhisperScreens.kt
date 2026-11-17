@@ -222,12 +222,12 @@ private fun SleepTimerCard(controller: MediaController?) {
 }
 
 @Composable
-fun WhisperSettingsScreen(repository: SettingsRepository) {
+fun WhisperSettingsScreen(repository: SettingsRepository, controller: MediaController?) {
     val settings by repository.settings.collectAsState(initial = com.aurora.player.domain.model.AppSettings())
     val scope = rememberCoroutineScope()
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Appearance", style = MaterialTheme.typography.headlineMedium)
-        SleepTimerCard(controller = null)
+        SleepTimerCard(controller = controller)
         Text("Theme", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
         listOf(ThemeMode.SYSTEM to "System", ThemeMode.DARK to "Dark", ThemeMode.LIGHT to "Light").forEach { (mode, label) ->
             Row(Modifier.fillMaxWidth().clickable { scope.launch { repository.setThemeMode(mode) } }.padding(vertical = 8.dp)) {
