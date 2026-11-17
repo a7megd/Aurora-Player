@@ -96,6 +96,8 @@ fun AppRoot() {
     val nav = rememberNavController()
     val current by nav.currentBackStackEntryAsState()
     val route = current?.destination?.route
+    val playingSongId = controller?.currentMediaItem?.localConfiguration?.uri?.lastPathSegment?.toLongOrNull()
+        ?: controller?.currentMediaItem?.mediaId?.toLongOrNull()
     var wallpaperUri by remember(context) { mutableStateOf(context.getSharedPreferences("whisper_preferences", android.content.Context.MODE_PRIVATE).getString("wallpaper_uri", null)) }
     var favoriteRefresh by remember { mutableIntStateOf(0) }
     val currentIsFavorite = remember(favoriteRefresh, playingSongId) {
@@ -112,8 +114,6 @@ fun AppRoot() {
         prefs.edit().putStringSet("ids", ids).apply()
         favoriteRefresh++
     }
-    val playingSongId = controller?.currentMediaItem?.localConfiguration?.uri?.lastPathSegment?.toLongOrNull()
-        ?: controller?.currentMediaItem?.mediaId?.toLongOrNull()
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
     Scaffold(
