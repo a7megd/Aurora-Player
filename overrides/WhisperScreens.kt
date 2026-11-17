@@ -6,7 +6,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.border
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Slider
@@ -405,23 +408,42 @@ private fun normalizeMusicSearch(value: String): String {
 private fun SongLongPressRow(
     song: Song,
     onPlay: () -> Unit,
-    onLongPress: () -> Unit
+    onLongPress: () -> Unit,
+    activeSongId: Long? = null
 ) {
+    val active = activeSongId == song.id
+    val bubbleColor by animateColorAsState(if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.20f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f), label = "songBubbleColor")
+    val borderColor by animateColorAsState(if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.88f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.18f), label = "songBubbleBorder")
+    val elevation = if (active) 7.dp else 1.dp
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp).animateContentSize()
+            .border(if (active) 1.5.dp else 0.7.dp, borderColor, RoundedCornerShape(22.dp)),
+        shape = RoundedCornerShape(22.dp),
+        color = bubbleColor,
+        tonalElevation = elevation,
+        shadowElevation = elevation
+    ) {
     ListItem(
         headlineContent = { Text(song.title, maxLines = 1) },
         supportingContent = { Text(song.artist, maxLines = 1) },
         leadingContent = {
-            Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.medium) {
+            Surface(color = if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f), shape = RoundedCornerShape(15.dp)) {
                 Box(Modifier.size(48.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                    Text("♫", style = MaterialTheme.typography.titleLarge)
+                    if (active) Icon(Icons.Rounded.GraphicEq, contentDescription = "الأغنية تعمل الآن", tint = MaterialTheme.colorScheme.primary)
+                    else Text("♫", style = MaterialTheme.typography.titleLarge)
                 }
             }
         },
-        trailingContent = { Icon(Icons.Rounded.MoreVert, contentDescription = "خيارات الأغنية", tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+        trailingContent = {
+            if (active) Icon(Icons.Rounded.PlayCircle, contentDescription = "الأغنية الحالية", tint = MaterialTheme.colorScheme.primary)
+            else Icon(Icons.Rounded.MoreVert, contentDescription = "خيارات الأغنية", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.pointerInput(song.id) {
             detectTapGestures(onTap = { onPlay() }, onLongPress = { onLongPress() })
         }
     )
+    }
 }
 
 @Composable
@@ -503,7 +525,8 @@ fun WhisperSongListScreen(
     onPlayNext: (Song) -> Unit,
     onRadio: (Song) -> Unit,
     onFavorite: (Song) -> Unit,
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    activeSongId: Long? = null
 ) {
     var selectedSong by remember { mutableStateOf<Song?>(null) }
     val context = LocalContext.current
@@ -531,7 +554,7 @@ fun WhisperSongListScreen(
         }
         LazyColumn {
             items(sortedSongs) { song ->
-                SongLongPressRow(song, onPlay = { onPlay(song) }, onLongPress = { selectedSong = song })
+                SongLongPressRow(song, onPlay = { onPlay(song) }, onLongPress = { selectedSong = song }, activeSongId = activeSongId)
             }
         }
     }
@@ -549,14 +572,12 @@ fun WhisperHomeScreen(
     onNavigate: (String) -> Unit,
     onPlayNext: (Song) -> Unit = {},
     onRadio: (Song) -> Unit = {},
-    onFavorite: (Song) -> Unit = {}
+    onFavorite: (Song) -> Unit = {},
+    activeSongId: Long? = null
 ) {
     var selectedSong by remember { mutableStateOf<Song?>(null) }
     val context = LocalContext.current
-    val wallpaperUri = remember(context) { context.getSharedPreferences("whisper_preferences", Context.MODE_PRIVATE).getString("wallpaper_uri", null) }
-    Box(Modifier.fillMaxSize()) {
-        if (wallpaperUri != null) AsyncImage(model = wallpaperUri, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), alpha = 0.18f)
-        Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
                 Text("مساء الخير", style = MaterialTheme.typography.headlineMedium)
@@ -586,7 +607,6 @@ fun WhisperHomeScreen(
             }
         }
     }
-        }
     selectedSong?.let { song ->
         SongContextDialog(song, onDismiss = { selectedSong = null },
             onPlayNext = { onPlayNext(song) }, onFavorite = { onFavorite(song) },
@@ -601,7 +621,8 @@ fun WhisperSearchScreen(
     onPlayNext: (Song) -> Unit = {},
     onNavigate: (String) -> Unit = {},
     onRadio: (Song) -> Unit = {},
-    onFavorite: (Song) -> Unit = {}
+    onFavorite: (Song) -> Unit = {},
+    activeSongId: Long? = null
 ) {
     var query by remember { mutableStateOf("") }
     var selectedSong by remember { mutableStateOf<Song?>(null) }
