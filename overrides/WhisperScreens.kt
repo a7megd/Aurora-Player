@@ -153,13 +153,19 @@ fun WhisperSettingsScreen(repository: SettingsRepository) {
         }
         Text("Accent color", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(0xFF7C5CFF, 0xFF00C2A8, 0xFFFF5C8A, 0xFFFFB020, 0xFF3D9BFF, 0xFF8BE04E).forEach { color ->
+            listOf(0xFF168BFF, 0xFF7C5CFF, 0xFF00C2A8, 0xFFFF5C8A, 0xFFFFB020, 0xFF8BE04E).forEach { color ->
                 Surface(
                     color = androidx.compose.ui.graphics.Color(color),
                     shape = MaterialTheme.shapes.large,
                     modifier = Modifier.size(38.dp).clickable { scope.launch { repository.setAccent(color.toInt()) } }
                 ) {}
             }
+        }
+        Spacer(Modifier.height(28.dp))
+        HorizontalDivider()
+        Column(Modifier.fillMaxWidth().padding(top = 22.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+            Text("Whisper Player", style = MaterialTheme.typography.titleLarge)
+            Text("By Ahmed Abdelhamid", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
