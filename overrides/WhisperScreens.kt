@@ -162,11 +162,6 @@ fun WhisperQueueScreen(controller: MediaController?) {
         Text("$count tracks in the queue", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
             OutlinedButton(onClick = { controller?.clearMediaItems() }, enabled = count > 0) { Text("Clear queue") }
-            OutlinedButton(onClick = {
-                val tracks = (0 until (controller?.mediaItemCount ?: 0)).mapNotNull { i -> controller?.getMediaItemAt(i)?.mediaMetadata?.title?.toString() }
-                val prefs = LocalContext.current.getSharedPreferences("whisper_queue", Context.MODE_PRIVATE)
-                prefs.edit().putString("last_queue_titles", tracks.joinToString("\\n")).apply()
-            }, enabled = count > 0) { Text("Save queue names") }
         }
         LazyColumn {
             items(count) { index ->
