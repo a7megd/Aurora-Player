@@ -513,7 +513,6 @@ fun WhisperSongListScreen(
         "oldest" -> songs.sortedBy { it.id }
         "name" -> songs.sortedBy { it.title.lowercase(Locale.ROOT) }
         "artist" -> songs.sortedBy { it.artist.lowercase(Locale.ROOT) }
-        "duration" -> songs.sortedByDescending { it.duration }
         "plays" -> songs.sortedByDescending { prefs.getInt("plays:" + it.id, 0) }
         else -> songs.sortedByDescending { it.id }
     } }
@@ -524,7 +523,7 @@ fun WhisperSongListScreen(
             Box {
                 IconButton(onClick = { expanded = true }) { Icon(Icons.Rounded.Sort, contentDescription = "ترتيب") }
                 DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                    listOf("newest" to "الأحدث", "oldest" to "الأقدم", "name" to "الاسم", "artist" to "الفنان", "duration" to "المدة", "plays" to "الأكثر تشغيلًا").forEach { (key, label) ->
+                    listOf("newest" to "الأحدث", "oldest" to "الأقدم", "name" to "الاسم", "artist" to "الفنان", "plays" to "الأكثر تشغيلًا").forEach { (key, label) ->
                         DropdownMenuItem(text = { Text(label) }, onClick = { sort = key; prefs.edit().putString("song_sort", key).apply(); expanded = false })
                     }
                 }
@@ -553,7 +552,8 @@ fun WhisperHomeScreen(
     onFavorite: (Song) -> Unit = {}
 ) {
     var selectedSong by remember { mutableStateOf<Song?>(null) }
-    val wallpaperUri = remember { LocalContext.current.getSharedPreferences("whisper_preferences", Context.MODE_PRIVATE).getString("wallpaper_uri", null) }
+    val context = LocalContext.current
+    val wallpaperUri = remember(context) { context.getSharedPreferences("whisper_preferences", Context.MODE_PRIVATE).getString("wallpaper_uri", null) }
     Box(Modifier.fillMaxSize()) {
         if (wallpaperUri != null) AsyncImage(model = wallpaperUri, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), alpha = 0.18f)
         Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
