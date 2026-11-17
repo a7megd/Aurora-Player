@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -37,18 +39,18 @@ fun WhisperPlaylistsScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
     val names = remember(refresh) { prefs.all.keys.filter { it.startsWith("playlist:") }.map { it.removePrefix("playlist:") }.sorted() }
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Playlists", style = MaterialTheme.typography.headlineMedium)
-            Button(onClick = { name = ""; selectedIds.clear(); showCreate = true }) { Text("Create playlist") }
+            Text("قوائم التشغيل", style = MaterialTheme.typography.headlineMedium)
+            Button(onClick = { name = ""; selectedIds.clear(); showCreate = true }) { Text("إنشاء قائمة تشغيل") }
         }
-        if (names.isEmpty()) Text("Create your first playlist", modifier = Modifier.padding(top = 24.dp))
+        if (names.isEmpty()) Text("أنشئ أول قائمة تشغيل", modifier = Modifier.padding(top = 24.dp))
         LazyColumn {
             items(names) { playlist ->
                 val ids = prefs.getString("playlist:$playlist", "").orEmpty().split(',').mapNotNull { it.toLongOrNull() }
                 val tracks = songs.filter { it.id in ids }
                 ListItem(
                     headlineContent = { Text(playlist) },
-                    supportingContent = { Text("${tracks.size} songs") },
-                    trailingContent = { TextButton(onClick = { prefs.edit().remove("playlist:$playlist").apply(); refresh++ }) { Text("Delete") } },
+                    supportingContent = { Text("${tracks.size} مقطعًا") },
+                    trailingContent = { TextButton(onClick = { prefs.edit().remove("playlist:$playlist").apply(); refresh++ }) { Text("حذف") } },
                     modifier = Modifier.clickable { tracks.firstOrNull()?.let(onPlay) }
                 )
             }
@@ -56,12 +58,12 @@ fun WhisperPlaylistsScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
     }
     if (showCreate) AlertDialog(
         onDismissRequest = { showCreate = false },
-        title = { Text("Create playlist") },
+        title = { Text("إنشاء قائمة تشغيل") },
         text = {
             Column(Modifier.fillMaxWidth()) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Playlist name") }, singleLine = true)
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("اسم القائمة") }, singleLine = true)
                 Spacer(Modifier.height(8.dp))
-                Text("Choose songs", style = MaterialTheme.typography.titleSmall)
+                Text("اختر المقاطع", style = MaterialTheme.typography.titleSmall)
                 LazyColumn(Modifier.heightIn(max = 300.dp)) {
                     items(songs) { song ->
                         val checked = song.id in selectedIds
@@ -78,7 +80,7 @@ fun WhisperPlaylistsScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
                         }
                     }
                 }
-                Text("${selectedIds.size} selected", style = MaterialTheme.typography.labelSmall)
+                Text("تم اختيار ${selectedIds.size}", style = MaterialTheme.typography.labelSmall)
             }
         },
         confirmButton = {
@@ -91,9 +93,9 @@ fun WhisperPlaylistsScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
                     selectedIds.clear()
                     showCreate = false
                 }
-            }, enabled = name.isNotBlank() && selectedIds.isNotEmpty()) { Text("Create") }
+            }, enabled = name.isNotBlank() && selectedIds.isNotEmpty()) { Text("إنشاء") }
         },
-        dismissButton = { TextButton(onClick = { showCreate = false }) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = { showCreate = false }) { Text("إلغاء") } }
     )
 }
 
@@ -107,10 +109,10 @@ fun WhisperFavoritesScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
     val favorites = songs.filter { it.id in ids }
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Favorites", style = MaterialTheme.typography.headlineMedium)
-            Button(onClick = { showAdd = true }) { Text("Add songs") }
+            Text("المفضلة", style = MaterialTheme.typography.headlineMedium)
+            Button(onClick = { showAdd = true }) { Text("إضافة مقاطع") }
         }
-        Text("${favorites.size} favorite tracks", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("${favorites.size} مقطعًا في المفضلة", color = MaterialTheme.colorScheme.onSurfaceVariant)
         LazyColumn {
             items(favorites) { song ->
                 ListItem(
@@ -119,7 +121,7 @@ fun WhisperFavoritesScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
                     trailingContent = { TextButton(onClick = {
                         prefs.edit().putStringSet("ids", (ids - song.id).map { it.toString() }.toSet()).apply()
                         refresh++
-                    }) { Text("Remove") } },
+                    }) { Text("إزالة") } },
                     modifier = Modifier.clickable { onPlay(song) }
                 )
             }
@@ -127,7 +129,7 @@ fun WhisperFavoritesScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
     }
     if (showAdd) AlertDialog(
         onDismissRequest = { showAdd = false },
-        title = { Text("Add favorites") },
+        title = { Text("إضافة إلى المفضلة") },
         text = {
             LazyColumn(Modifier.heightIn(max = 360.dp)) {
                 items(songs) { song ->
@@ -150,7 +152,7 @@ fun WhisperFavoritesScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { showAdd = false }) { Text("Done") } }
+        confirmButton = { TextButton(onClick = { showAdd = false }) { Text("تم") } }
     )
 }
 
@@ -161,16 +163,16 @@ fun WhisperQueueScreen(controller: MediaController?) {
     val count = controller?.mediaItemCount ?: 0
     val current = controller?.currentMediaItemIndex ?: -1
     Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Current playlist", style = MaterialTheme.typography.headlineMedium)
-        Text("$count tracks in the queue", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("قائمة التشغيل الحالية", style = MaterialTheme.typography.headlineMedium)
+        Text("$count مقطعًا في قائمة الانتظار", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-            OutlinedButton(onClick = { controller?.clearMediaItems() }, enabled = count > 0) { Text("Clear queue") }
+            OutlinedButton(onClick = { controller?.clearMediaItems() }, enabled = count > 0) { Text("مسح قائمة الانتظار") }
         }
         LazyColumn {
             items(count) { index ->
                 val item = controller?.getMediaItemAt(index)
                 ListItem(
-                    headlineContent = { Text(item?.mediaMetadata?.title?.toString().orEmpty().ifBlank { "Track ${index + 1}" }) },
+                    headlineContent = { Text(item?.mediaMetadata?.title?.toString().orEmpty().ifBlank { "مقطع ${index + 1}" }) },
                     supportingContent = { Text(item?.mediaMetadata?.artist?.toString().orEmpty()) },
                     leadingContent = { Text(if (index == current) "▶" else "${index + 1}") },
                     trailingContent = {
@@ -224,11 +226,11 @@ fun WhisperLyricsScreen(controller: MediaController?) {
         }
     }
     Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Lyrics", style = MaterialTheme.typography.headlineMedium)
-        Text(title.ifBlank { "No track selected" }, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("كلمات الأغنية", style = MaterialTheme.typography.headlineMedium)
+        Text(title.ifBlank { "لم يتم اختيار أغنية" }, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-            OutlinedButton(onClick = { importLrc.launch("text/*") }) { Text("Import LRC / TXT") }
-            OutlinedButton(onClick = { lyrics = ""; if (mediaId.isNotBlank()) prefs.edit().remove(mediaId).apply() }) { Text("Clear") }
+            OutlinedButton(onClick = { importLrc.launch("text/*") }) { Text("استيراد كلمات LRC أو TXT") }
+            OutlinedButton(onClick = { lyrics = ""; if (mediaId.isNotBlank()) prefs.edit().remove(mediaId).apply() }) { Text("مسح") }
         }
         if (timed.isNotEmpty()) {
             LazyColumn(Modifier.weight(1f)) {
@@ -247,11 +249,11 @@ fun WhisperLyricsScreen(controller: MediaController?) {
                 value = lyrics,
                 onValueChange = { lyrics = it; if (mediaId.isNotBlank()) prefs.edit().putString(mediaId, it).apply() },
                 modifier = Modifier.fillMaxWidth().weight(1f),
-                label = { Text("Paste or type song lyrics") },
-                placeholder = { Text("Lyrics for this track…") }
+                label = { Text("ألصق كلمات الأغنية أو اكتبها") },
+                placeholder = { Text("كلمات هذا المقطع…") }
             )
         }
-        Text("LRC timestamps synchronize with playback. Plain text is saved locally.", style = MaterialTheme.typography.labelSmall)
+        Text("تتزامن كلمات LRC مع التشغيل، ويُحفظ النص العادي على الجهاز.", style = MaterialTheme.typography.labelSmall)
     }
 }
 
@@ -270,12 +272,12 @@ private fun SleepTimerCard(controller: MediaController?) {
     }
     Card(Modifier.fillMaxWidth().padding(top = 18.dp)) {
         Column(Modifier.padding(16.dp)) {
-            Text("Sleep timer", style = MaterialTheme.typography.titleMedium)
-            Text(if (running) "$remaining minutes remaining" else "$minutes minutes")
+            Text("مؤقت النوم", style = MaterialTheme.typography.titleMedium)
+            Text(if (running) "$remaining minutes remaining" else "$minutes دقيقة")
             Slider(value = minutes.toFloat(), onValueChange = { minutes = it.toInt().coerceIn(1, 180) }, valueRange = 1f..180f, enabled = !running)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { remaining = minutes; running = true }, enabled = !running) { Text("Start") }
-                OutlinedButton(onClick = { running = false; remaining = 0 }) { Text("Cancel") }
+                Button(onClick = { remaining = minutes; running = true }, enabled = !running) { Text("بدء") }
+                OutlinedButton(onClick = { running = false; remaining = 0 }) { Text("إلغاء") }
             }
         }
     }
@@ -286,10 +288,10 @@ fun WhisperSettingsScreen(repository: SettingsRepository, controller: MediaContr
     val settings by repository.settings.collectAsState(initial = com.aurora.player.domain.model.AppSettings())
     val scope = rememberCoroutineScope()
     Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Appearance", style = MaterialTheme.typography.headlineMedium)
+        Text("المظهر", style = MaterialTheme.typography.headlineMedium)
         SleepTimerCard(controller = controller)
-        Text("Theme", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
-        listOf(ThemeMode.SYSTEM to "System", ThemeMode.DARK to "Dark", ThemeMode.LIGHT to "Light").forEach { (mode, label) ->
+        Text("السمة", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
+        listOf(ThemeMode.SYSTEM to "حسب إعداد الجهاز", ThemeMode.DARK to "داكن", ThemeMode.LIGHT to "فاتح").forEach { (mode, label) ->
             Row(Modifier.fillMaxWidth().clickable { scope.launch { repository.setThemeMode(mode) } }.padding(vertical = 8.dp)) {
                 RadioButton(selected = settings.themeMode == mode, onClick = { scope.launch { repository.setThemeMode(mode) } })
                 Text(label, modifier = Modifier.padding(start = 8.dp, top = 12.dp))
@@ -297,9 +299,9 @@ fun WhisperSettingsScreen(repository: SettingsRepository, controller: MediaContr
         }
         Row(Modifier.fillMaxWidth().clickable { scope.launch { repository.setAmoled(!settings.amoled) } }.padding(vertical = 8.dp)) {
             Checkbox(checked = settings.amoled, onCheckedChange = { scope.launch { repository.setAmoled(it) } })
-            Text("AMOLED black background", modifier = Modifier.padding(start = 8.dp, top = 12.dp))
+            Text("خلفية سوداء لتوفير الطاقة على شاشات AMOLED", modifier = Modifier.padding(start = 8.dp, top = 12.dp))
         }
-        Text("Accent color", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
+        Text("اللون الأساسي", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(0xFF168BFF, 0xFF7C5CFF, 0xFF00C2A8, 0xFFFF5C8A, 0xFFFFB020, 0xFF8BE04E).forEach { color ->
                 Surface(
@@ -313,7 +315,7 @@ fun WhisperSettingsScreen(repository: SettingsRepository, controller: MediaContr
         HorizontalDivider()
         Column(Modifier.fillMaxWidth().padding(top = 22.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
             Text("Whisper Player", style = MaterialTheme.typography.titleLarge)
-            Text("By Ahmed Abdelhamid", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("تطوير: أحمد عبد الحميد", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -346,7 +348,7 @@ private fun SongLongPressRow(
                 }
             }
         },
-        trailingContent = { Text("⋮", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+        trailingContent = { Icon(Icons.Rounded.MoreVert, contentDescription = "خيارات الأغنية", tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         modifier = Modifier.pointerInput(song.id) {
             detectTapGestures(onTap = { onPlay() }, onLongPress = { onLongPress() })
         }
@@ -376,18 +378,18 @@ private fun SongContextDialog(
         text = {
             Column {
                 Text(song.artist, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = { onPlayNext(); onDismiss() }) { Text("▶ Play next") }
-                TextButton(onClick = { choosePlaylist = true }) { Text("＋ Add to playlist") }
-                TextButton(onClick = { onFavorite(); onDismiss() }) { Text("♡ Add to favorites") }
-                TextButton(onClick = { onRadio(); onDismiss() }) { Text("♫ Start artist radio") }
-                TextButton(onClick = { onLyrics(); onDismiss() }) { Text("♪ Open lyrics") }
+                TextButton(onClick = { onPlayNext(); onDismiss() }) { Icon(Icons.Rounded.SkipNext, null); Spacer(Modifier.width(8.dp)); Text("تشغيل بعد الحالي") }
+                TextButton(onClick = { choosePlaylist = true }) { Icon(Icons.Rounded.PlaylistAdd, null); Spacer(Modifier.width(8.dp)); Text("إضافة إلى قائمة تشغيل") }
+                TextButton(onClick = { onFavorite(); onDismiss() }) { Icon(Icons.Rounded.FavoriteBorder, null); Spacer(Modifier.width(8.dp)); Text("إضافة إلى المفضلة") }
+                TextButton(onClick = { onRadio(); onDismiss() }) { Icon(Icons.Rounded.GraphicEq, null); Spacer(Modifier.width(8.dp)); Text("تشغيل مقاطع مشابهة للفنان") }
+                TextButton(onClick = { onLyrics(); onDismiss() }) { Icon(Icons.Rounded.MusicNote, null); Spacer(Modifier.width(8.dp)); Text("فتح كلمات الأغنية") }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text("إغلاق") } }
     )
     if (choosePlaylist) AlertDialog(
         onDismissRequest = { choosePlaylist = false },
-        title = { Text("Add to playlist") },
+        title = { Text("إضافة إلى قائمة تشغيل") },
         text = {
             Column {
                 names.forEach { name ->
@@ -400,16 +402,16 @@ private fun SongContextDialog(
                         onDismiss()
                     }) { Text(name) }
                 }
-                if (names.isEmpty()) Text("No playlists yet. Create one below.")
-                TextButton(onClick = { createPlaylist = true; choosePlaylist = false }) { Text("＋ Create new playlist") }
+                if (names.isEmpty()) Text("لا توجد قوائم بعد. يمكنك إنشاء قائمة جديدة.")
+                TextButton(onClick = { createPlaylist = true; choosePlaylist = false }) { Text("إنشاء قائمة جديدة") }
             }
         },
-        confirmButton = { TextButton(onClick = { choosePlaylist = false }) { Text("Cancel") } }
+        confirmButton = { TextButton(onClick = { choosePlaylist = false }) { Text("إلغاء") } }
     )
     if (createPlaylist) AlertDialog(
         onDismissRequest = { createPlaylist = false },
-        title = { Text("New playlist") },
-        text = { OutlinedTextField(value = playlistName, onValueChange = { playlistName = it }, label = { Text("Playlist name") }, singleLine = true) },
+        title = { Text("قائمة جديدة") },
+        text = { OutlinedTextField(value = playlistName, onValueChange = { playlistName = it }, label = { Text("اسم القائمة") }, singleLine = true) },
         confirmButton = {
             TextButton(onClick = {
                 val name = playlistName.trim()
@@ -419,9 +421,9 @@ private fun SongContextDialog(
                     createPlaylist = false
                     onDismiss()
                 }
-            }, enabled = playlistName.isNotBlank()) { Text("Create and add") }
+            }, enabled = playlistName.isNotBlank()) { Text("إنشاء وإضافة") }
         },
-        dismissButton = { TextButton(onClick = { createPlaylist = false }) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = { createPlaylist = false }) { Text("إلغاء") } }
     )
 }
 
@@ -436,7 +438,7 @@ fun WhisperSongListScreen(
 ) {
     var selectedSong by remember { mutableStateOf<Song?>(null) }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        Text("All songs", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(vertical = 16.dp))
+        Text("كل الأغاني", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(vertical = 16.dp))
         LazyColumn {
             items(songs) { song ->
                 SongLongPressRow(song, onPlay = { onPlay(song) }, onLongPress = { selectedSong = song })
@@ -463,20 +465,20 @@ fun WhisperHomeScreen(
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
-                Text("Good evening", style = MaterialTheme.typography.headlineMedium)
-                Text("Your music, your way", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Developed by Ahmed Abdelhamid", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                Text("مساء الخير", style = MaterialTheme.typography.headlineMedium)
+                Text("موسيقاك، بطريقتك", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("تطوير: أحمد عبد الحميد", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
-            TextButton(onClick = { onNavigate(Routes.SETTINGS) }) { Text("Settings") }
+            TextButton(onClick = { onNavigate(Routes.SETTINGS) }) { Text("الإعدادات") }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Search" to Routes.SEARCH, "Library" to Routes.SONGS, "Playlists" to Routes.PLAYLISTS, "Favorites" to Routes.FAVORITES).forEach { (label, route) ->
+            listOf("بحث" to Routes.SEARCH, "المكتبة" to Routes.SONGS, "قوائم التشغيل" to Routes.PLAYLISTS, "المفضلة" to Routes.FAVORITES).forEach { (label, route) ->
                 FilledTonalButton(onClick = { onNavigate(route) }) { Text(label) }
             }
         }
-        Text("Recently added", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 20.dp, bottom = 8.dp))
+        Text("أُضيفت مؤخرًا", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 20.dp, bottom = 8.dp))
         if (songs.isEmpty()) {
-            Text("Your local music will appear here after you grant audio permission.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("ستظهر ملفاتك الصوتية هنا بعد السماح بالوصول إلى الموسيقى.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             LazyColumn {
                 items(songs.take(40)) { song ->
@@ -514,18 +516,18 @@ fun WhisperSearchScreen(
         }
     }
     Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Search your music", style = MaterialTheme.typography.headlineMedium)
+        Text("ابحث في مكتبتك", style = MaterialTheme.typography.headlineMedium)
         OutlinedTextField(
             value = query, onValueChange = { query = it },
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-            label = { Text("Songs, artists — Arabic & English") }, singleLine = true
+            label = { Text("اسم الأغنية أو الفنان") }, leadingIcon = { Icon(Icons.Rounded.Search, null) }, trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "مسح البحث") } }, singleLine = true
         )
         if (query.isBlank()) {
-            Text("Type any part of a song or artist name. Arabic and English search are supported.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 16.dp))
+            Text("اكتب أي جزء من اسم الأغنية أو الفنان للبحث الفوري.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 16.dp))
         } else if (filtered.isEmpty()) {
-            Text("No matches found", modifier = Modifier.padding(top = 16.dp))
+            Text("لا توجد نتائج مطابقة", modifier = Modifier.padding(top = 16.dp))
         } else {
-            Text("${filtered.size} results", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
+            Text("${filtered.size} نتيجة", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
             LazyColumn {
                 items(filtered) { song ->
                     SongLongPressRow(song, onPlay = { onPlay(song) }, onLongPress = { selectedSong = song })
