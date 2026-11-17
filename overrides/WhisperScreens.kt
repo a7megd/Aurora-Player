@@ -5,6 +5,9 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.animateContentSize
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Slider
 import androidx.compose.ui.text.font.FontWeight
@@ -287,6 +290,16 @@ private fun SleepTimerCard(controller: MediaController?) {
 fun WhisperSettingsScreen(repository: SettingsRepository, controller: MediaController?) {
     val settings by repository.settings.collectAsState(initial = com.aurora.player.domain.model.AppSettings())
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val wallpaperPrefs = remember { context.getSharedPreferences("whisper_preferences", Context.MODE_PRIVATE) }
+    var wallpaper by remember { mutableStateOf(wallpaperPrefs.getString("wallpaper_uri", null)) }
+    val wallpaperPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            wallpaper = uri.toString()
+            wallpaperPrefs.edit().putString("wallpaper_uri", wallpaper).apply()
+        }
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Icon(Icons.Rounded.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
@@ -336,6 +349,20 @@ fun WhisperSettingsScreen(repository: SettingsRepository, controller: MediaContr
                             modifier = Modifier.size(38.dp).clickable { scope.launch { repository.setAccent(color.toInt()) } }
                         ) {}
                     }
+                }
+            }
+        }
+        Card(Modifier.fillMaxWidth().padding(top = 14.dp)) {
+            Column(Modifier.padding(16.dp)) {
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Image, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("خلفية الواجهة", style = MaterialTheme.typography.titleMedium)
+                }
+                Text(if (wallpaper == null) "لا توجد خلفية مخصصة" else "تم اختيار خلفية مخصصة", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { wallpaperPicker.launch(arrayOf("image/*")) }) { Text("اختيار صورة") }
+                    if (wallpaper != null) OutlinedButton(onClick = { wallpaper = null; wallpaperPrefs.edit().remove("wallpaper_uri").apply() }) { Text("إزالة الخلفية") }
                 }
             }
         }
@@ -477,10 +504,32 @@ fun WhisperSongListScreen(
     onNavigate: (String) -> Unit
 ) {
     var selectedSong by remember { mutableStateOf<Song?>(null) }
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("whisper_preferences", Context.MODE_PRIVATE) }
+    var sort by remember { mutableStateOf(prefs.getString("song_sort", "newest") ?: "newest") }
+    val sortedSongs = remember(songs, sort) { when (sort) {
+        "oldest" -> songs.sortedBy { it.id }
+        "name" -> songs.sortedBy { it.title.lowercase(Locale.ROOT) }
+        "artist" -> songs.sortedBy { it.artist.lowercase(Locale.ROOT) }
+        "duration" -> songs.sortedByDescending { it.duration }
+        "plays" -> songs.sortedByDescending { prefs.getInt("plays:" + it.id, 0) }
+        else -> songs.sortedByDescending { it.id }
+    } }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        Text("كل الأغاني", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(vertical = 16.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("كل الأصوات", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(vertical = 16.dp))
+            var expanded by remember { mutableStateOf(false) }
+            Box {
+                IconButton(onClick = { expanded = true }) { Icon(Icons.Rounded.Sort, contentDescription = "ترتيب") }
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    listOf("newest" to "الأحدث", "oldest" to "الأقدم", "name" to "الاسم", "artist" to "الفنان", "duration" to "المدة", "plays" to "الأكثر تشغيلًا").forEach { (key, label) ->
+                        DropdownMenuItem(text = { Text(label) }, onClick = { sort = key; prefs.edit().putString("song_sort", key).apply(); expanded = false })
+                    }
+                }
+            }
+        }
         LazyColumn {
-            items(songs) { song ->
+            items(sortedSongs) { song ->
                 SongLongPressRow(song, onPlay = { onPlay(song) }, onLongPress = { selectedSong = song })
             }
         }
@@ -506,7 +555,7 @@ fun WhisperHomeScreen(
         Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
                 Text("مساء الخير", style = MaterialTheme.typography.headlineMedium)
-                Text("موسيقاك، بطريقتك", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("الصوت، بطريقتك", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("تطوير: أحمد عبد الحميد", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
             IconButton(onClick = { onNavigate(Routes.SETTINGS) }) { Icon(Icons.Rounded.Settings, contentDescription = "الإعدادات") }
@@ -521,7 +570,7 @@ fun WhisperHomeScreen(
                 IconButton(onClick = { onNavigate(route) }) { Icon(icon, contentDescription = label) }
             }
         }
-        Text("أُضيفت مؤخرًا", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 20.dp, bottom = 8.dp))
+        Text("الصوت", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 20.dp, bottom = 8.dp))
         if (songs.isEmpty()) {
             Text("ستظهر ملفاتك الصوتية هنا بعد السماح بالوصول إلى الموسيقى.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
