@@ -120,7 +120,7 @@ fun NowPlayingScreen(controller: MediaController?, onNavigate: (String) -> Unit 
                     })
                     DropdownMenuItem(text = { Text("البحث عن كلمات الأغنية في Google") }, leadingIcon = { Icon(Icons.Rounded.Search, null) }, onClick = { menuExpanded = false; searchLyrics() })
                     DropdownMenuItem(text = { Text("مشاركة الأغنية") }, leadingIcon = { Icon(Icons.Rounded.Share, null) }, onClick = {
-                        val share = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, "أستمع إلى $title - $artist عبر Whisper Player")
+                        val share = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, "أستمع إلى $title - $artist عبر Tayer_player")
                         context.startActivity(Intent.createChooser(share, "مشاركة الأغنية").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                         menuExpanded = false
                     })
