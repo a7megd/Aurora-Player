@@ -130,7 +130,27 @@ fun AppRoot() {
                 composable(r) {
                     when {
                         r == Routes.NOW_PLAYING -> NowPlayingScreen(controller, onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } })
-                        r == Routes.SONGS || r == Routes.ALBUMS || r == Routes.ARTISTS || r == Routes.FOLDERS ->
+                        r == Routes.SONGS -> WhisperSongListScreen(
+                            songs = songs,
+                            onPlay = { song -> playback.play(song, songs) },
+                            onPlayNext = { song -> controller?.let { player ->
+                                val mediaItem = androidx.media3.common.MediaItem.fromUri(android.content.ContentUris.withAppendedId(android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, song.id).toString())
+                                val insertAt = (player.currentMediaItemIndex + 1).coerceAtLeast(0).coerceAtMost(player.mediaItemCount)
+                                player.addMediaItem(insertAt, mediaItem)
+                            } },
+                            onRadio = { song ->
+                                val related = songs.filter { it.artist.equals(song.artist, ignoreCase = true) }
+                                if (related.isNotEmpty()) playback.playQueue(related, related.indexOfFirst { it.id == song.id }.coerceAtLeast(0))
+                            },
+                            onFavorite = { song ->
+                                val prefs = context.getSharedPreferences("whisper_favorites", android.content.Context.MODE_PRIVATE)
+                                val ids = prefs.getStringSet("ids", emptySet()).orEmpty().toMutableSet()
+                                ids.add(song.id.toString())
+                                prefs.edit().putStringSet("ids", ids).apply()
+                            },
+                            onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } }
+                        )
+                        r == Routes.ALBUMS || r == Routes.ARTISTS || r == Routes.FOLDERS ->
                             LibraryScreen(
                                 title = title, songs = songs, albums = albums, artists = artists, folders = folders,
                                 excludedFolders = excludedFolders, hasPermission = hasPermission,
