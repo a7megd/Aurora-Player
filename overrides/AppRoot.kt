@@ -123,7 +123,7 @@ fun AppRoot() {
                     }
                 }
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                    listOf(Routes.QUEUE to "Queue", Routes.LYRICS to "Lyrics", Routes.EQUALIZER to "Equalizer", Routes.SETTINGS to "Settings").forEach { (target, label) ->
+                    listOf(Routes.SEARCH to "Search", Routes.QUEUE to "Queue", Routes.LYRICS to "Lyrics", Routes.EQUALIZER to "Equalizer", Routes.SETTINGS to "Settings").forEach { (target, label) ->
                         NavigationBarItem(
                             selected = route == target,
                             onClick = { nav.navigate(target) { launchSingleTop = true } },
@@ -151,6 +151,8 @@ fun AppRoot() {
                                 onSongClick = { song -> playback.play(song, songs) },
                                 onPlayAll = { playback.playQueue(songs) },
                             )
+                        r == Routes.HOME -> WhisperHomeScreen(songs, { song -> playback.play(song, songs) }, { target -> nav.navigate(target) })
+                        r == Routes.SEARCH -> WhisperSearchScreen(songs) { song -> playback.play(song, songs) }
                         r == Routes.PLAYLISTS -> WhisperPlaylistsScreen(songs) { song -> playback.play(song, songs) }
                         r == Routes.QUEUE -> WhisperQueueScreen(controller)
                         r == Routes.LYRICS -> WhisperLyricsScreen(controller)
