@@ -322,11 +322,12 @@ fun WhisperHomeScreen(songs: List<Song>, onPlay: (Song) -> Unit, onNavigate: (St
             Column {
                 Text("Good evening", style = MaterialTheme.typography.headlineMedium)
                 Text("Your music, your way", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("By Ahmed Abdelhamid", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
             TextButton(onClick = { onNavigate(Routes.SETTINGS) }) { Text("Settings") }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Search" to Routes.SEARCH, "Library" to Routes.SONGS, "Playlists" to Routes.PLAYLISTS).forEach { (label, route) ->
+            listOf("Search" to Routes.SEARCH, "Library" to Routes.SONGS, "Playlists" to Routes.PLAYLISTS, "Favorites" to Routes.FAVORITES).forEach { (label, route) ->
                 FilledTonalButton(onClick = { onNavigate(route) }) { Text(label) }
             }
         }
