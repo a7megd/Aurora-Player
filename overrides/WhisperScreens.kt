@@ -95,6 +95,63 @@ fun WhisperPlaylistsScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
 }
 
 @Composable
+fun WhisperFavoritesScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("whisper_favorites", Context.MODE_PRIVATE) }
+    var refresh by remember { mutableIntStateOf(0) }
+    var showAdd by remember { mutableStateOf(false) }
+    val ids = remember(refresh) { prefs.getStringSet("ids", emptySet()).orEmpty().mapNotNull { it.toLongOrNull() }.toSet() }
+    val favorites = songs.filter { it.id in ids }
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Favorites", style = MaterialTheme.typography.headlineMedium)
+            Button(onClick = { showAdd = true }) { Text("Add songs") }
+        }
+        Text("${favorites.size} favorite tracks", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        LazyColumn {
+            items(favorites) { song ->
+                ListItem(
+                    headlineContent = { Text(song.title, maxLines = 1) },
+                    supportingContent = { Text(song.artist, maxLines = 1) },
+                    trailingContent = { TextButton(onClick = {
+                        prefs.edit().putStringSet("ids", (ids - song.id).map { it.toString() }.toSet()).apply()
+                        refresh++
+                    }) { Text("Remove") } },
+                    modifier = Modifier.clickable { onPlay(song) }
+                )
+            }
+        }
+    }
+    if (showAdd) AlertDialog(
+        onDismissRequest = { showAdd = false },
+        title = { Text("Add favorites") },
+        text = {
+            LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                items(songs) { song ->
+                    val checked = song.id in ids
+                    Row(Modifier.fillMaxWidth().clickable {
+                        val next = if (checked) ids - song.id else ids + song.id
+                        prefs.edit().putStringSet("ids", next.map { it.toString() }.toSet()).apply()
+                        refresh++
+                    }, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Checkbox(checked = checked, onCheckedChange = {
+                            val next = if (it) ids + song.id else ids - song.id
+                            prefs.edit().putStringSet("ids", next.map { id -> id.toString() }.toSet()).apply()
+                            refresh++
+                        })
+                        Column {
+                            Text(song.title, maxLines = 1)
+                            Text(song.artist, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { showAdd = false }) { Text("Done") } }
+    )
+}
+
+@Composable
 fun WhisperQueueScreen(controller: MediaController?) {
     var tick by remember { mutableIntStateOf(0) }
     LaunchedEffect(controller) { while (true) { tick++; kotlinx.coroutines.delay(500) } }
@@ -105,6 +162,11 @@ fun WhisperQueueScreen(controller: MediaController?) {
         Text("$count tracks in the queue", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
             OutlinedButton(onClick = { controller?.clearMediaItems() }, enabled = count > 0) { Text("Clear queue") }
+            OutlinedButton(onClick = {
+                val tracks = (0 until (controller?.mediaItemCount ?: 0)).mapNotNull { i -> controller?.getMediaItemAt(i)?.mediaMetadata?.title?.toString() }
+                val prefs = LocalContext.current.getSharedPreferences("whisper_queue", Context.MODE_PRIVATE)
+                prefs.edit().putString("last_queue_titles", tracks.joinToString("\\n")).apply()
+            }, enabled = count > 0) { Text("Save queue names") }
         }
         LazyColumn {
             items(count) { index ->
