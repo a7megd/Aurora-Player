@@ -821,7 +821,7 @@ fun WhisperHomeScreen(
         Surface(color = Color(0xFF17191D), shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("🇵🇸", style = MaterialTheme.typography.titleMedium)
-                Text("فلسطين في القلب  •  كوفية", color = Color(0xFFF2F0E9), style = MaterialTheme.typography.labelSmall)
+                Text("فلسطين في القلب", color = Color(0xFFF2F0E9), style = MaterialTheme.typography.labelSmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) { listOf(Color(0xFF111111), Color.White, Color(0xFFCE1126), Color(0xFF007A3D)).forEach { stripe -> Box(Modifier.width(8.dp).height(18.dp).background(stripe, RoundedCornerShape(2.dp))) } }
             }
         }
