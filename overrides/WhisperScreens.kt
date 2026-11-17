@@ -1,6 +1,13 @@
 package com.aurora.player.ui.navigation
 
 import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.Slider
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -90,14 +97,15 @@ fun WhisperPlaylistsScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
 @Composable
 fun WhisperQueueScreen(controller: MediaController?) {
     var tick by remember { mutableIntStateOf(0) }
-    LaunchedEffect(controller) {
-        while (true) { tick++; kotlinx.coroutines.delay(700) }
-    }
+    LaunchedEffect(controller) { while (true) { tick++; kotlinx.coroutines.delay(500) } }
     val count = controller?.mediaItemCount ?: 0
     val current = controller?.currentMediaItemIndex ?: -1
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Current playlist", style = MaterialTheme.typography.headlineMedium)
         Text("$count tracks in the queue", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            OutlinedButton(onClick = { controller?.clearMediaItems() }, enabled = count > 0) { Text("Clear queue") }
+        }
         LazyColumn {
             items(count) { index ->
                 val item = controller?.getMediaItemAt(index)
@@ -105,6 +113,13 @@ fun WhisperQueueScreen(controller: MediaController?) {
                     headlineContent = { Text(item?.mediaMetadata?.title?.toString().orEmpty().ifBlank { "Track ${index + 1}" }) },
                     supportingContent = { Text(item?.mediaMetadata?.artist?.toString().orEmpty()) },
                     leadingContent = { Text(if (index == current) "▶" else "${index + 1}") },
+                    trailingContent = {
+                        Row {
+                            IconButton(onClick = { if (index > 0) controller?.moveMediaItem(index, index - 1) }, enabled = index > 0) { Text("↑") }
+                            IconButton(onClick = { if (index < count - 1) controller?.moveMediaItem(index, index + 1) }, enabled = index < count - 1) { Text("↓") }
+                            IconButton(onClick = { controller?.removeMediaItem(index) }) { Text("×") }
+                        }
+                    },
                     modifier = Modifier.clickable { controller?.seekTo(index, 0L); controller?.play() }
                 )
             }
@@ -112,25 +127,97 @@ fun WhisperQueueScreen(controller: MediaController?) {
     }
 }
 
+private data class TimedLyric(val timeMs: Long, val text: String)
+
+private fun parseLrc(raw: String): List<TimedLyric> {
+    val regex = Regex("\\[(\\d{1,2}):(\\d{2})(?:\\.(\\d{1,3}))?]")
+    return raw.lineSequence().flatMap { line ->
+        val matches = regex.findAll(line).toList()
+        val lyric = line.replace(regex, "").trim()
+        matches.map { match ->
+            val minutes = match.groupValues[1].toLong()
+            val seconds = match.groupValues[2].toLong()
+            val fraction = match.groupValues[3].padEnd(3, '0').take(3).toLongOrNull() ?: 0L
+            TimedLyric((minutes * 60 + seconds) * 1000 + fraction, lyric)
+        }
+    }.sortedBy { it.timeMs }.toList()
+}
+
 @Composable
 fun WhisperLyricsScreen(controller: MediaController?) {
     val context = LocalContext.current
+    var tick by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(controller) { while (true) { tick = controller?.currentPosition ?: 0L; kotlinx.coroutines.delay(180) } }
     val mediaId = controller?.currentMediaItem?.mediaId.orEmpty()
     val title = controller?.currentMediaItem?.mediaMetadata?.title?.toString().orEmpty()
     val prefs = remember { context.getSharedPreferences("whisper_lyrics", Context.MODE_PRIVATE) }
     var lyrics by remember(mediaId) { mutableStateOf(prefs.getString(mediaId, "").orEmpty()) }
+    val timed = remember(lyrics) { parseLrc(lyrics) }
+    val active = timed.indexOfLast { it.timeMs <= tick }
+    val importLrc = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) {
+            val imported = runCatching { context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull()
+            if (!imported.isNullOrBlank()) {
+                lyrics = imported
+                if (mediaId.isNotBlank()) prefs.edit().putString(mediaId, imported).apply()
+            }
+        }
+    }
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Lyrics", style = MaterialTheme.typography.headlineMedium)
         Text(title.ifBlank { "No track selected" }, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(12.dp))
-        OutlinedTextField(
-            value = lyrics,
-            onValueChange = { lyrics = it; if (mediaId.isNotBlank()) prefs.edit().putString(mediaId, it).apply() },
-            modifier = Modifier.fillMaxWidth().weight(1f),
-            label = { Text("Paste or type song lyrics") },
-            placeholder = { Text("Lyrics for this track…") }
-        )
-        Text("Lyrics are saved on this device for the selected track.", style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            OutlinedButton(onClick = { importLrc.launch("text/*") }) { Text("Import LRC / TXT") }
+            OutlinedButton(onClick = { lyrics = ""; if (mediaId.isNotBlank()) prefs.edit().remove(mediaId).apply() }) { Text("Clear") }
+        }
+        if (timed.isNotEmpty()) {
+            LazyColumn(Modifier.weight(1f)) {
+                items(timed.size) { index ->
+                    Text(
+                        timed[index].text,
+                        modifier = Modifier.fillMaxWidth().clickable { controller?.seekTo(timed[index].timeMs) }.padding(vertical = 10.dp),
+                        color = if (index == active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = if (index == active) FontWeight.Bold else FontWeight.Normal,
+                        style = if (index == active) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyLarge
+                    )
+                }
+            }
+        } else {
+            OutlinedTextField(
+                value = lyrics,
+                onValueChange = { lyrics = it; if (mediaId.isNotBlank()) prefs.edit().putString(mediaId, it).apply() },
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                label = { Text("Paste or type song lyrics") },
+                placeholder = { Text("Lyrics for this track…") }
+            )
+        }
+        Text("LRC timestamps synchronize with playback. Plain text is saved locally.", style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+
+@Composable
+private fun SleepTimerCard(controller: MediaController?) {
+    var minutes by remember { mutableIntStateOf(15) }
+    var running by remember { mutableStateOf(false) }
+    var remaining by remember { mutableIntStateOf(0) }
+    LaunchedEffect(running) {
+        while (running && remaining > 0) {
+            kotlinx.coroutines.delay(60_000)
+            remaining--
+        }
+        if (running && remaining <= 0) { controller?.pause(); running = false }
+    }
+    Card(Modifier.fillMaxWidth().padding(top = 18.dp)) {
+        Column(Modifier.padding(16.dp)) {
+            Text("Sleep timer", style = MaterialTheme.typography.titleMedium)
+            Text(if (running) "$remaining minutes remaining" else "$minutes minutes")
+            Slider(value = minutes.toFloat(), onValueChange = { minutes = it.toInt().coerceIn(1, 180) }, valueRange = 1f..180f, enabled = !running)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { remaining = minutes; running = true }, enabled = !running) { Text("Start") }
+                OutlinedButton(onClick = { running = false; remaining = 0 }) { Text("Cancel") }
+            }
+        }
     }
 }
 
@@ -140,6 +227,7 @@ fun WhisperSettingsScreen(repository: SettingsRepository) {
     val scope = rememberCoroutineScope()
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Appearance", style = MaterialTheme.typography.headlineMedium)
+        SleepTimerCard(controller = null)
         Text("Theme", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
         listOf(ThemeMode.SYSTEM to "System", ThemeMode.DARK to "Dark", ThemeMode.LIGHT to "Light").forEach { (mode, label) ->
             Row(Modifier.fillMaxWidth().clickable { scope.launch { repository.setThemeMode(mode) } }.padding(vertical = 8.dp)) {
