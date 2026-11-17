@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -52,6 +53,7 @@ fun NowPlayingScreen(controller: MediaController?, onNavigate: (String) -> Unit 
     val currentItem = controller?.currentMediaItem
     val mediaId = currentItem?.mediaId.orEmpty()
     val sourceUri = currentItem?.localConfiguration?.uri
+    val songId = sourceUri?.lastPathSegment?.toLongOrNull() ?: mediaId.toLongOrNull()
 
     fun searchLyrics() {
         val query = URLEncoder.encode("$title $artist كلمات الأغنية lyrics", "UTF-8")
@@ -109,9 +111,9 @@ fun NowPlayingScreen(controller: MediaController?, onNavigate: (String) -> Unit 
                 DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                     DropdownMenuItem(text = { Text("إضافة إلى قائمة تشغيل") }, leadingIcon = { Icon(Icons.Rounded.PlaylistAdd, null) }, onClick = { menuExpanded = false; showPlaylistPicker = true })
                     DropdownMenuItem(text = { Text("إضافة إلى المفضلة") }, leadingIcon = { Icon(Icons.Rounded.FavoriteBorder, null) }, onClick = {
-                        if (mediaId.isNotBlank()) {
+                        if (songId != null) {
                             val ids = favoritePrefs.getStringSet("ids", emptySet()).orEmpty().toMutableSet()
-                            ids.add(mediaId)
+                            ids.add(songId.toString())
                             favoritePrefs.edit().putStringSet("ids", ids).apply()
                         }
                         menuExpanded = false
@@ -123,8 +125,8 @@ fun NowPlayingScreen(controller: MediaController?, onNavigate: (String) -> Unit 
                         menuExpanded = false
                     })
                     DropdownMenuItem(text = { Text("تفاصيل الملف") }, leadingIcon = { Icon(Icons.Rounded.Info, null) }, onClick = { menuExpanded = false; showDetails = true })
-                    DropdownMenuItem(text = { Text("فتح الكلمات داخل التطبيق") }, leadingIcon = { Icon(Icons.Rounded.Lyrics, null) }, onClick = { menuExpanded = false; onNavigate(Routes.LYRICS) })
-                    DropdownMenuItem(text = { Text("قائمة التشغيل الحالية") }, leadingIcon = { Icon(Icons.Rounded.QueueMusic, null) }, onClick = { menuExpanded = false; onNavigate(Routes.QUEUE) })
+                    DropdownMenuItem(text = { Text("فتح الكلمات داخل التطبيق") }, leadingIcon = { Icon(Icons.Rounded.MusicNote, null) }, onClick = { menuExpanded = false; onNavigate(Routes.LYRICS) })
+                    DropdownMenuItem(text = { Text("قائمة التشغيل الحالية") }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, null) }, onClick = { menuExpanded = false; onNavigate(Routes.QUEUE) })
                 }
             }
         }
@@ -162,8 +164,8 @@ fun NowPlayingScreen(controller: MediaController?, onNavigate: (String) -> Unit 
         }
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { onNavigate(Routes.QUEUE) }) { Icon(Icons.Rounded.QueueMusic, "قائمة التشغيل") }
-            IconButton(onClick = { onNavigate(Routes.LYRICS) }) { Icon(Icons.Rounded.Lyrics, "كلمات الأغنية") }
+            IconButton(onClick = { onNavigate(Routes.QUEUE) }) { Icon(Icons.AutoMirrored.Rounded.QueueMusic, "قائمة التشغيل") }
+            IconButton(onClick = { onNavigate(Routes.LYRICS) }) { Icon(Icons.Rounded.MusicNote, "كلمات الأغنية") }
             IconButton(onClick = { showTimer = true }) { Icon(Icons.Rounded.Timer, "مؤقت النوم", tint = if (timerActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }
             IconButton(onClick = { onNavigate(Routes.EQUALIZER) }) { Icon(Icons.Rounded.Equalizer, "معادل الصوت") }
         }
@@ -212,7 +214,7 @@ fun NowPlayingScreen(controller: MediaController?, onNavigate: (String) -> Unit 
                     TextButton(onClick = {
                         val key = "playlist:$name"
                         val ids = prefs.getString(key, "").orEmpty().split(',').mapNotNull { it.toLongOrNull() }.toMutableSet()
-                        mediaId.toLongOrNull()?.let(ids::add)
+                        songId?.let(ids::add)
                         prefs.edit().putString(key, ids.joinToString(",")).apply()
                         playlistRefresh++
                         showPlaylistPicker = false
@@ -232,7 +234,7 @@ fun NowPlayingScreen(controller: MediaController?, onNavigate: (String) -> Unit 
             TextButton(onClick = {
                 val clean = newPlaylistName.trim()
                 if (clean.isNotEmpty()) {
-                    prefs.edit().putString("playlist:$clean", mediaId.toLongOrNull()?.toString().orEmpty()).apply()
+                    prefs.edit().putString("playlist:$clean", songId?.toString().orEmpty()).apply()
                     playlistRefresh++
                     newPlaylistName = ""
                     showCreatePlaylist = false
