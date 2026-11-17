@@ -426,6 +426,31 @@ private fun SongContextDialog(
 }
 
 @Composable
+fun WhisperSongListScreen(
+    songs: List<Song>,
+    onPlay: (Song) -> Unit,
+    onPlayNext: (Song) -> Unit,
+    onRadio: (Song) -> Unit,
+    onFavorite: (Song) -> Unit,
+    onNavigate: (String) -> Unit
+) {
+    var selectedSong by remember { mutableStateOf<Song?>(null) }
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        Text("All songs", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(vertical = 16.dp))
+        LazyColumn {
+            items(songs) { song ->
+                SongLongPressRow(song, onPlay = { onPlay(song) }, onLongPress = { selectedSong = song })
+            }
+        }
+    }
+    selectedSong?.let { song ->
+        SongContextDialog(song, onDismiss = { selectedSong = null },
+            onPlayNext = { onPlayNext(song) }, onFavorite = { onFavorite(song) },
+            onRadio = { onRadio(song) }, onLyrics = { onNavigate(Routes.LYRICS) })
+    }
+}
+
+@Composable
 fun WhisperHomeScreen(
     songs: List<Song>,
     onPlay: (Song) -> Unit,
