@@ -138,7 +138,7 @@ fun AppRoot() {
                                 AnimatedContent(targetState = playbackTitle.ifBlank { "الصوت يعمل" }, label = "miniPlayerTrackChange") { title ->
                                     Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
                                 }
-                                Text("Whisper Player", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("tayer", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             IconButton(onClick = { controller?.seekToPreviousMediaItem() }, enabled = (controller?.mediaItemCount ?: 0) > 1) {
                                 Icon(Icons.Rounded.SkipPrevious, contentDescription = "السابق")
@@ -251,7 +251,7 @@ fun AppRoot() {
                         onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } }, activeSongId = playingSongId)
                         r == Routes.PLAYLISTS -> WhisperPlaylistsScreen(songs) { song -> playback.play(song, songs); nav.navigate(Routes.NOW_PLAYING) }
                         r == Routes.FAVORITES -> WhisperFavoritesScreen(songs) { song -> playback.play(song, songs); nav.navigate(Routes.NOW_PLAYING) }
-                        r == Routes.QUEUE -> WhisperQueueScreen(controller)
+                        r == Routes.QUEUE -> WhisperQueueScreen(controller, songs)
                         r == Routes.LYRICS -> WhisperLyricsScreen(controller)
                         r == Routes.SETTINGS -> WhisperSettingsScreen(app.container.settingsRepository, controller, onWallpaperChanged = { wallpaperUri = it })
                         r == Routes.EQUALIZER -> WhisperEqualizerScreen()
@@ -275,7 +275,7 @@ fun AppRoot() {
                     modifier = Modifier.size(230.dp)
                 )
                 Spacer(Modifier.height(18.dp))
-                Text("Whisper Player", color = Color.White, style = MaterialTheme.typography.headlineSmall)
+                Text("tayer", color = Color.White, style = MaterialTheme.typography.headlineSmall)
                 Text("تطوير: أحمد عبد الحميد", color = Color(0xFF168BFF), style = MaterialTheme.typography.labelLarge)
             }
         }
