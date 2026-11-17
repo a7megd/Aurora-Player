@@ -156,7 +156,7 @@ fun AppRoot() {
                         r == Routes.PLAYLISTS -> WhisperPlaylistsScreen(songs) { song -> playback.play(song, songs) }
                         r == Routes.QUEUE -> WhisperQueueScreen(controller)
                         r == Routes.LYRICS -> WhisperLyricsScreen(controller)
-                        r == Routes.SETTINGS -> WhisperSettingsScreen(app.container.settingsRepository)
+                        r == Routes.SETTINGS -> WhisperSettingsScreen(app.container.settingsRepository, controller)
                         else -> ScaffoldScreen(title)
                     }
                 }
