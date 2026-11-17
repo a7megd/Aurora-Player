@@ -132,7 +132,7 @@ fun AppRoot() {
                         r == Routes.NOW_PLAYING -> NowPlayingScreen(controller, onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } })
                         r == Routes.SONGS -> WhisperSongListScreen(
                             songs = songs,
-                            onPlay = { song -> playback.play(song, songs) },
+                            onPlay = { song -> playback.play(song, songs); nav.navigate(Routes.NOW_PLAYING) },
                             onPlayNext = { song -> controller?.let { player ->
                                 val mediaItem = androidx.media3.common.MediaItem.fromUri(android.content.ContentUris.withAppendedId(android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, song.id).toString())
                                 val insertAt = (player.currentMediaItemIndex + 1).coerceAtLeast(0).coerceAtMost(player.mediaItemCount)
@@ -158,7 +158,7 @@ fun AppRoot() {
                                 onRefresh = { repository.refresh() },
                                 onExcludeFolder = { path -> coroutineScope.launch { repository.excludeFolder(path) } },
                                 onIncludeFolder = { path -> coroutineScope.launch { repository.includeFolder(path) } },
-                                onSongClick = { song -> playback.play(song, songs) },
+                                onSongClick = { song -> playback.play(song, songs); nav.navigate(Routes.NOW_PLAYING) },
                                 onPlayAll = { playback.playQueue(songs) },
                             )
                         r == Routes.HOME -> WhisperHomeScreen(songs, onPlay = { song -> playback.play(song, songs) }, onPlayNext = { song -> controller?.let { player ->
@@ -193,8 +193,8 @@ fun AppRoot() {
                             prefs.edit().putStringSet("ids", ids).apply()
                         },
                         onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } })
-                        r == Routes.PLAYLISTS -> WhisperPlaylistsScreen(songs) { song -> playback.play(song, songs) }
-                        r == Routes.FAVORITES -> WhisperFavoritesScreen(songs) { song -> playback.play(song, songs) }
+                        r == Routes.PLAYLISTS -> WhisperPlaylistsScreen(songs) { song -> playback.play(song, songs); nav.navigate(Routes.NOW_PLAYING) }
+                        r == Routes.FAVORITES -> WhisperFavoritesScreen(songs) { song -> playback.play(song, songs); nav.navigate(Routes.NOW_PLAYING) }
                         r == Routes.QUEUE -> WhisperQueueScreen(controller)
                         r == Routes.LYRICS -> WhisperLyricsScreen(controller)
                         r == Routes.SETTINGS -> WhisperSettingsScreen(app.container.settingsRepository, controller)
