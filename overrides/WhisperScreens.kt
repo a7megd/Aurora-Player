@@ -509,11 +509,16 @@ fun WhisperHomeScreen(
                 Text("موسيقاك، بطريقتك", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("تطوير: أحمد عبد الحميد", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
-            TextButton(onClick = { onNavigate(Routes.SETTINGS) }) { Text("الإعدادات") }
+            IconButton(onClick = { onNavigate(Routes.SETTINGS) }) { Icon(Icons.Rounded.Settings, contentDescription = "الإعدادات") }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("بحث" to Routes.SEARCH, "المكتبة" to Routes.SONGS, "قوائم التشغيل" to Routes.PLAYLISTS, "المفضلة" to Routes.FAVORITES).forEach { (label, route) ->
-                FilledTonalButton(onClick = { onNavigate(route) }) { Text(label) }
+            listOf(
+                Triple("بحث", Routes.SEARCH, Icons.Rounded.Search),
+                Triple("المكتبة", Routes.SONGS, Icons.Rounded.LibraryMusic),
+                Triple("قوائم التشغيل", Routes.PLAYLISTS, Icons.Rounded.QueueMusic),
+                Triple("المفضلة", Routes.FAVORITES, Icons.Rounded.FavoriteBorder)
+            ).forEach { (label, route, icon) ->
+                IconButton(onClick = { onNavigate(route) }) { Icon(icon, contentDescription = label) }
             }
         }
         Text("أُضيفت مؤخرًا", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 20.dp, bottom = 8.dp))
