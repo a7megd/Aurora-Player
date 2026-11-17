@@ -154,6 +154,7 @@ fun AppRoot() {
                         r == Routes.HOME -> WhisperHomeScreen(songs, { song -> playback.play(song, songs) }, { target -> nav.navigate(target) })
                         r == Routes.SEARCH -> WhisperSearchScreen(songs) { song -> playback.play(song, songs) }
                         r == Routes.PLAYLISTS -> WhisperPlaylistsScreen(songs) { song -> playback.play(song, songs) }
+                        r == Routes.FAVORITES -> WhisperFavoritesScreen(songs) { song -> playback.play(song, songs) }
                         r == Routes.QUEUE -> WhisperQueueScreen(controller)
                         r == Routes.LYRICS -> WhisperLyricsScreen(controller)
                         r == Routes.SETTINGS -> WhisperSettingsScreen(app.container.settingsRepository, controller)
