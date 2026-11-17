@@ -30,7 +30,7 @@ private val allRoutes = listOf(
     Routes.HOME to "Home", Routes.SONGS to "Songs", Routes.ALBUMS to "Albums",
     Routes.ARTISTS to "Artists", Routes.PLAYLISTS to "Playlists", Routes.FOLDERS to "Folders",
     Routes.FAVORITES to "Favorites", Routes.RECENT to "Recently Played",
-    Routes.NOW_PLAYING to "Now Playing", Routes.SEARCH to "Search",
+    Routes.NOW_PLAYING to "Now Playing", Routes.QUEUE to "Current playlist", Routes.LYRICS to "Lyrics", Routes.SEARCH to "Search",
     Routes.EQUALIZER to "Equalizer", Routes.SETTINGS to "Settings",
 )
 
