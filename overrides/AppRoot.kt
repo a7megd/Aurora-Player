@@ -141,6 +141,10 @@ fun AppRoot() {
                                 onSongClick = { song -> playback.play(song, songs) },
                                 onPlayAll = { playback.playQueue(songs) },
                             )
+                        r == Routes.PLAYLISTS -> WhisperPlaylistsScreen(songs) { song -> playback.play(song, songs) }
+                        r == Routes.QUEUE -> WhisperQueueScreen(controller)
+                        r == Routes.LYRICS -> WhisperLyricsScreen(controller)
+                        r == Routes.SETTINGS -> WhisperSettingsScreen(app.container.settingsRepository)
                         else -> ScaffoldScreen(title)
                     }
                 }
