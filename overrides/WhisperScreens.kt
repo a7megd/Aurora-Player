@@ -1,0 +1,140 @@
+package com.aurora.player.ui.navigation
+
+import android.content.Context
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.media3.session.MediaController
+import com.aurora.player.data.prefs.SettingsRepository
+import com.aurora.player.domain.model.Song
+import com.aurora.player.domain.model.ThemeMode
+import kotlinx.coroutines.launch
+
+@Composable
+fun WhisperPlaylistsScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("whisper_playlists", Context.MODE_PRIVATE) }
+    var refresh by remember { mutableIntStateOf(0) }
+    var showCreate by remember { mutableStateOf(false) }
+    var name by remember { mutableStateOf("") }
+    val names = remember(refresh) { prefs.all.keys.filter { it.startsWith("playlist:") }.map { it.removePrefix("playlist:") }.sorted() }
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Playlists", style = MaterialTheme.typography.headlineMedium)
+            Button(onClick = { showCreate = true }) { Text("Create playlist") }
+        }
+        if (names.isEmpty()) Text("Create your first playlist", modifier = Modifier.padding(top = 24.dp))
+        LazyColumn {
+            items(names) { playlist ->
+                val ids = prefs.getString("playlist:$playlist", "").orEmpty().split(',').mapNotNull { it.toLongOrNull() }
+                val tracks = songs.filter { it.id in ids }
+                ListItem(
+                    headlineContent = { Text(playlist) },
+                    supportingContent = { Text("${tracks.size} songs") },
+                    trailingContent = { TextButton(onClick = { prefs.edit().remove("playlist:$playlist").apply(); refresh++ }) { Text("Delete") } },
+                    modifier = Modifier.clickable { tracks.firstOrNull()?.let(onPlay) }
+                )
+            }
+        }
+    }
+    if (showCreate) AlertDialog(
+        onDismissRequest = { showCreate = false },
+        title = { Text("New playlist") },
+        text = { OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Playlist name") }, singleLine = true) },
+        confirmButton = {
+            TextButton(onClick = {
+                val clean = name.trim()
+                if (clean.isNotEmpty()) {
+                    prefs.edit().putString("playlist:$clean", songs.joinToString(",") { it.id.toString() }).apply()
+                    refresh++
+                    name = ""
+                    showCreate = false
+                }
+            }) { Text("Create") }
+        },
+        dismissButton = { TextButton(onClick = { showCreate = false }) { Text("Cancel") } }
+    )
+}
+
+@Composable
+fun WhisperQueueScreen(controller: MediaController?) {
+    var tick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(controller) {
+        while (true) { tick++; kotlinx.coroutines.delay(700) }
+    }
+    val count = controller?.mediaItemCount ?: 0
+    val current = controller?.currentMediaItemIndex ?: -1
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Text("Current playlist", style = MaterialTheme.typography.headlineMedium)
+        Text("$count tracks in the queue", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        LazyColumn {
+            items(count) { index ->
+                val item = controller?.getMediaItemAt(index)
+                ListItem(
+                    headlineContent = { Text(item?.mediaMetadata?.title?.toString().orEmpty().ifBlank { "Track ${index + 1}" }) },
+                    supportingContent = { Text(item?.mediaMetadata?.artist?.toString().orEmpty()) },
+                    leadingContent = { Text(if (index == current) "▶" else "${index + 1}") },
+                    modifier = Modifier.clickable { controller?.seekTo(index, 0L); controller?.play() }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun WhisperLyricsScreen(controller: MediaController?) {
+    val context = LocalContext.current
+    val mediaId = controller?.currentMediaItem?.mediaId.orEmpty()
+    val title = controller?.currentMediaItem?.mediaMetadata?.title?.toString().orEmpty()
+    val prefs = remember { context.getSharedPreferences("whisper_lyrics", Context.MODE_PRIVATE) }
+    var lyrics by remember(mediaId) { mutableStateOf(prefs.getString(mediaId, "").orEmpty()) }
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Text("Lyrics", style = MaterialTheme.typography.headlineMedium)
+        Text(title.ifBlank { "No track selected" }, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(
+            value = lyrics,
+            onValueChange = { lyrics = it; if (mediaId.isNotBlank()) prefs.edit().putString(mediaId, it).apply() },
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            label = { Text("Paste or type song lyrics") },
+            placeholder = { Text("Lyrics for this track…") }
+        )
+        Text("Lyrics are saved on this device for the selected track.", style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable
+fun WhisperSettingsScreen(repository: SettingsRepository) {
+    val settings by repository.settings.collectAsState(initial = com.aurora.player.domain.model.AppSettings())
+    val scope = rememberCoroutineScope()
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Text("Appearance", style = MaterialTheme.typography.headlineMedium)
+        Text("Theme", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
+        listOf(ThemeMode.SYSTEM to "System", ThemeMode.DARK to "Dark", ThemeMode.LIGHT to "Light").forEach { (mode, label) ->
+            Row(Modifier.fillMaxWidth().clickable { scope.launch { repository.setThemeMode(mode) } }.padding(vertical = 8.dp)) {
+                RadioButton(selected = settings.themeMode == mode, onClick = { scope.launch { repository.setThemeMode(mode) } })
+                Text(label, modifier = Modifier.padding(start = 8.dp, top = 12.dp))
+            }
+        }
+        Row(Modifier.fillMaxWidth().clickable { scope.launch { repository.setAmoled(!settings.amoled) } }.padding(vertical = 8.dp)) {
+            Checkbox(checked = settings.amoled, onCheckedChange = { scope.launch { repository.setAmoled(it) } })
+            Text("AMOLED black background", modifier = Modifier.padding(start = 8.dp, top = 12.dp))
+        }
+        Text("Accent color", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(0xFF7C5CFF, 0xFF00C2A8, 0xFFFF5C8A, 0xFFFFB020, 0xFF3D9BFF, 0xFF8BE04E).forEach { color ->
+                Surface(
+                    color = androidx.compose.ui.graphics.Color(color),
+                    shape = MaterialTheme.shapes.large,
+                    modifier = Modifier.size(38.dp).clickable { scope.launch { repository.setAccent(color.toInt()) } }
+                ) {}
+            }
+        }
+    }
+}
