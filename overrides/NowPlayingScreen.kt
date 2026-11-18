@@ -3,6 +3,14 @@ package com.aurora.player.ui.navigation
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -37,6 +45,7 @@ fun NowPlayingScreen(controller: MediaController?, onNavigate: (String) -> Unit 
     var repeat by remember(controller) { mutableIntStateOf(Player.REPEAT_MODE_OFF) }
     var speed by remember(controller) { mutableFloatStateOf(1f) }
     var dragging by remember { mutableStateOf(false) }
+    var artworkDragY by remember { mutableFloatStateOf(0f) }
     var showTimer by remember { mutableStateOf(false) }
     var timerMinutes by remember { mutableIntStateOf(30) }
     val sleepTimerPrefs = remember(context) { context.getSharedPreferences("whisper_sleep_timer", android.content.Context.MODE_PRIVATE) }
@@ -100,16 +109,55 @@ fun NowPlayingScreen(controller: MediaController?, onNavigate: (String) -> Unit 
         Text("تعمل الآن", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.height(14.dp))
         Box(Modifier.fillMaxWidth()) {
-            if (artwork != null) {
-                AsyncImage(model = artwork, contentDescription = "غلاف الألبوم", modifier = Modifier.fillMaxWidth().aspectRatio(1f).padding(horizontal = 10.dp))
-            } else {
-                Surface(
-                    modifier = Modifier.fillMaxWidth().aspectRatio(1f).padding(horizontal = 10.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = MaterialTheme.shapes.extraLarge
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.MusicNote, contentDescription = "غلاف افتراضي", modifier = Modifier.size(112.dp), tint = MaterialTheme.colorScheme.primary)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .padding(horizontal = 10.dp)
+                    .graphicsLayer {
+                        translationY = artworkDragY
+                        alpha = (1f - (artworkDragY / 520f)).coerceIn(0.55f, 1f)
+                        scaleX = (1f - (artworkDragY / 1800f)).coerceIn(0.92f, 1f)
+                        scaleY = scaleX
+                    }
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures(
+                            onVerticalDrag = { change, amount ->
+                                if (amount > 0f || artworkDragY > 0f) {
+                                    artworkDragY = (artworkDragY + amount).coerceIn(0f, 360f)
+                                    change.consume()
+                                }
+                            },
+                            onDragEnd = {
+                                if (artworkDragY > 120f) onNavigate(Routes.HOME)
+                                artworkDragY = 0f
+                            },
+                            onDragCancel = { artworkDragY = 0f }
+                        )
+                    }
+            ) {
+                AnimatedContent(
+                    targetState = artwork,
+                    transitionSpec = { (fadeIn() + scaleIn(initialScale = 0.94f)).togetherWith(fadeOut()) },
+                    label = "albumArtworkMorph"
+                ) { imageUri ->
+                    if (imageUri != null) {
+                        AsyncImage(
+                            model = imageUri,
+                            contentDescription = "غلاف الألبوم",
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Surface(
+                            modifier = Modifier.fillMaxSize(),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = MaterialTheme.shapes.extraLarge
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Rounded.MusicNote, contentDescription = "غلاف افتراضي", modifier = Modifier.size(112.dp), tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
                     }
                 }
             }
