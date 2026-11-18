@@ -800,10 +800,12 @@ fun WhisperSongListScreen(
     activeSongId: Long? = null
 ) {
     var selectedSong by remember { mutableStateOf<Song?>(null) }
+    var playHistoryVersion by remember { mutableIntStateOf(0) }
+    LaunchedEffect(activeSongId) { playHistoryVersion++ }
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("whisper_preferences", Context.MODE_PRIVATE) }
     var sort by remember { mutableStateOf(prefs.getString("song_sort", "newest") ?: "newest") }
-    val sortedSongs = remember(songs, sort) { when (sort) {
+    val sortedSongs = remember(songs, sort, playHistoryVersion) { when (sort) {
         "oldest" -> songs.sortedBy { it.id }
         "name" -> songs.sortedBy { it.title.lowercase(Locale.ROOT) }
         "name_desc" -> songs.sortedByDescending { it.title.lowercase(Locale.ROOT) }
