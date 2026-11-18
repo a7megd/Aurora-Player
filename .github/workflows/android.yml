@@ -6,6 +6,10 @@ on:
     branches:
       - codex/aurora-player-next
 
+concurrency:
+  group: whisper-player-android-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
