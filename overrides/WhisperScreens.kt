@@ -38,6 +38,7 @@ import coil.compose.AsyncImage
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.media3.session.MediaController
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.Player
 import com.aurora.player.data.prefs.SettingsRepository
 import com.aurora.player.domain.model.Song
@@ -579,9 +580,13 @@ private fun SleepTimerCard(controller: MediaController?) {
     }
 }
 
+@OptIn(UnstableApi::class)
 @Composable
-fun WhisperEqualizerScreen() {
-    val effect = remember { runCatching { Equalizer(0, 0).apply { enabled = true } }.getOrNull() }
+fun WhisperEqualizerScreen(controller: MediaController?) {
+    val sessionId = controller?.audioSessionId ?: 0
+    val effect = remember(sessionId) {
+        if (sessionId > 0) runCatching { Equalizer(0, sessionId).apply { enabled = true } }.getOrNull() else null
+    }
     var enabled by remember(effect) { mutableStateOf(effect?.enabled == true) }
     var levels by remember(effect) { mutableStateOf<List<Float>>(effect?.let { eq -> (0 until eq.numberOfBands.toInt()).map { band -> eq.getBandLevel(band.toShort()).toFloat() } } ?: emptyList()) }
     val presetNames = remember(effect) { effect?.let { eq -> (0 until eq.numberOfPresets.toInt()).map { eq.getPresetName(it.toShort()).toString() } } ?: emptyList() }
