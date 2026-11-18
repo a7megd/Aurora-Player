@@ -1023,7 +1023,8 @@ fun WhisperHomeScreen(
                 Triple("بحث", Routes.SEARCH, Icons.Rounded.Search),
                 Triple("المكتبة", Routes.SONGS, Icons.Rounded.LibraryMusic),
                 Triple("قوائم التشغيل", Routes.PLAYLISTS, Icons.Rounded.QueueMusic),
-                Triple("المفضلة", Routes.FAVORITES, Icons.Rounded.FavoriteBorder)
+                Triple("المفضلة", Routes.FAVORITES, Icons.Rounded.FavoriteBorder),
+                Triple("سجل الاستماع", Routes.RECENT, Icons.Rounded.History)
             ).forEach { (label, route, icon) ->
                 IconButton(onClick = { onNavigate(route) }) { Icon(icon, contentDescription = label) }
             }
