@@ -249,17 +249,39 @@ fun WhisperQueueScreen(controller: MediaController?, songs: List<Song>) {
             LazyColumn(state = queueListState, modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 items(count, key = { index -> "${controller?.getMediaItemAt(index)?.mediaId ?: "queue"}_$index" }) { index ->
                     val item = controller?.getMediaItemAt(index)
+                    val queueKey = "${item?.mediaId ?: "queue"}_$index"
                     val active = index == current
                     val title = item?.mediaMetadata?.title?.toString().orEmpty().ifBlank { "مقطع ${index + 1}" }
                     val artist = item?.mediaMetadata?.artist?.toString().orEmpty()
+                    var dragDistance by remember { mutableFloatStateOf(0f) }
+                    var dragging by remember { mutableStateOf(false) }
                     Card(
                         modifier = Modifier.fillMaxWidth()
                             .animateContentSize()
+                            .then(if (dragging) Modifier.graphicsLayer { translationY = dragDistance; scaleX = 1.025f; scaleY = 1.025f } else Modifier)
+                            .pointerInput(index, count) {
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = { dragging = true; dragDistance = 0f },
+                                    onDrag = { change, amount -> change.consume(); dragDistance += amount.y },
+                                    onDragEnd = {
+                                        val start = queueListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == queueKey }
+                                        val draggedCenter = (start?.offset ?: 0) + (start?.size ?: 0) / 2 + dragDistance.toInt()
+                                        val target = queueListState.layoutInfo.visibleItemsInfo
+                                            .minByOrNull { kotlin.math.abs((it.offset + it.size / 2) - draggedCenter) }
+                                            ?.index
+                                        if (target != null && target != index) controller?.moveMediaItem(index, target)
+                                        dragging = false
+                                        dragDistance = 0f
+                                        tick++
+                                    },
+                                    onDragCancel = { dragging = false; dragDistance = 0f }
+                                )
+                            }
                             .clickable { controller?.seekTo(index, 0L); controller?.play() }
                             .animateItemPlacement(),
                         colors = CardDefaults.cardColors(containerColor = if (active) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.88f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.56f)),
-                        border = if (active) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                        border = if (active || dragging) androidx.compose.foundation.BorderStroke(if (dragging) 2.dp else 1.dp, MaterialTheme.colorScheme.primary) else null,
+                        elevation = CardDefaults.cardElevation(defaultElevation = if (dragging) 12.dp else 1.dp)
                     ) {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                             Box(Modifier.size(38.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
@@ -272,21 +294,10 @@ fun WhisperQueueScreen(controller: MediaController?, songs: List<Song>) {
                                 if (active) Text("يعمل الآن", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                             }
                             Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-                                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                                    Column {
-                                        IconButton(
-                                            onClick = { controller?.moveMediaItem(index, index - 1); tick++ },
-                                            enabled = index > 0
-                                        ) { Icon(Icons.Rounded.KeyboardArrowUp, "تقديم المقطع في الانتظار") }
-                                        IconButton(
-                                            onClick = { controller?.moveMediaItem(index, index + 1); tick++ },
-                                            enabled = index < count - 1
-                                        ) { Icon(Icons.Rounded.KeyboardArrowDown, "تأخير المقطع في الانتظار") }
-                                    }
-                                    Column {
-                                        IconButton(onClick = { controller?.addMediaItem((current + 1).coerceAtLeast(0).coerceAtMost(controller.mediaItemCount), item!!); tick++ }, enabled = item != null && index != current) { Icon(Icons.Rounded.SkipNext, "تشغيل بعد الحالي") }
-                                        IconButton(onClick = { controller?.removeMediaItem(index); tick++ }) { Icon(Icons.Rounded.Close, "إزالة من الانتظار", tint = MaterialTheme.colorScheme.error) }
-                                    }
+                                Icon(Icons.Rounded.DragHandle, contentDescription = "اضغط مطولًا واسحب لأعلى أو لأسفل", tint = if (dragging) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp).size(28.dp))
+                                Row {
+                                    IconButton(onClick = { controller?.addMediaItem((current + 1).coerceAtLeast(0).coerceAtMost(controller.mediaItemCount), item!!); tick++ }, enabled = item != null && index != current) { Icon(Icons.Rounded.SkipNext, "تشغيل بعد الحالي") }
+                                    IconButton(onClick = { controller?.removeMediaItem(index); tick++ }) { Icon(Icons.Rounded.Close, "إزالة من الانتظار", tint = MaterialTheme.colorScheme.error) }
                                 }
                             }
                         }
