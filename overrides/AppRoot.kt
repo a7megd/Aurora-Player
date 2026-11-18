@@ -115,8 +115,9 @@ fun AppRoot() {
     }
     val songs by repository.songs.collectAsState()
     LaunchedEffect(controller, songs) {
-        if (controller != null && !restoredPlayback && songs.isNotEmpty()) {
-            if (controller.mediaItemCount == 0) {
+        val activeController = controller ?: return@LaunchedEffect
+        if (!restoredPlayback && songs.isNotEmpty()) {
+            if (activeController.mediaItemCount == 0) {
                 val savedIds = playbackStatePrefs.getString("queue_ids", "").orEmpty()
                     .split(',').mapNotNull { it.toLongOrNull() }
                 val restoredItems = savedIds.mapNotNull { id ->
@@ -131,26 +132,27 @@ fun AppRoot() {
                 if (restoredItems.isNotEmpty()) {
                     val index = playbackStatePrefs.getInt("current_index", 0).coerceIn(0, restoredItems.lastIndex)
                     val position = playbackStatePrefs.getLong("position", 0L).coerceAtLeast(0L)
-                    controller.setMediaItems(restoredItems, index, position)
-                    controller.prepare()
-                    if (playbackStatePrefs.getBoolean("was_playing", false)) controller.play()
+                    activeController.setMediaItems(restoredItems, index, position)
+                    activeController.prepare()
+                    if (playbackStatePrefs.getBoolean("was_playing", false)) activeController.play()
                 }
             }
             restoredPlayback = true
         }
     }
     LaunchedEffect(controller, restoredPlayback) {
-        while (controller != null) {
-            if (restoredPlayback && controller.mediaItemCount > 0) {
-                val ids = (0 until controller.mediaItemCount).mapNotNull { index ->
-                    val item = controller.getMediaItemAt(index)
+        val activeController = controller ?: return@LaunchedEffect
+        while (true) {
+            if (restoredPlayback && activeController.mediaItemCount > 0) {
+                val ids = (0 until activeController.mediaItemCount).mapNotNull { index ->
+                    val item = activeController.getMediaItemAt(index)
                     item.mediaId.toLongOrNull() ?: item.localConfiguration?.uri?.lastPathSegment?.toLongOrNull()
                 }
                 playbackStatePrefs.edit()
                     .putString("queue_ids", ids.joinToString(","))
-                    .putInt("current_index", controller.currentMediaItemIndex.coerceAtLeast(0))
-                    .putLong("position", controller.currentPosition.coerceAtLeast(0L))
-                    .putBoolean("was_playing", controller.isPlaying)
+                    .putInt("current_index", activeController.currentMediaItemIndex.coerceAtLeast(0))
+                    .putLong("position", activeController.currentPosition.coerceAtLeast(0L))
+                    .putBoolean("was_playing", activeController.isPlaying)
                     .apply()
             }
             delay(5000)
