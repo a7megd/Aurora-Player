@@ -152,7 +152,7 @@ fun AppRoot() {
                                 AnimatedContent(targetState = playbackTitle.ifBlank { "الصوت يعمل" }, label = "miniPlayerTrackChange") { title ->
                                     Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
                                 }
-                                Text("Tayer_player", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("Whisper Player", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             IconButton(onClick = { controller?.seekToPreviousMediaItem() }, enabled = (controller?.mediaItemCount ?: 0) > 1) {
                                 Icon(Icons.Rounded.SkipPrevious, contentDescription = "السابق")
@@ -265,6 +265,7 @@ fun AppRoot() {
                         onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } }, activeSongId = playingSongId)
                         r == Routes.PLAYLISTS -> WhisperPlaylistsScreen(songs) { song -> playback.play(song, songs); nav.navigate(Routes.NOW_PLAYING) }
                         r == Routes.FAVORITES -> WhisperFavoritesScreen(songs) { song -> playback.play(song, songs); nav.navigate(Routes.NOW_PLAYING) }
+                        r == Routes.RECENT -> WhisperRecentScreen(songs) { song -> playback.play(song, songs); nav.navigate(Routes.NOW_PLAYING) }
                         r == Routes.QUEUE -> WhisperQueueScreen(controller, songs)
                         r == Routes.LYRICS -> WhisperLyricsScreen(controller)
                         r == Routes.SETTINGS -> WhisperSettingsScreen(app.container.settingsRepository, controller, onWallpaperChanged = { wallpaperUri = it })
@@ -289,7 +290,7 @@ fun AppRoot() {
                     modifier = Modifier.size(230.dp)
                 )
                 Spacer(Modifier.height(18.dp))
-                Text("Tayer_player", color = Color.White, style = MaterialTheme.typography.headlineSmall)
+                Text("Whisper Player", color = Color.White, style = MaterialTheme.typography.headlineSmall)
                 Text("by dr Ahmed Abdelhamid", color = Color(0xFFCE1126), style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 12.dp)) { listOf(Color(0xFF111111), Color.White, Color(0xFFCE1126), Color(0xFF007A3D)).forEach { stripe -> Box(Modifier.width(28.dp).height(4.dp).background(stripe, androidx.compose.foundation.shape.RoundedCornerShape(2.dp))) } }
                 Text("🇵🇸  •  ◇ ╳ ◇ ╳ ◇", color = Color(0xFFECE8DE), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 8.dp))
