@@ -67,6 +67,8 @@ fun AppRoot() {
     var playbackPlaying by remember { mutableStateOf(false) }
     var lastCountedMediaId by remember { mutableStateOf<String?>(null) }
     val playStatsPrefs = remember(context) { context.getSharedPreferences("whisper_preferences", android.content.Context.MODE_PRIVATE) }
+    val playbackStatePrefs = remember(context) { context.getSharedPreferences("whisper_playback_state", android.content.Context.MODE_PRIVATE) }
+    var restoredPlayback by remember { mutableStateOf(false) }
     val sleepTimerPrefs = remember(context) { context.getSharedPreferences("whisper_sleep_timer", android.content.Context.MODE_PRIVATE) }
     LaunchedEffect(controller) {
         while (true) {
@@ -112,6 +114,48 @@ fun AppRoot() {
         if (granted) repository.refresh()
     }
     val songs by repository.songs.collectAsState()
+    LaunchedEffect(controller, songs) {
+        if (controller != null && !restoredPlayback && songs.isNotEmpty()) {
+            if (controller.mediaItemCount == 0) {
+                val savedIds = playbackStatePrefs.getString("queue_ids", "").orEmpty()
+                    .split(',').mapNotNull { it.toLongOrNull() }
+                val restoredItems = savedIds.mapNotNull { id ->
+                    songs.firstOrNull { it.id == id }?.let { song ->
+                        androidx.media3.common.MediaItem.Builder()
+                            .setMediaId(song.id.toString())
+                            .setUri(android.content.ContentUris.withAppendedId(android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, song.id))
+                            .setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(song.title).setArtist(song.artist).build())
+                            .build()
+                    }
+                }
+                if (restoredItems.isNotEmpty()) {
+                    val index = playbackStatePrefs.getInt("current_index", 0).coerceIn(0, restoredItems.lastIndex)
+                    val position = playbackStatePrefs.getLong("position", 0L).coerceAtLeast(0L)
+                    controller.setMediaItems(restoredItems, index, position)
+                    controller.prepare()
+                    if (playbackStatePrefs.getBoolean("was_playing", false)) controller.play()
+                }
+            }
+            restoredPlayback = true
+        }
+    }
+    LaunchedEffect(controller, restoredPlayback) {
+        while (controller != null) {
+            if (restoredPlayback && controller.mediaItemCount > 0) {
+                val ids = (0 until controller.mediaItemCount).mapNotNull { index ->
+                    val item = controller.getMediaItemAt(index)
+                    item.mediaId.toLongOrNull() ?: item.localConfiguration?.uri?.lastPathSegment?.toLongOrNull()
+                }
+                playbackStatePrefs.edit()
+                    .putString("queue_ids", ids.joinToString(","))
+                    .putInt("current_index", controller.currentMediaItemIndex.coerceAtLeast(0))
+                    .putLong("position", controller.currentPosition.coerceAtLeast(0L))
+                    .putBoolean("was_playing", controller.isPlaying)
+                    .apply()
+            }
+            delay(5000)
+        }
+    }
     val excludedFolders by repository.excludedFolders.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val albums = remember(songs) { repository.albums(songs) }
