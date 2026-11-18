@@ -39,8 +39,9 @@ fun NowPlayingScreen(controller: MediaController?, onNavigate: (String) -> Unit 
     var dragging by remember { mutableStateOf(false) }
     var showTimer by remember { mutableStateOf(false) }
     var timerMinutes by remember { mutableIntStateOf(30) }
-    var timerActive by remember { mutableStateOf(false) }
-    var timerRemaining by remember { mutableIntStateOf(0) }
+    val sleepTimerPrefs = remember(context) { context.getSharedPreferences("whisper_sleep_timer", android.content.Context.MODE_PRIVATE) }
+    var timerActive by remember { mutableStateOf(sleepTimerPrefs.getLong("deadline", 0L) > System.currentTimeMillis()) }
+    var timerRemaining by remember { mutableIntStateOf(((sleepTimerPrefs.getLong("deadline", 0L) - System.currentTimeMillis()).coerceAtLeast(0L) / 60000L).toInt()) }
     var menuExpanded by remember { mutableStateOf(false) }
     var showPlaylistPicker by remember { mutableStateOf(false) }
     var showDetails by remember { mutableStateOf(false) }
@@ -61,8 +62,16 @@ fun NowPlayingScreen(controller: MediaController?, onNavigate: (String) -> Unit 
     }
 
     LaunchedEffect(timerActive) {
-        while (timerActive && timerRemaining > 0) { delay(60_000); timerRemaining-- }
-        if (timerActive && timerRemaining <= 0) { controller?.pause(); timerActive = false }
+        while (timerActive) {
+            val deadline = sleepTimerPrefs.getLong("deadline", 0L)
+            timerRemaining = ((deadline - System.currentTimeMillis()).coerceAtLeast(0L) / 60000L).toInt()
+            if (deadline <= 0L || System.currentTimeMillis() >= deadline) {
+                timerActive = false
+                timerRemaining = 0
+                break
+            }
+            delay(1000)
+        }
     }
     LaunchedEffect(controller) {
         while (true) {
@@ -258,10 +267,15 @@ fun NowPlayingScreen(controller: MediaController?, onNavigate: (String) -> Unit 
                 Slider(value = timerMinutes.toFloat(), onValueChange = { timerMinutes = it.toInt().coerceIn(1, 180) }, valueRange = 1f..180f, enabled = !timerActive)
             }
         },
-        confirmButton = { TextButton(onClick = { timerRemaining = timerMinutes; timerActive = true; showTimer = false }) { Text("بدء") } },
+        confirmButton = { TextButton(onClick = {
+            timerRemaining = timerMinutes
+            sleepTimerPrefs.edit().putLong("deadline", System.currentTimeMillis() + timerMinutes * 60_000L).apply()
+            timerActive = true
+            showTimer = false
+        }) { Text("بدء") } },
         dismissButton = {
             Row {
-                TextButton(onClick = { timerActive = false; timerRemaining = 0 }) { Text("إلغاء المؤقت") }
+                TextButton(onClick = { timerActive = false; timerRemaining = 0; sleepTimerPrefs.edit().remove("deadline").apply() }) { Text("إلغاء المؤقت") }
                 TextButton(onClick = { showTimer = false }) { Text("إغلاق") }
             }
         }
