@@ -67,6 +67,17 @@ fun AppRoot() {
     var playbackPlaying by remember { mutableStateOf(false) }
     var lastCountedMediaId by remember { mutableStateOf<String?>(null) }
     val playStatsPrefs = remember(context) { context.getSharedPreferences("whisper_preferences", android.content.Context.MODE_PRIVATE) }
+    val sleepTimerPrefs = remember(context) { context.getSharedPreferences("whisper_sleep_timer", android.content.Context.MODE_PRIVATE) }
+    LaunchedEffect(controller) {
+        while (true) {
+            val deadline = sleepTimerPrefs.getLong("deadline", 0L)
+            if (deadline > 0L && System.currentTimeMillis() >= deadline) {
+                controller?.pause()
+                sleepTimerPrefs.edit().remove("deadline").apply()
+            }
+            delay(1000)
+        }
+    }
 
     DisposableEffect(controller) {
         val listener = object : Player.Listener {
