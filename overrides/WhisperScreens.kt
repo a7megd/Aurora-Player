@@ -56,10 +56,11 @@ fun WhisperPlaylistsScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
     var name by remember { mutableStateOf("") }
     var expandedPlaylist by remember { mutableStateOf<String?>(null) }
     var menuPlaylist by remember { mutableStateOf<String?>(null) }
+    var playlistToExport by remember { mutableStateOf<String?>(null) }
     val selectedIds = remember { mutableStateListOf<Long>() }
     val names = remember(refresh) { prefs.all.keys.filter { it.startsWith("playlist:") }.map { it.removePrefix("playlist:") }.sorted() }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/x-mpegurl")) { uri ->
-        val playlist = menuPlaylist
+        val playlist = playlistToExport
         if (uri != null && playlist != null) {
             val ids = prefs.getString("playlist:$playlist", "").orEmpty().split(',').mapNotNull { it.toLongOrNull() }
             runCatching {
@@ -74,7 +75,7 @@ fun WhisperPlaylistsScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
                     }
                 }
             }
-            menuPlaylist = null
+            playlistToExport = null
         }
     }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -128,7 +129,7 @@ fun WhisperPlaylistsScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
                                         prefs.edit().putString("playlist:$copy", prefs.getString("playlist:$playlist", "").orEmpty()).apply()
                                         refresh++; menuPlaylist = null
                                     })
-                                    DropdownMenuItem(text = { Text("تصدير M3U") }, leadingIcon = { Icon(Icons.Rounded.FileDownload, null) }, onClick = { exportLauncher.launch("$playlist.m3u") })
+                                    DropdownMenuItem(text = { Text("تصدير M3U") }, leadingIcon = { Icon(Icons.Rounded.FileDownload, null) }, onClick = { playlistToExport = playlist; menuPlaylist = null; exportLauncher.launch("$playlist.m3u") })
                                     DropdownMenuItem(text = { Text("حذف") }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { prefs.edit().remove("playlist:$playlist").apply(); if (expandedPlaylist == playlist) expandedPlaylist = null; refresh++; menuPlaylist = null })
                                 }
                             }
