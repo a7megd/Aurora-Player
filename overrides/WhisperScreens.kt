@@ -483,17 +483,18 @@ fun WhisperQueueScreen(controller: MediaController?, songs: List<Song>) {
 private data class TimedLyric(val timeMs: Long, val text: String)
 
 private fun parseLrc(raw: String): List<TimedLyric> {
-    val regex = Regex("\\[(\\d{1,2}):(\\d{2})(?:\\.(\\d{1,3}))?]")
+    val regex = Regex("\\[(\\d{1,2}):(\\d{2})(?:[.:](\\d{1,3}))?]")
+    val offset = Regex("(?im)^\\[offset:([+-]?\\d+)]").find(raw)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
     return raw.lineSequence().flatMap { line ->
         val matches = regex.findAll(line).toList()
-        val lyric = line.replace(regex, "").trim()
+        val lyric = line.replace(regex, "").replace(Regex("\\[offset:[^]]+]"), "").trim()
         matches.map { match ->
             val minutes = match.groupValues[1].toLong()
             val seconds = match.groupValues[2].toLong()
             val fraction = match.groupValues[3].padEnd(3, '0').take(3).toLongOrNull() ?: 0L
-            TimedLyric((minutes * 60 + seconds) * 1000 + fraction, lyric)
+            TimedLyric(((minutes * 60 + seconds) * 1000 + fraction + offset).coerceAtLeast(0L), lyric)
         }
-    }.sortedBy { it.timeMs }.toList()
+    }.filter { it.text.isNotBlank() }.sortedBy { it.timeMs }.toList()
 }
 
 @Composable
@@ -507,6 +508,10 @@ fun WhisperLyricsScreen(controller: MediaController?) {
     var lyrics by remember(mediaId) { mutableStateOf(prefs.getString(mediaId, "").orEmpty()) }
     val timed = remember(lyrics) { parseLrc(lyrics) }
     val active = timed.indexOfLast { it.timeMs <= tick }
+    val lyricListState = rememberLazyListState()
+    LaunchedEffect(active, timed.size) {
+        if (active >= 0) lyricListState.animateScrollToItem(active)
+    }
     val importLrc = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
             val imported = runCatching { context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull()
