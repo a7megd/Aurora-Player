@@ -7,6 +7,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -194,19 +198,42 @@ fun AppRoot() {
             Column {
                 if (controller?.currentMediaItem != null && route != Routes.NOW_PLAYING) {
                     Surface(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp).clickable {
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp).animateContentSize().clickable {
                             nav.navigate(Routes.NOW_PLAYING) { launchSingleTop = true }
                         },
                         shape = MaterialTheme.shapes.extraLarge,
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.88f),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.90f),
                         tonalElevation = 7.dp,
-                        shadowElevation = 10.dp
+                        shadowElevation = 12.dp
                     ) {
-                        Row(Modifier.fillMaxWidth().heightIn(min = 62.dp).padding(horizontal = 8.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.MusicNote, contentDescription = "الصوت يعمل", tint = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.width(7.dp))
+                        Row(Modifier.fillMaxWidth().heightIn(min = 68.dp).padding(horizontal = 9.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            val miniArtwork = controller?.currentMediaItem?.mediaMetadata?.artworkUri
+                            AnimatedContent(
+                                targetState = miniArtwork,
+                                transitionSpec = { (fadeIn() + scaleIn(initialScale = 0.72f)).togetherWith(fadeOut()) },
+                                label = "miniPlayerArtworkMorph"
+                            ) { imageUri ->
+                                Surface(
+                                    modifier = Modifier.size(48.dp),
+                                    shape = MaterialTheme.shapes.medium,
+                                    color = MaterialTheme.colorScheme.surface
+                                ) {
+                                    if (imageUri != null) {
+                                        AsyncImage(model = imageUri, contentDescription = "غلاف الصوت الحالي", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                    } else {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Rounded.MusicNote, contentDescription = "الصوت يعمل", tint = MaterialTheme.colorScheme.primary)
+                                        }
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
-                                AnimatedContent(targetState = playbackTitle.ifBlank { "الصوت يعمل" }, label = "miniPlayerTrackChange") { title ->
+                                AnimatedContent(
+                                    targetState = playbackTitle.ifBlank { "الصوت يعمل" },
+                                    transitionSpec = { (fadeIn() + scaleIn(initialScale = 0.97f)).togetherWith(fadeOut()) },
+                                    label = "miniPlayerTrackChange"
+                                ) { title ->
                                     Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
                                 }
                                 Text("Whisper Player", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
