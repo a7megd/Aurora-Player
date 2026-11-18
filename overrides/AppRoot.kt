@@ -65,12 +65,26 @@ fun AppRoot() {
     LaunchedEffect(Unit) { delay(1400); showBrandSplash = false }
     var playbackTitle by remember { mutableStateOf("") }
     var playbackPlaying by remember { mutableStateOf(false) }
+    var lastCountedMediaId by remember { mutableStateOf<String?>(null) }
+    val playStatsPrefs = remember(context) { context.getSharedPreferences("whisper_preferences", android.content.Context.MODE_PRIVATE) }
 
     DisposableEffect(controller) {
         val listener = object : Player.Listener {
             override fun onEvents(player: Player, events: Player.Events) {
                 playbackTitle = player.currentMediaItem?.mediaMetadata?.title?.toString().orEmpty()
                 playbackPlaying = player.isPlaying
+                if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
+                    val trackId = player.currentMediaItem?.localConfiguration?.uri?.lastPathSegment?.toLongOrNull()?.toString()
+                        ?: player.currentMediaItem?.mediaId?.toLongOrNull()?.toString()
+                    if (trackId != null && trackId != lastCountedMediaId) {
+                        val key = "plays:$trackId"
+                        playStatsPrefs.edit()
+                            .putInt(key, playStatsPrefs.getInt(key, 0) + 1)
+                            .putLong("last_played:$trackId", System.currentTimeMillis())
+                            .apply()
+                        lastCountedMediaId = trackId
+                    }
+                }
             }
         }
         controller?.addListener(listener)
