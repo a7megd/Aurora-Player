@@ -489,7 +489,7 @@ private fun parseLrc(raw: String): List<TimedLyric> {
     val offset = Regex("(?im)^\\[offset:([+-]?\\d+)]").find(raw)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
     return raw.lineSequence().flatMap { line ->
         val matches = regex.findAll(line).toList()
-        val lyric = line.replace(regex, "").replace(Regex("\\[offset:[^]]+]"), "").trim()
+        val lyric = line.replace(regex, "").trim()
         matches.map { match ->
             val minutes = match.groupValues[1].toLong()
             val seconds = match.groupValues[2].toLong()
