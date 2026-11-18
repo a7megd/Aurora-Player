@@ -50,25 +50,104 @@ fun WhisperPlaylistsScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
     val prefs = remember { context.getSharedPreferences("whisper_playlists", Context.MODE_PRIVATE) }
     var refresh by remember { mutableIntStateOf(0) }
     var showCreate by remember { mutableStateOf(false) }
+    var showRename by remember { mutableStateOf(false) }
+    var playlistToRename by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
+    var expandedPlaylist by remember { mutableStateOf<String?>(null) }
+    var menuPlaylist by remember { mutableStateOf<String?>(null) }
     val selectedIds = remember { mutableStateListOf<Long>() }
     val names = remember(refresh) { prefs.all.keys.filter { it.startsWith("playlist:") }.map { it.removePrefix("playlist:") }.sorted() }
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("قوائم التشغيل", style = MaterialTheme.typography.headlineMedium)
-            Button(onClick = { name = ""; selectedIds.clear(); showCreate = true }) { Text("إنشاء قائمة تشغيل") }
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/x-mpegurl")) { uri ->
+        val playlist = menuPlaylist
+        if (uri != null && playlist != null) {
+            val ids = prefs.getString("playlist:$playlist", "").orEmpty().split(',').mapNotNull { it.toLongOrNull() }
+            runCatching {
+                context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { writer ->
+                    writer.appendLine("#EXTM3U")
+                    ids.forEach { id ->
+                        val song = songs.firstOrNull { it.id == id }
+                        if (song != null) {
+                            writer.appendLine("#EXTINF:-1,${song.artist} - ${song.title}")
+                            writer.appendLine(android.content.ContentUris.withAppendedId(android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id).toString())
+                        }
+                    }
+                }
+            }
+            menuPlaylist = null
         }
-        if (names.isEmpty()) Text("أنشئ أول قائمة تشغيل", modifier = Modifier.padding(top = 24.dp))
-        LazyColumn {
-            items(names) { playlist ->
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val imported = runCatching { context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readLines() }.orEmpty() }.getOrDefault(emptyList())
+            val ids = imported.filter { it.isNotBlank() && !it.trimStart().startsWith("#") }.mapNotNull { line ->
+                val parsed = runCatching { Uri.parse(line.trim()) }.getOrNull()
+                parsed?.lastPathSegment?.toLongOrNull()
+                    ?: line.substringAfterLast('/').substringBeforeLast('.').toLongOrNull()
+                    ?: songs.firstOrNull { it.title.equals(line.substringAfterLast('/').substringBeforeLast('.'), true) }?.id
+            }.distinct().filter { id -> songs.any { it.id == id } }
+            if (ids.isNotEmpty()) {
+                var importedName = "قائمة مستوردة"
+                var suffix = 2
+                while (prefs.contains("playlist:$importedName")) { importedName = "قائمة مستوردة $suffix"; suffix++ }
+                prefs.edit().putString("playlist:$importedName", ids.joinToString(",")).apply()
+                refresh++
+            }
+        }
+    }
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text("قوائم التشغيل", style = MaterialTheme.typography.headlineMedium)
+            Row {
+                IconButton(onClick = { importLauncher.launch(arrayOf("audio/x-mpegurl", "application/x-mpegURL", "text/plain", "*/*")) }) { Icon(Icons.Rounded.FileOpen, "استيراد M3U") }
+                IconButton(onClick = { name = ""; selectedIds.clear(); showCreate = true }) { Icon(Icons.Rounded.Add, "إنشاء قائمة") }
+            }
+        }
+        Text("أنشئ قوائمك أو استوردها وصدّرها بصيغة M3U.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (names.isEmpty()) Text("أنشئ أول قائمة تشغيل أو استورد ملف M3U.", modifier = Modifier.padding(top = 24.dp))
+        LazyColumn(Modifier.weight(1f)) {
+            items(names, key = { it }) { playlist ->
                 val ids = prefs.getString("playlist:$playlist", "").orEmpty().split(',').mapNotNull { it.toLongOrNull() }
-                val tracks = songs.filter { it.id in ids }
-                ListItem(
-                    headlineContent = { Text(playlist) },
-                    supportingContent = { Text("${tracks.size} مقطعًا") },
-                    trailingContent = { TextButton(onClick = { prefs.edit().remove("playlist:$playlist").apply(); refresh++ }) { Text("حذف") } },
-                    modifier = Modifier.clickable { tracks.firstOrNull()?.let(onPlay) }
-                )
+                val tracks = ids.mapNotNull { id -> songs.firstOrNull { it.id == id } }
+                Card(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+                    Column {
+                        Row(Modifier.fillMaxWidth().clickable { expandedPlaylist = if (expandedPlaylist == playlist) null else playlist }.padding(start = 14.dp, end = 4.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.QueueMusic, null, tint = MaterialTheme.colorScheme.primary)
+                            Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+                                Text(playlist, style = MaterialTheme.typography.titleMedium)
+                                Text("${tracks.size} مقطعًا", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            IconButton(onClick = { if (tracks.isNotEmpty()) onPlay(tracks.first()) }, enabled = tracks.isNotEmpty()) { Icon(Icons.Rounded.PlayArrow, "تشغيل القائمة") }
+                            Box {
+                                IconButton(onClick = { menuPlaylist = playlist }) { Icon(Icons.Rounded.MoreVert, "خيارات القائمة") }
+                                DropdownMenu(expanded = menuPlaylist == playlist, onDismissRequest = { menuPlaylist = null }) {
+                                    DropdownMenuItem(text = { Text("إعادة تسمية") }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = { playlistToRename = playlist; name = playlist; showRename = true; menuPlaylist = null })
+                                    DropdownMenuItem(text = { Text("إنشاء نسخة") }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) }, onClick = {
+                                        var copy = "$playlist - نسخة"; var suffix = 2
+                                        while (prefs.contains("playlist:$copy")) { copy = "$playlist - نسخة $suffix"; suffix++ }
+                                        prefs.edit().putString("playlist:$copy", prefs.getString("playlist:$playlist", "").orEmpty()).apply()
+                                        refresh++; menuPlaylist = null
+                                    })
+                                    DropdownMenuItem(text = { Text("تصدير M3U") }, leadingIcon = { Icon(Icons.Rounded.FileDownload, null) }, onClick = { exportLauncher.launch("$playlist.m3u") })
+                                    DropdownMenuItem(text = { Text("حذف") }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { prefs.edit().remove("playlist:$playlist").apply(); if (expandedPlaylist == playlist) expandedPlaylist = null; refresh++; menuPlaylist = null })
+                                }
+                            }
+                            Icon(Icons.Rounded.ExpandMore, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (expandedPlaylist == playlist) {
+                            HorizontalDivider()
+                            if (tracks.isEmpty()) Text("لا توجد مقاطع متاحة في هذه القائمة.", modifier = Modifier.padding(14.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            tracks.forEachIndexed { index, song ->
+                                ListItem(
+                                    leadingContent = { Text("${index + 1}", color = MaterialTheme.colorScheme.primary) },
+                                    headlineContent = { Text(song.title, maxLines = 1) },
+                                    supportingContent = { Text(song.artist, maxLines = 1) },
+                                    trailingContent = { IconButton(onClick = { onPlay(song) }) { Icon(Icons.Rounded.PlayArrow, "تشغيل") } },
+                                    modifier = Modifier.clickable { onPlay(song) }
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -81,37 +160,39 @@ fun WhisperPlaylistsScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
                 Spacer(Modifier.height(8.dp))
                 Text("اختر المقاطع", style = MaterialTheme.typography.titleSmall)
                 LazyColumn(Modifier.heightIn(max = 300.dp)) {
-                    items(songs) { song ->
+                    items(songs, key = { it.id }) { song ->
                         val checked = song.id in selectedIds
-                        Row(Modifier.fillMaxWidth().clickable {
-                            if (checked) selectedIds.remove(song.id) else selectedIds.add(song.id)
-                        }.padding(vertical = 2.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                            Checkbox(checked = checked, onCheckedChange = {
-                                if (it) { if (song.id !in selectedIds) selectedIds.add(song.id) } else selectedIds.remove(song.id)
-                            })
-                            Column(Modifier.weight(1f)) {
-                                Text(song.title, maxLines = 1)
-                                Text(song.artist, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                            }
+                        Row(Modifier.fillMaxWidth().clickable { if (checked) selectedIds.remove(song.id) else selectedIds.add(song.id) }.padding(vertical = 2.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            Checkbox(checked = checked, onCheckedChange = { if (it) { if (song.id !in selectedIds) selectedIds.add(song.id) } else selectedIds.remove(song.id) })
+                            Column(Modifier.weight(1f)) { Text(song.title, maxLines = 1); Text(song.artist, style = MaterialTheme.typography.labelSmall, maxLines = 1) }
                         }
                     }
                 }
                 Text("تم اختيار ${selectedIds.size}", style = MaterialTheme.typography.labelSmall)
             }
         },
-        confirmButton = {
-            TextButton(onClick = {
-                val clean = name.trim()
-                if (clean.isNotEmpty() && selectedIds.isNotEmpty()) {
-                    prefs.edit().putString("playlist:$clean", selectedIds.joinToString(",")).apply()
-                    refresh++
-                    name = ""
-                    selectedIds.clear()
-                    showCreate = false
-                }
-            }, enabled = name.isNotBlank() && selectedIds.isNotEmpty()) { Text("إنشاء") }
-        },
+        confirmButton = { TextButton(onClick = {
+            val clean = name.trim()
+            if (clean.isNotEmpty() && selectedIds.isNotEmpty() && !prefs.contains("playlist:$clean")) {
+                prefs.edit().putString("playlist:$clean", selectedIds.joinToString(",")).apply()
+                refresh++; name = ""; selectedIds.clear(); showCreate = false
+            }
+        }, enabled = name.isNotBlank() && selectedIds.isNotEmpty()) { Text("إنشاء") } },
         dismissButton = { TextButton(onClick = { showCreate = false }) { Text("إلغاء") } }
+    )
+    if (showRename) AlertDialog(
+        onDismissRequest = { showRename = false },
+        title = { Text("إعادة تسمية القائمة") },
+        text = { OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true, label = { Text("الاسم الجديد") }) },
+        confirmButton = { TextButton(onClick = {
+            val clean = name.trim()
+            if (clean.isNotEmpty() && (clean == playlistToRename || !prefs.contains("playlist:$clean"))) {
+                val oldItems = prefs.getString("playlist:$playlistToRename", "").orEmpty()
+                prefs.edit().putString("playlist:$clean", oldItems).remove("playlist:$playlistToRename").apply()
+                refresh++; expandedPlaylist = clean; showRename = false
+            }
+        }, enabled = name.isNotBlank()) { Text("حفظ") } },
+        dismissButton = { TextButton(onClick = { showRename = false }) { Text("إلغاء") } }
     )
 }
 
