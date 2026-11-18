@@ -38,7 +38,6 @@ import coil.compose.AsyncImage
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.media3.session.MediaController
-import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.Player
 import com.aurora.player.data.prefs.SettingsRepository
 import com.aurora.player.domain.model.Song
@@ -581,10 +580,17 @@ private fun SleepTimerCard(controller: MediaController?) {
     }
 }
 
-@OptIn(UnstableApi::class)
 @Composable
 fun WhisperEqualizerScreen(controller: MediaController?) {
-    val sessionId = runCatching { controller?.getAudioSessionId() ?: 0 }.getOrDefault(0)
+    var sessionId by remember(controller) { mutableIntStateOf(0) }
+    LaunchedEffect(controller) {
+        while (controller != null) {
+            sessionId = runCatching {
+                controller.javaClass.getMethod("getAudioSessionId").invoke(controller) as? Int ?: 0
+            }.getOrDefault(0)
+            kotlinx.coroutines.delay(700)
+        }
+    }
     val effect = remember(sessionId) {
         if (sessionId > 0) runCatching { Equalizer(0, sessionId).apply { enabled = true } }.getOrNull() else null
     }
@@ -598,7 +604,7 @@ fun WhisperEqualizerScreen(controller: MediaController?) {
         Text("موازن الصوت", style = MaterialTheme.typography.headlineMedium)
         Text("اضبط ترددات الصوت أثناء التشغيل.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 5.dp, bottom = 14.dp))
         if (effect == null) {
-            Text("تعذّر تشغيل موازن الصوت على هذا الجهاز. تحقق من دعم الجهاز للمؤثرات الصوتية.", color = MaterialTheme.colorScheme.error)
+            Text("تعذّر الوصول إلى جلسة الصوت الفعلية. ابدأ تشغيل مقطع، وتأكد من دعم إصدار المشغّل لمعرّف جلسة الصوت.", color = MaterialTheme.colorScheme.error)
         } else {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
