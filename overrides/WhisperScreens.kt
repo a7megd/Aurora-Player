@@ -584,7 +584,7 @@ private fun SleepTimerCard(controller: MediaController?) {
 @OptIn(UnstableApi::class)
 @Composable
 fun WhisperEqualizerScreen(controller: MediaController?) {
-    val sessionId = controller?.audioSessionId ?: 0
+    val sessionId = runCatching { controller?.getAudioSessionId() ?: 0 }.getOrDefault(0)
     val effect = remember(sessionId) {
         if (sessionId > 0) runCatching { Equalizer(0, sessionId).apply { enabled = true } }.getOrNull() else null
     }
