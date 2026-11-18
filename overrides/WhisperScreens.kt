@@ -584,9 +584,10 @@ private fun SleepTimerCard(controller: MediaController?) {
 fun WhisperEqualizerScreen(controller: MediaController?) {
     var sessionId by remember(controller) { mutableIntStateOf(0) }
     LaunchedEffect(controller) {
-        while (controller != null) {
+        val activeController = controller ?: return@LaunchedEffect
+        while (true) {
             sessionId = runCatching {
-                controller.javaClass.getMethod("getAudioSessionId").invoke(controller) as? Int ?: 0
+                activeController.javaClass.getMethod("getAudioSessionId").invoke(activeController) as? Int ?: 0
             }.getOrDefault(0)
             kotlinx.coroutines.delay(700)
         }
