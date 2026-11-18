@@ -280,7 +280,7 @@ fun AppRoot() {
                         r == Routes.QUEUE -> WhisperQueueScreen(controller, songs)
                         r == Routes.LYRICS -> WhisperLyricsScreen(controller)
                         r == Routes.SETTINGS -> WhisperSettingsScreen(app.container.settingsRepository, controller, onWallpaperChanged = { wallpaperUri = it })
-                        r == Routes.EQUALIZER -> WhisperEqualizerScreen()
+                        r == Routes.EQUALIZER -> WhisperEqualizerScreen(controller)
                         else -> ScaffoldScreen(title)
                     }
                 }
