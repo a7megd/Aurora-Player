@@ -197,6 +197,46 @@ fun WhisperPlaylistsScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
 }
 
 @Composable
+fun WhisperRecentScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("whisper_preferences", Context.MODE_PRIVATE) }
+    var mode by remember { mutableStateOf("recent") }
+    var refresh by remember { mutableIntStateOf(0) }
+    val ordered = remember(songs, mode, refresh) {
+        when (mode) {
+            "most" -> songs.sortedWith(compareByDescending<Song> { prefs.getInt("plays:${it.id}", 0) }.thenByDescending { prefs.getLong("last_played:${it.id}", 0L) })
+            else -> songs.filter { prefs.getLong("last_played:${it.id}", 0L) > 0L }.sortedByDescending { prefs.getLong("last_played:${it.id}", 0L) }
+        }
+    }
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Text("سجل الاستماع", style = MaterialTheme.typography.headlineMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 12.dp)) {
+            FilterChip(selected = mode == "recent", onClick = { mode = "recent" }, label = { Text("آخر تشغيل") })
+            FilterChip(selected = mode == "most", onClick = { mode = "most" }, label = { Text("الأكثر تشغيلًا") })
+            IconButton(onClick = { refresh++ }) { Icon(Icons.Rounded.Refresh, "تحديث") }
+        }
+        if (ordered.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                Text(if (mode == "recent") "ستظهر هنا الأغاني بعد تشغيلها." else "لم يتم تسجيل مرات تشغيل بعد.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
+            LazyColumn {
+                items(ordered, key = { it.id }) { song ->
+                    val plays = prefs.getInt("plays:${song.id}", 0)
+                    ListItem(
+                        headlineContent = { Text(song.title, maxLines = 1) },
+                        supportingContent = { Text("${song.artist} • ${plays} تشغيل", maxLines = 1) },
+                        leadingContent = { Icon(Icons.Rounded.History, null, tint = MaterialTheme.colorScheme.primary) },
+                        trailingContent = { IconButton(onClick = { onPlay(song) }) { Icon(Icons.Rounded.PlayArrow, "تشغيل") } },
+                        modifier = Modifier.clickable { onPlay(song) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun WhisperFavoritesScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("whisper_favorites", Context.MODE_PRIVATE) }
