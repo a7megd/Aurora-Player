@@ -806,8 +806,12 @@ fun WhisperSongListScreen(
     val sortedSongs = remember(songs, sort) { when (sort) {
         "oldest" -> songs.sortedBy { it.id }
         "name" -> songs.sortedBy { it.title.lowercase(Locale.ROOT) }
+        "name_desc" -> songs.sortedByDescending { it.title.lowercase(Locale.ROOT) }
         "artist" -> songs.sortedBy { it.artist.lowercase(Locale.ROOT) }
+        "artist_desc" -> songs.sortedByDescending { it.artist.lowercase(Locale.ROOT) }
         "plays" -> songs.sortedByDescending { prefs.getInt("plays:" + it.id, 0) }
+        "least_plays" -> songs.sortedBy { prefs.getInt("plays:" + it.id, 0) }
+        "recently_played" -> songs.sortedByDescending { prefs.getLong("last_played:" + it.id, 0L) }
         else -> songs.sortedByDescending { it.id }
     } }
     val listState = rememberLazyListState()
@@ -822,7 +826,7 @@ fun WhisperSongListScreen(
             Box {
                 IconButton(onClick = { expanded = true }) { Icon(Icons.Rounded.Sort, contentDescription = "ترتيب") }
                 DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                    listOf("newest" to "الأحدث", "oldest" to "الأقدم", "name" to "الاسم", "artist" to "الفنان", "plays" to "الأكثر تشغيلًا").forEach { (key, label) ->
+                    listOf("newest" to "الأحدث", "oldest" to "الأقدم", "name" to "الاسم تصاعديًا", "name_desc" to "الاسم تنازليًا", "artist" to "الفنان تصاعديًا", "artist_desc" to "الفنان تنازليًا", "plays" to "الأكثر تشغيلًا", "least_plays" to "الأقل تشغيلًا", "recently_played" to "آخر تشغيل").forEach { (key, label) ->
                         DropdownMenuItem(text = { Text(label) }, onClick = { sort = key; prefs.edit().putString("song_sort", key).apply(); expanded = false })
                     }
                 }
