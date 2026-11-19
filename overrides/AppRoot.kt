@@ -139,7 +139,16 @@ fun AppRoot() {
                     val position = playbackStatePrefs.getLong("position", 0L).coerceAtLeast(0L)
                     activeController.setMediaItems(restoredItems, index, position)
                     activeController.prepare()
-                    if (playbackStatePrefs.getBoolean("was_playing", false)) activeController.play()
+                    // Restore the listening position and queue, but never start audio unexpectedly on app launch.
+                    activeController.playWhenReady = false
+                } else if (savedIds.isNotEmpty()) {
+                    // All saved media IDs may have been deleted or become inaccessible. Drop the stale queue.
+                    playbackStatePrefs.edit()
+                        .putString("queue_ids", "")
+                        .putInt("current_index", 0)
+                        .putLong("position", 0L)
+                        .putBoolean("was_playing", false)
+                        .apply()
                 }
             }
             restoredPlayback = true
@@ -148,17 +157,27 @@ fun AppRoot() {
     LaunchedEffect(controller, restoredPlayback) {
         val activeController = controller ?: return@LaunchedEffect
         while (true) {
-            if (restoredPlayback && activeController.mediaItemCount > 0) {
-                val ids = (0 until activeController.mediaItemCount).mapNotNull { index ->
-                    val item = activeController.getMediaItemAt(index)
-                    item.mediaId.toLongOrNull() ?: item.localConfiguration?.uri?.lastPathSegment?.toLongOrNull()
+            if (restoredPlayback) {
+                if (activeController.mediaItemCount > 0) {
+                    val ids = (0 until activeController.mediaItemCount).mapNotNull { index ->
+                        val item = activeController.getMediaItemAt(index)
+                        item.mediaId.toLongOrNull() ?: item.localConfiguration?.uri?.lastPathSegment?.toLongOrNull()
+                    }
+                    playbackStatePrefs.edit()
+                        .putString("queue_ids", ids.joinToString(","))
+                        .putInt("current_index", activeController.currentMediaItemIndex.coerceAtLeast(0))
+                        .putLong("position", activeController.currentPosition.coerceAtLeast(0L))
+                        .putBoolean("was_playing", activeController.isPlaying)
+                        .apply()
+                } else {
+                    // Persist an intentionally cleared queue so an older snapshot is not resurrected next launch.
+                    playbackStatePrefs.edit()
+                        .putString("queue_ids", "")
+                        .putInt("current_index", 0)
+                        .putLong("position", 0L)
+                        .putBoolean("was_playing", false)
+                        .apply()
                 }
-                playbackStatePrefs.edit()
-                    .putString("queue_ids", ids.joinToString(","))
-                    .putInt("current_index", activeController.currentMediaItemIndex.coerceAtLeast(0))
-                    .putLong("position", activeController.currentPosition.coerceAtLeast(0L))
-                    .putBoolean("was_playing", activeController.isPlaying)
-                    .apply()
             }
             delay(5000)
         }
