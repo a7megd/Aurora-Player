@@ -418,6 +418,14 @@ fun WhisperQueueScreen(controller: MediaController?, songs: List<Song>) {
                             Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
                                 Icon(Icons.Rounded.DragHandle, contentDescription = "اضغط مطولًا واسحب لأعلى أو لأسفل", tint = if (dragging) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp).size(28.dp))
                                 Row {
+                                    IconButton(
+                                        onClick = { if (index > 0) controller?.moveMediaItem(index, index - 1); tick++ },
+                                        enabled = controller != null && index > 0
+                                    ) { Icon(Icons.Rounded.KeyboardArrowUp, "نقل لأعلى") }
+                                    IconButton(
+                                        onClick = { if (index < count - 1) controller?.moveMediaItem(index, index + 1); tick++ },
+                                        enabled = controller != null && index < count - 1
+                                    ) { Icon(Icons.Rounded.KeyboardArrowDown, "نقل لأسفل") }
                                     IconButton(onClick = { controller?.addMediaItem((current + 1).coerceAtLeast(0).coerceAtMost(controller.mediaItemCount), item!!); tick++ }, enabled = item != null && index != current) { Icon(Icons.Rounded.SkipNext, "تشغيل بعد الحالي") }
                                     IconButton(onClick = { controller?.removeMediaItem(index); tick++ }) { Icon(Icons.Rounded.Close, "إزالة من الانتظار", tint = MaterialTheme.colorScheme.error) }
                                 }
