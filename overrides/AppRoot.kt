@@ -11,7 +11,14 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.slideIntoContainer
+import androidx.compose.animation.slideOutOfContainer
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -300,7 +307,39 @@ fun AppRoot() {
         if (wallpaperUri != null) AsyncImage(model = wallpaperUri, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(), alpha = 0.22f)
         NavHost(nav, startDestination = Routes.HOME, modifier = Modifier.padding(padding)) {
             allRoutes.forEach { (r, title) ->
-                composable(r) {
+                composable(
+                route = r,
+                enterTransition = {
+                    when (r) {
+                        Routes.NOW_PLAYING ->
+                            fadeIn(tween(280)) + scaleIn(initialScale = 0.965f, animationSpec = tween(280))
+                        Routes.QUEUE, Routes.LYRICS ->
+                            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Up, animationSpec = tween(300)) + fadeIn(tween(220))
+                        Routes.SETTINGS, Routes.EQUALIZER ->
+                            expandHorizontally(expandFrom = Alignment.Start, animationSpec = tween(320)) + fadeIn(tween(240))
+                        else ->
+                            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, animationSpec = tween(320)) + fadeIn(tween(240))
+                    }
+                },
+                exitTransition = {
+                    when (r) {
+                        Routes.NOW_PLAYING ->
+                            fadeOut(tween(220)) + scaleOut(targetScale = 1.025f, animationSpec = tween(220))
+                        Routes.QUEUE, Routes.LYRICS ->
+                            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Down, animationSpec = tween(280)) + fadeOut(tween(180))
+                        Routes.SETTINGS, Routes.EQUALIZER ->
+                            shrinkHorizontally(shrinkTowards = Alignment.Start, animationSpec = tween(280)) + fadeOut(tween(200))
+                        else ->
+                            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, animationSpec = tween(300)) + fadeOut(tween(200))
+                    }
+                },
+                popEnterTransition = {
+                    fadeIn(tween(220)) + slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = tween(300))
+                },
+                popExitTransition = {
+                    fadeOut(tween(180)) + slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = tween(280))
+                }
+            ) {
                     when {
                         r == Routes.NOW_PLAYING -> NowPlayingScreen(controller, onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } })
                         r == Routes.SONGS -> WhisperSongListScreen(
