@@ -6,6 +6,7 @@ on:
     branches:
       - codex/aurora-player-next
       - codex/whisper-player-stability-2026-11
+      - codex/whisper-player-motion-2026-11
 
 concurrency:
   group: whisper-player-android-${{ github.ref }}
