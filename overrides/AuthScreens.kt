@@ -185,6 +185,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit) {
     var favorites by remember { mutableStateOf("") }
     var message by remember { mutableStateOf<String?>(null) }
     var showAdminPanel by remember { mutableStateOf(false) }
+    var showArticles by remember { mutableStateOf(false) }
     val adminBuild = LocalContext.current.packageName.endsWith(".test") && FirebaseCommunity.isAdmin(user.uid)
     fun refresh() { scope.launch {
         loading = true; errorText = null
@@ -203,6 +204,12 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column { Text("مجتمع Whisper", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text("استمع، تقدّم، وكن جزءًا من المجتمع", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 TextButton(onClick = onSignOut) { Text("تسجيل الخروج") }
+            }
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column(Modifier.weight(1f)) { Text("مساحة المقالات", fontWeight = FontWeight.Bold); Text("اقرأ واكتب وانشر مقالاتك مع مجتمع Whisper", style = MaterialTheme.typography.bodySmall) }
+                    Button(onClick = { showArticles = true }) { Text("استكشف") }
+                }
             }
             if (adminBuild) {
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
@@ -274,6 +281,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit) {
     )
     message?.let { AlertDialog(onDismissRequest = { message = null }, confirmButton = { TextButton(onClick = { message = null }) { Text("حسنًا") } }, text = { Text(it) }) }
     if (showAdminPanel && adminBuild) AdminDashboardDialog(onDismiss = { showAdminPanel = false })
+    if (showArticles) ArticleHubDialog(user = user, onDismiss = { showArticles = false })
 }
 
 private fun formatListening(ms: Long): String {
