@@ -1,0 +1,29 @@
+name: Whisper Player source audit bundle
+
+on:
+  push:
+    branches:
+      - codex/whisper-player-audio-bluetooth-2026-11
+
+permissions:
+  contents: read
+
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Expand project and apply maintained overrides
+        run: |
+          unzip -o AuroraPlayer-stage3-continuation.zip -d .
+          install -D overrides/AppRoot.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/AppRoot.kt
+          install -D overrides/NowPlayingScreen.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/NowPlayingScreen.kt
+          install -D overrides/WhisperScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/WhisperScreens.kt
+          install -D overrides/Routes.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/Routes.kt
+      - name: Package source
+        run: zip -qr whisper-player-expanded-source.zip AuroraPlayer
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Whisper-Player-Expanded-Source
+          path: whisper-player-expanded-source.zip
+          retention-days: 3
