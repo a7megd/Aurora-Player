@@ -130,6 +130,9 @@ object FirebaseCommunity {
                 )
             }.sortedBy { it.displayName.lowercase() }
 
+    suspend fun followingIds(uid: String): Set<String> =
+        db.collection("users").document(uid).collection("following").get().await().documents.map { it.id }.toSet()
+
     suspend fun isFollowing(uid: String, targetUid: String): Boolean =
         db.collection("users").document(uid).collection("following").document(targetUid).get().await().exists()
 
