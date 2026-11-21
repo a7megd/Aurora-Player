@@ -21,7 +21,9 @@ data class CommunityMember(
 )
 
 
-data class ChatApprovalRequest(val id: String, val requesterUid: String, val requesterName: String, val targetUid: String, val targetName: String, val status: String, val createdAt: Long = 0L)\n\ndata class FriendRequest(
+data class ChatApprovalRequest(val id: String, val requesterUid: String, val requesterName: String, val targetUid: String, val targetName: String, val status: String, val createdAt: Long = 0L)
+
+data class FriendRequest(
     val uid: String,
     val displayName: String,
     val photoUrl: String,
@@ -258,12 +260,11 @@ object FirebaseCommunity {
             check(snap.exists() && snap.getString("status") == "pending") { "تمت مراجعة هذا الطلب بالفعل." }
             val requester = snap.getString("requesterUid").orEmpty()
             val target = snap.getString("targetUid").orEmpty()
-            tx.update(ref, "status", if (approve) "approved" else "rejected", "reviewedAt", FieldValue.serverTimestamp())
+            tx.update(ref, if (approve) mapOf("status" to "approved", "reviewedAt" to FieldValue.serverTimestamp(), "threadId" to listOf(requester, target).sorted().joinToString("_")) else mapOf("status" to "rejected", "reviewedAt" to FieldValue.serverTimestamp()))
             if (approve) {
                 val threadId = listOf(requester, target).sorted().joinToString("_")
                 val thread = db.collection("chatThreads").document(threadId)
                 tx.set(thread, mapOf("participants" to listOf(requester, target), "updatedAt" to FieldValue.serverTimestamp()), SetOptions.merge())
-                tx.update(ref, "threadId", threadId)
             }
         }.await()
     }
