@@ -65,7 +65,7 @@ data class FriendRequest(
                     ?: fallbackName?.takeIf { it.isNotBlank() }
                     ?: user.email?.substringBefore('@')?.take(24) ?: "Whisper User"
             }
-            if (!snapshot.contains("photoUrl")) updates["photoUrl"] = ""
+            if (!snapshot.contains("photoUrl")) updates["photoUrl"] = ""\n            if (!snapshot.contains("photoData")) updates["photoData"] = ""
             if (!snapshot.contains("bio")) updates["bio"] = ""
             if (!snapshot.contains("favoriteSounds")) updates["favoriteSounds"] = ""
             if (!snapshot.contains("totalListeningMs")) updates["totalListeningMs"] = 0L
@@ -74,12 +74,12 @@ data class FriendRequest(
         }
     }
 
-    suspend fun updateProfile(uid: String, displayName: String, photoUrl: String, bio: String, favoriteSounds: String) {
+    suspend fun updateProfile(uid: String, displayName: String, photoUrl: String, bio: String, favoriteSounds: String, photoData: String) {
         require(displayName.trim().length in 2..30) { "الاسم يجب أن يكون بين حرفين و30 حرفًا." }
         require(photoUrl.length <= 500 && (photoUrl.isBlank() || photoUrl.startsWith("https://"))) {
             "رابط الصورة يجب أن يبدأ بـ https://"
         }
-        require(bio.length <= 160) { "النبذة لا يمكن أن تتجاوز 160 حرفًا." }
+        require(photoData.length <= 180000) { "حجم الصورة بعد الضغط كبير جدًا." }\n        require(bio.length <= 160) { "النبذة لا يمكن أن تتجاوز 160 حرفًا." }
         require(favoriteSounds.length <= 500) { "قائمة الأصوات المفضلة طويلة جدًا." }
         db.collection("users").document(uid).update(
             mapOf(
@@ -141,16 +141,16 @@ data class FriendRequest(
         mapOf("requesterUid" to uid, "requesterName" to displayName, "requesterPhotoUrl" to photoUrl,
             "recipientUid" to targetUid, "status" to "pending", "createdAt" to FieldValue.serverTimestamp())
 
-    suspend fun sendFriendRequest(fromUid: String, fromName: String, fromPhotoUrl: String, targetUid: String) {
+    suspend fun sendFriendRequest(fromUid: String, fromName: String, fromPhotoData: String, targetUid: String) {
         require(fromUid != targetUid) { "لا يمكنك إرسال طلب صداقة لنفسك." }
         val sender = db.collection("users").document(fromUid).collection("sentFriendRequests").document(targetUid)
         val receiver = db.collection("users").document(targetUid).collection("friendRequests").document(fromUid)
         val current = sender.get().await()
         require(!current.exists() || current.getString("status") == "rejected") { "لديك طلب صداقة سابق أو قائم لهذا المستخدم." }
         val targetProfile = db.collection("users").document(targetUid).get().await()
-        val data = requestData(fromUid, fromName, fromPhotoUrl, targetUid) +
+        val data = requestData(fromUid, fromName, "", targetUid) + mapOf("requesterPhotoData" to fromPhotoData) +
             mapOf("recipientName" to (targetProfile.getString("displayName") ?: "عضو Whisper"),
-                "recipientPhotoUrl" to targetProfile.getString("photoUrl").orEmpty())
+                "recipientPhotoUrl" to targetProfile.getString("photoUrl").orEmpty(),\n                "recipientPhotoData" to targetProfile.getString("photoData").orEmpty())
         db.runBatch { batch -> batch.set(sender, data); batch.set(receiver, data) }.await()
     }
 
