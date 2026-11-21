@@ -147,7 +147,10 @@ data class FriendRequest(
         val receiver = db.collection("users").document(targetUid).collection("friendRequests").document(fromUid)
         val current = sender.get().await()
         require(!current.exists() || current.getString("status") == "rejected") { "لديك طلب صداقة سابق أو قائم لهذا المستخدم." }
-        val data = requestData(fromUid, fromName, fromPhotoUrl, targetUid)
+        val targetProfile = db.collection("users").document(targetUid).get().await()
+        val data = requestData(fromUid, fromName, fromPhotoUrl, targetUid) +
+            mapOf("recipientName" to (targetProfile.getString("displayName") ?: "عضو Whisper"),
+                "recipientPhotoUrl" to targetProfile.getString("photoUrl").orEmpty())
         db.runBatch { batch -> batch.set(sender, data); batch.set(receiver, data) }.await()
     }
 
