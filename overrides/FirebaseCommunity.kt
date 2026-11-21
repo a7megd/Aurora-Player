@@ -4,6 +4,7 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
 
 data class AdminMember(val uid: String, val displayName: String, val bio: String, val suspended: Boolean)
@@ -132,10 +133,28 @@ object FirebaseCommunity {
 
     suspend fun follow(uid: String, targetUid: String, enabled: Boolean) {
         require(uid != targetUid) { "لا يمكنك متابعة حسابك." }
-        val ref = db.collection("users").document(uid).collection("following").document(targetUid)
-        if (enabled) ref.set(mapOf("targetUid" to targetUid, "createdAt" to FieldValue.serverTimestamp())).await()
-        else ref.delete().await()
+        val following = db.collection("users").document(uid).collection("following").document(targetUid)
+        val followers = db.collection("users").document(targetUid).collection("followers").document(uid)
+        db.runBatch { batch ->
+            if (enabled) {
+                val data = mapOf("uid" to uid, "targetUid" to targetUid, "createdAt" to FieldValue.serverTimestamp())
+                batch.set(following, data, SetOptions.merge())
+                batch.set(followers, data, SetOptions.merge())
+            } else {
+                batch.delete(following)
+                batch.delete(followers)
+            }
+        }.await()
     }
+
+    suspend fun followerCount(uid: String): Int =
+        db.collection("users").document(uid).collection("followers").get().await().size()
+
+    suspend fun followingCount(uid: String): Int =
+        db.collection("users").document(uid).collection("following").get().await().size()
+
+    suspend fun friendCount(uid: String): Int =
+        db.collection("users").document(uid).collection("friends").get().await().size()
 
     suspend fun requestFriend(fromUid: String, fromName: String, targetUid: String) {
         require(fromUid != targetUid) { "لا يمكنك إرسال طلب صداقة لنفسك." }
@@ -153,13 +172,21 @@ object FirebaseCommunity {
         val sender = db.collection("users").document(fromUid).collection("sentFriendRequests").document(targetUid)
         val receiver = db.collection("users").document(targetUid).collection("friendRequests").document(fromUid)
         val current = sender.get().await()
-        require(!current.exists()) { "لديك طلب صداقة سابق أو قائم لهذا المستخدم." }
+        require(!current.exists() || current.getString("status") == "rejected") {
+            "لديك طلب صداقة قائم أو سبق قبوله لهذا المستخدم."
+        }
         val targetProfile = db.collection("users").document(targetUid).get().await()
-        val data = requestData(fromUid, fromName, "", targetUid) + mapOf("requesterPhotoData" to fromPhotoData) +
-            mapOf("recipientName" to (targetProfile.getString("displayName") ?: "عضو Whisper"),
-                "recipientPhotoUrl" to targetProfile.getString("photoUrl").orEmpty(),
-                "recipientPhotoData" to targetProfile.getString("photoData").orEmpty())
-        db.runBatch { batch -> batch.set(sender, data); batch.set(receiver, data) }.await()
+        check(targetProfile.exists()) { "هذا الحساب لم يعد متاحًا." }
+        val data = requestData(fromUid, fromName, "", targetUid) + mapOf(
+            "requesterPhotoData" to fromPhotoData,
+            "recipientName" to (targetProfile.getString("displayName") ?: "عضو Whisper"),
+            "recipientPhotoUrl" to targetProfile.getString("photoUrl").orEmpty(),
+            "recipientPhotoData" to targetProfile.getString("photoData").orEmpty()
+        )
+        db.runBatch { batch ->
+            batch.set(sender, data)
+            batch.set(receiver, data)
+        }.await()
     }
 
     suspend fun incomingFriendRequests(uid: String): List<FriendRequest> =
@@ -180,14 +207,22 @@ object FirebaseCommunity {
         val incoming = db.collection("users").document(recipientUid).collection("friendRequests").document(requesterUid)
         val outgoing = db.collection("users").document(requesterUid).collection("sentFriendRequests").document(recipientUid)
         val newStatus = if (accept) "accepted" else "rejected"
-        db.runBatch { batch ->
-            batch.update(incoming, "status", newStatus, "respondedAt", FieldValue.serverTimestamp())
-            batch.update(outgoing, "status", newStatus, "respondedAt", FieldValue.serverTimestamp())
+        db.runTransaction { tx ->
+            val incomingSnapshot = tx.get(incoming)
+            val outgoingSnapshot = tx.get(outgoing)
+            check(incomingSnapshot.exists()) { "طلب الصداقة لم يعد موجودًا. حدّث القائمة وحاول مجددًا." }
+            check(incomingSnapshot.getString("status") != "accepted") { "تم قبول هذا الطلب بالفعل." }
+            tx.update(incoming, mapOf("status" to newStatus, "respondedAt" to FieldValue.serverTimestamp()))
+            // Older app versions created only the incoming request. Do not update a missing outgoing document.
+            if (outgoingSnapshot.exists()) {
+                tx.update(outgoing, mapOf("status" to newStatus, "respondedAt" to FieldValue.serverTimestamp()))
+            }
             if (accept) {
-                batch.set(db.collection("users").document(recipientUid).collection("friends").document(requesterUid),
-                    mapOf("uid" to requesterUid, "createdAt" to FieldValue.serverTimestamp()))
-                batch.set(db.collection("users").document(requesterUid).collection("friends").document(recipientUid),
-                    mapOf("uid" to recipientUid, "createdAt" to FieldValue.serverTimestamp()))
+                val recipientFriend = db.collection("users").document(recipientUid).collection("friends").document(requesterUid)
+                val requesterFriend = db.collection("users").document(requesterUid).collection("friends").document(recipientUid)
+                val friendData = mapOf("createdAt" to FieldValue.serverTimestamp())
+                tx.set(recipientFriend, friendData + mapOf("uid" to requesterUid), SetOptions.merge())
+                tx.set(requesterFriend, friendData + mapOf("uid" to recipientUid), SetOptions.merge())
             }
         }.await()
     }
