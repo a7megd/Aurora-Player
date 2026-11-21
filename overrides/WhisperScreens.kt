@@ -1045,7 +1045,7 @@ fun WhisperHomeScreen(
                 IconButton(onClick = { onNavigate(route) }) { Icon(icon, contentDescription = label) }
             }
         }
-        Text("الصوت", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 20.dp, bottom = 8.dp))
+        Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {\n            Text("الصوت", style = MaterialTheme.typography.titleLarge)\n            if (songs.isEmpty()) Button(onClick = onRequestAudioAccess) { Icon(Icons.Rounded.FolderOpen, null); Spacer(Modifier.width(6.dp)); Text("افتح ملفات الهاتف") }\n        }
         if (songs.isEmpty()) {
             Text("ستظهر ملفاتك الصوتية هنا بعد السماح بالوصول إلى الموسيقى.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
