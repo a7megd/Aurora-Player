@@ -60,7 +60,7 @@ private val allRoutes = listOf(
     Routes.FAVORITES to "المفضلة", Routes.RECENT to "شُغّلت مؤخرًا",
     Routes.NOW_PLAYING to "تعمل الآن", Routes.QUEUE to "قائمة التشغيل الحالية", Routes.LYRICS to "كلمات الأغاني", Routes.SEARCH to "بحث",
     Routes.EQUALIZER to "معادل الصوت", Routes.SETTINGS to "الإعدادات", Routes.COMMUNITY to "المجتمع",
-    Routes.WRITE_ARTICLE to "كتابة مقال", Routes.ARTICLES to "المقالات", Routes.FRIEND_REQUESTS to "طلبات الصداقة",
+    Routes.WRITE_ARTICLE to "كتابة مقال", Routes.ARTICLES to "المقالات", Routes.FRIEND_REQUESTS to "طلبات الصداقة", Routes.POSTS to "المنشورات", Routes.CHAT to "المحادثات",
 )
 
 private fun audioPermission(): String =
@@ -315,7 +315,7 @@ private fun PlayerAppRoot(user: FirebaseUser) {
                         }
                     }
                 }
-                if (bottomTabs.any { it.route == route }) {
+                if (bottomTabs.any { it.route == route } && route != Routes.WRITE_ARTICLE && route != Routes.ARTICLES && route != Routes.CHAT) {
                     NavigationBar(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)) {
                         bottomTabs.forEach { tab ->
                             NavigationBarItem(
@@ -451,6 +451,8 @@ private fun PlayerAppRoot(user: FirebaseUser) {
                         r == Routes.WRITE_ARTICLE -> ArticleWriterScreen(user)
                         r == Routes.ARTICLES -> ArticleReaderScreen(user)
                         r == Routes.FRIEND_REQUESTS -> FriendRequestsScreen(user)
+                        r == Routes.POSTS -> SocialPostsScreen(user)
+                        r == Routes.CHAT -> ChatScreen(user)
                         else -> ScaffoldScreen(title)
                     }
                 }
