@@ -57,7 +57,40 @@ fun AuthScreen(onAuthenticated: (FirebaseUser) -> Unit) {
                     Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(if (verifying) "تأكيد البريد الإلكتروني" else if (signup) "إنشاء حساب جديد" else "تسجيل الدخول", color = Color.White, style = MaterialTheme.typography.titleLarge)
                         if (verifying) {
-                            Text("أرسلنا رابط تحقق إلى ${email.ifBlank { auth.currentUser?.email.orEmpty() }}. افتح الرسالة واضغط الرابط، ثم ارجع واضغط «تحققت».", color = Color(0xFFD0D2DC))
+                            Text("لو كتبت بريدك الإلكتروني غلط، صححه هنا وسنرسل رابط التحقق إلى العنوان الجديد.", color = Color(0xFFD0D2DC))
+                            OutlinedTextField(
+                                value = email,
+                                onValueChange = { email = it.trim() },
+                                label = { Text("البريد الإلكتروني الصحيح") },
+                                leadingIcon = { Icon(Icons.Rounded.Mail, null) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                                singleLine = true,
+                                enabled = !busy,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Button(onClick = { scope.launch {
+                                busy = true
+                                message = ""
+                                try {
+                                    require(email.contains("@") && email.substringAfter("@").contains(".")) {
+                                        "اكتب بريدًا إلكترونيًا صحيحًا."
+                                    }
+                                    val current = auth.currentUser ?: error("انتهت جلسة الحساب. سجّل الدخول مرة أخرى.")
+                                    if (!current.email.equals(email.trim(), ignoreCase = true)) {
+                                        current.updateEmail(email.trim()).await()
+                                    }
+                                    current.sendEmailVerification().await()
+                                    message = "تم اعتماد البريد الجديد وإرسال رابط تحقق إليه. راجع صندوق الوارد والرسائل غير المرغوب فيها."
+                                } catch (e: Exception) {
+                                    message = e.localizedMessage ?: "تعذر تغيير البريد. حاول تسجيل الدخول مرة أخرى ثم أعد المحاولة."
+                                }
+                                busy = false
+                            } }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                                if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                                else Text("تغيير البريد وإرسال رابط التحقق")
+                            }
+                            Text("البريد الحالي للحساب: ${auth.currentUser?.email.orEmpty()}", color = Color(0xFFB9BBC8), style = MaterialTheme.typography.bodySmall)
+                            Text("بعد فتح رابط التحقق، ارجع واضغط «تحققت من البريد الإلكتروني».", color = Color(0xFFD0D2DC))
                             Button(onClick = { scope.launch {
                                 busy = true
                                 try {
