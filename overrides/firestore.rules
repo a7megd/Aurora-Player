@@ -87,7 +87,7 @@ service cloud.firestore {
         allow delete: if signedIn() && (request.auth.uid == userId || request.auth.uid == requesterUid);
       }
       match /sentFriendRequests/{targetUid} {
-        allow read: if signedIn() && request.auth.uid == userId;
+        allow read: if signedIn() && (request.auth.uid == userId || request.auth.uid == targetUid);
         allow create: if signedIn() && request.auth.uid == userId && targetUid != userId
           && request.resource.data.requesterUid == userId
           && request.resource.data.recipientUid == targetUid
