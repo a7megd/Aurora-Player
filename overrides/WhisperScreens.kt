@@ -1,6 +1,8 @@
 package com.aurora.player.ui.navigation
 
 import android.content.Context
+import android.graphics.BitmapFactory
+import android.util.Base64
 import android.net.Uri
 import android.media.audiofx.Equalizer
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -1012,6 +1014,8 @@ fun WhisperHomeScreen(
     val profilePrefs = remember(context) { context.getSharedPreferences("tayer_profile", Context.MODE_PRIVATE) }
     val displayName = profilePrefs.getString("display_name", "").orEmpty().trim()
     val profilePhoto = profilePrefs.getString("photo_uri", null)
+    val profilePhotoData = profilePrefs.getString("photo_data", "").orEmpty()
+    val localProfileBitmap = remember(profilePhotoData) { runCatching { val bytes = Base64.decode(profilePhotoData, Base64.DEFAULT); BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }.getOrNull() }
     val homeSongs = remember(songs) { songs.take(40) }
     val listState = rememberLazyListState()
     LaunchedEffect(activeSongId, homeSongs) {
@@ -1036,7 +1040,7 @@ fun WhisperHomeScreen(
                 BadgedBox(badge = { if (notificationCount > 0) Badge { Text(if (notificationCount > 99) "99+" else notificationCount.toString()) } }) {
                     IconButton(onClick = { onNavigate(Routes.FRIEND_REQUESTS) }) { Icon(Icons.Rounded.Notifications, contentDescription = "الإشعارات وطلبات الصداقة") }
                 }
-                if (profilePhoto != null) AsyncImage(model = profilePhoto, contentDescription = "الصورة الشخصية", contentScale = ContentScale.Crop, modifier = Modifier.size(42.dp).clip(RoundedCornerShape(50.dp)))
+                if (localProfileBitmap != null || profilePhoto != null) AsyncImage(model = localProfileBitmap ?: profilePhoto, contentDescription = "الصورة الشخصية", contentScale = ContentScale.Crop, modifier = Modifier.size(42.dp).clip(RoundedCornerShape(50.dp)))
                 IconButton(onClick = { onNavigate(Routes.SETTINGS) }) { Icon(Icons.Rounded.Settings, contentDescription = "الإعدادات") }
             }
         }
