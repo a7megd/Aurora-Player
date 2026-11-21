@@ -1,0 +1,66 @@
+name: Whisper Player installable test APK
+
+on:
+  push:
+    branches:
+      - codex/whisper-player-audio-bluetooth-2026-11
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract project
+        run: unzip -o AuroraPlayer-stage3-continuation.zip -d .
+      - name: Apply maintained overrides
+        run: |
+          install -D overrides/AppRoot.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/AppRoot.kt
+          install -D overrides/NowPlayingScreen.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/NowPlayingScreen.kt
+          install -D overrides/WhisperScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/WhisperScreens.kt
+          install -D overrides/Routes.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/Routes.kt
+          install -D overrides/PlaybackService.kt AuroraPlayer/app/src/main/java/com/aurora/player/playback/PlaybackService.kt
+          install -D overrides/PlaybackConnection.kt AuroraPlayer/app/src/main/java/com/aurora/player/playback/PlaybackConnection.kt
+          install -D overrides/AudioOutputRouteCard.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/AudioOutputRouteCard.kt
+          install -D overrides/app.build.gradle.kts AuroraPlayer/app/build.gradle.kts
+          install -D overrides/debug-strings.xml AuroraPlayer/app/src/debug/res/values/strings.xml
+          install -D overrides/strings.xml AuroraPlayer/app/src/main/res/values/strings.xml
+          install -D overrides/ic_whisper_mark.xml AuroraPlayer/app/src/main/res/drawable/ic_whisper_mark.xml
+          install -D overrides/ic_launcher.xml AuroraPlayer/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          install -D overrides/whisper_icon_colors.xml AuroraPlayer/app/src/main/res/values/whisper_icon_colors.xml
+      - name: Enable audio settings permission
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          manifest = Path("AuroraPlayer/app/src/main/AndroidManifest.xml")
+          content = manifest.read_text()
+          permission = '    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />'
+          if permission not in content:
+              pos = content.find(">", content.find("<manifest")) + 1
+              content = content[:pos] + "\n" + permission + content[pos:]
+              manifest.write_text(content)
+          PY
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build installable test APK
+        run: gradle -p AuroraPlayer assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Whisper-Player-Bluetooth-Test-APK
+          path: AuroraPlayer/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
