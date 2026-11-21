@@ -70,7 +70,7 @@ service cloud.firestore {
         allow delete: if signedIn() && request.auth.uid == followerUid;
       }
       match /friendRequests/{requesterUid} {
-        allow read: if signedIn() && request.auth.uid == userId;
+        allow read: if signedIn() && (request.auth.uid == userId || request.auth.uid == requesterUid);
         allow create: if signedIn() && request.auth.uid == requesterUid && requesterUid != userId
           && request.resource.data.requesterUid == requesterUid
           && request.resource.data.recipientUid == userId
