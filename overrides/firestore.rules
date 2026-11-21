@@ -54,7 +54,7 @@ service cloud.firestore {
       );
 
       match /following/{targetUid} {
-        allow read: if signedIn() && request.auth.uid == userId;
+        allow read: if signedIn();
         allow create: if signedIn() && request.auth.uid == userId && targetUid != userId
           && request.resource.data.targetUid == targetUid;
         allow update: if signedIn() && request.auth.uid == userId
@@ -62,7 +62,7 @@ service cloud.firestore {
         allow delete: if signedIn() && request.auth.uid == userId;
       }
       match /followers/{followerUid} {
-        allow read: if signedIn() && request.auth.uid == userId;
+        allow read: if signedIn();
         allow create: if signedIn() && request.auth.uid == followerUid && followerUid != userId
           && request.resource.data.uid == followerUid;
         allow update: if signedIn() && request.auth.uid == followerUid
@@ -104,7 +104,7 @@ service cloud.firestore {
         allow delete: if signedIn() && request.auth.uid == userId;
       }
       match /friends/{friendUid} {
-        allow read: if signedIn() && request.auth.uid == userId;
+        allow read: if signedIn();
         allow create: if signedIn() && (request.auth.uid == userId || request.auth.uid == friendUid)
           && request.resource.data.uid == friendUid;
         allow update: if signedIn() && (request.auth.uid == userId || request.auth.uid == friendUid)
