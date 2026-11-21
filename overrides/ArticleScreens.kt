@@ -97,7 +97,7 @@ fun ArticleHubDialog(user:FirebaseUser,onDismiss:()->Unit) {
         } catch(e:Exception) { error=e.localizedMessage ?: "تعذر حفظ المقال." }
         busy=false
         } }
-    }) { Text(if(busy) "جارٍ الحفظ…" else if(draft) "حفظ المسودة" else "نشر المقال") } }, dismissButton = { TextButton(onClick = { editor=false }) { Text("إلغاء") } })
+    ) { Text(if(busy) "جارٍ الحفظ…" else if(draft) "حفظ المسودة" else "نشر المقال") } }, dismissButton = { TextButton(onClick = { editor=false }) { Text("إلغاء") } })
 
     selected?.takeIf { !editor }?.let { a ->
         AlertDialog(onDismissRequest={selected=null},title={Text(a.title)},text={
