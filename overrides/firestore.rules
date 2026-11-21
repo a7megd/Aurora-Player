@@ -5,27 +5,43 @@ service cloud.firestore {
       return request.auth != null && request.auth.token.email_verified == true;
     }
     match /users/{userId} {
-      // Only public profile and aggregate statistics are stored in this collection.
+      // Profiles are public to verified community members; emails are never stored here.
       allow read: if verifiedUser();
       allow create: if verifiedUser()
         && request.auth.uid == userId
-        && request.resource.data.keys().hasOnly(['uid','displayName','totalListeningMs','totalPlays','createdAt','lastActiveAt'])
+        && request.resource.data.keys().hasOnly([
+          'uid','displayName','photoUrl','bio','favoriteSounds',
+          'totalListeningMs','totalPlays','createdAt','lastActiveAt'
+        ])
         && request.resource.data.uid == userId
         && request.resource.data.displayName is string
         && request.resource.data.displayName.size() >= 2
         && request.resource.data.displayName.size() <= 30
+        && request.resource.data.photoUrl == ''
+        && request.resource.data.bio == ''
+        && request.resource.data.favoriteSounds == ''
         && request.resource.data.totalListeningMs == 0
         && request.resource.data.totalPlays == 0;
       allow update: if verifiedUser()
         && request.auth.uid == userId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName','totalListeningMs','totalPlays','lastActiveAt'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName','photoUrl','bio','favoriteSounds',
+          'totalListeningMs','totalPlays','lastActiveAt'
+        ])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 2
+        && request.resource.data.displayName.size() <= 30
+        && request.resource.data.photoUrl is string
+        && request.resource.data.photoUrl.size() <= 500
+        && (request.resource.data.photoUrl == '' || request.resource.data.photoUrl.matches('https://.*'))
+        && request.resource.data.bio is string
+        && request.resource.data.bio.size() <= 160
+        && request.resource.data.favoriteSounds is string
+        && request.resource.data.favoriteSounds.size() <= 500
         && request.resource.data.totalListeningMs >= resource.data.totalListeningMs
         && request.resource.data.totalListeningMs <= resource.data.totalListeningMs + 120000
         && request.resource.data.totalPlays >= resource.data.totalPlays
-        && request.resource.data.totalPlays <= resource.data.totalPlays + 1
-        && request.resource.data.displayName is string
-        && request.resource.data.displayName.size() >= 2
-        && request.resource.data.displayName.size() <= 30;
+        && request.resource.data.totalPlays <= resource.data.totalPlays + 1;
       allow delete: if false;
     }
     match /{document=**} { allow read, write: if false; }
