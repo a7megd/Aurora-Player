@@ -161,6 +161,9 @@ object FirebaseCommunity {
     suspend fun friendCount(uid: String): Int =
         db.collection("users").document(uid).collection("friends").get().await().size()
 
+    suspend fun friendIds(uid: String): Set<String> =
+        db.collection("users").document(uid).collection("friends").get().await().documents.map { it.id }.toSet()
+
     suspend fun isFriend(uid: String, targetUid: String): Boolean =
         db.collection("users").document(uid).collection("friends").document(targetUid).get().await().exists()
 
