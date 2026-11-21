@@ -201,6 +201,20 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
  var saving by remember { mutableStateOf(false) }
  var displayName by remember { mutableStateOf(user.displayName.orEmpty()) }
  var photoUrl by remember { mutableStateOf("") }
+ var photoData by remember { mutableStateOf("") }
+ val context = LocalContext.current
+ val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+  if (uri != null) try {
+   val source = context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) } ?: error("تعذر قراءة الصورة.")
+   val scale = minOf(1f, 320f / maxOf(source.width, source.height))
+   val resized = Bitmap.createScaledBitmap(source, (source.width * scale).toInt().coerceAtLeast(1), (source.height * scale).toInt().coerceAtLeast(1), true)
+   val bytes = ByteArrayOutputStream().use { out -> resized.compress(Bitmap.CompressFormat.JPEG, 68, out); out.toByteArray() }
+   photoData = Base64.encodeToString(bytes, Base64.NO_WRAP)
+   photoUrl = ""
+   if (resized !== source) resized.recycle()
+   if (source !== resized) source.recycle()
+  } catch (e: Exception) { errorText = e.localizedMessage ?: "تعذر تجهيز الصورة." }
+ }
  var bio by remember { mutableStateOf("") }
  var favorites by remember { mutableStateOf("") }
  var selected by remember { mutableStateOf<com.aurora.player.community.CommunityMember?>(null) }
@@ -234,7 +248,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
    Card(colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceVariant)){
     Column(Modifier.fillMaxWidth().padding(15.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
      Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
-      if(photoUrl.isNotBlank()) AsyncImage(model=profilePhotoModel(photoData,photoUrl),contentDescription="صورتك الشخصية",modifier=Modifier.size(62.dp).clip(CircleShape))
+      if(photoData.isNotBlank() || photoUrl.isNotBlank()) AsyncImage(model=profilePhotoModel(photoData,photoUrl),contentDescription="صورتك الشخصية",modifier=Modifier.size(62.dp).clip(CircleShape))
       else Surface(modifier=Modifier.size(62.dp),shape=CircleShape,color=MaterialTheme.colorScheme.primaryContainer){Box(contentAlignment=Alignment.Center){Icon(Icons.Rounded.Person,null,modifier=Modifier.size(32.dp))}}
       Column(Modifier.weight(1f)){Text(displayName.ifBlank{"عضو Whisper"},style=MaterialTheme.typography.titleLarge);Text("ملفك الشخصي",style=MaterialTheme.typography.bodySmall)}
       TextButton(onClick={editing=true}){Text("تعديل")}
