@@ -430,15 +430,27 @@ private fun formatListening(ms: Long): String {
 private fun AdminDashboardDialog(onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
     var members by remember { mutableStateOf<List<com.aurora.player.community.AdminMember>>(emptyList()) }
+    var chatRequests by remember { mutableStateOf<List<com.aurora.player.community.ChatApprovalRequest>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var busyUid by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    suspend fun reload() { loading = true; try { members = FirebaseCommunity.adminMembers(); error = null } catch (e: Exception) { error = e.localizedMessage ?: "تعذر تحميل المستخدمين." }; loading = false }
+    suspend fun reload() { loading = true; try { members = FirebaseCommunity.adminMembers(); chatRequests = FirebaseCommunity.adminPendingChatRequests(); error = null } catch (e: Exception) { error = e.localizedMessage ?: "تعذر تحميل المستخدمين." }; loading = false }
     LaunchedEffect(Unit) { reload() }
     AlertDialog(onDismissRequest = onDismiss, title = { Text("لوحة تحكم Whisper") }, text = {
         Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("الحسابات: " + members.size + " • المعروض بحد أقصى 200 حساب", style = MaterialTheme.typography.bodySmall)
             Text("يمكنك تعليق الوصول إلى المجتمع أو إعادة تفعيله. لا تعرض اللوحة كلمات المرور أو بيانات الدخول.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("طلبات السماح بالمحادثات: " + chatRequests.size,style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold)
+            if(chatRequests.isEmpty()) Text("لا توجد طلبات محادثة معلّقة.")
+            chatRequests.forEach { request ->
+                Card { Column(Modifier.fillMaxWidth().padding(10.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                    Text(request.requesterName + " يريد بدء محادثة مع " + request.targetName,fontWeight=FontWeight.SemiBold)
+                    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                        Button(enabled=busyUid==null,onClick={busyUid=request.id;scope.launch{try{FirebaseCommunity.reviewChatRequest(request.id,true);reload()}catch(e:Exception){error=e.localizedMessage};busyUid=null}}){Text("موافقة")}
+                        OutlinedButton(enabled=busyUid==null,onClick={busyUid=request.id;scope.launch{try{FirebaseCommunity.reviewChatRequest(request.id,false);reload()}catch(e:Exception){error=e.localizedMessage};busyUid=null}}){Text("رفض")}
+                    }
+                } }
+            }
             if (loading) CircularProgressIndicator()
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             members.forEach { member -> Card { Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
