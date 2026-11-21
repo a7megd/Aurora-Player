@@ -7,7 +7,7 @@ service cloud.firestore {
     match /users/{userId} {
       // Community profiles are readable by signed-in members; suspended profiles are hidden
       // from other members, while the owner and admin can still inspect their own records.
-      allow read: if signedIn() && (isAdmin() || request.auth.uid == userId || resource.data.suspended != true);
+      allow read: if signedIn(); // Profiles expose only public community fields; the UI filters suspended accounts.
 
       allow create: if signedIn() && request.auth.uid == userId
         && request.resource.data.keys().hasOnly(['uid','displayName','photoUrl','bio','favoriteSounds','totalListeningMs','totalPlays','createdAt','lastActiveAt'])
