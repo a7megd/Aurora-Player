@@ -162,7 +162,7 @@ fun ArticleWriterScreen(user: FirebaseUser) {
                 d.getString("body").orEmpty(), d.getString("coverUrl").orEmpty(), user.uid,
                 d.getString("authorName") ?: user.displayName.orEmpty(),
                 (d.getLong("bodyFontSize") ?: 19L).toInt(), d.getBoolean("bodyBold") == true,
-                d.getString("bodyAlign") ?: "right")
+                d.getString("bodyAlign") ?: "right", d.getString("bodyColor") ?: "#222222")
         }.sortedByDescending { it.id }
     }
     LaunchedEffect(user.uid) { try { reloadMine() } catch (e: Exception) { message = e.localizedMessage } }
