@@ -29,6 +29,7 @@ object Routes {
     const val COMMUNITY = "community"
     const val WRITE_ARTICLE = "write_article"
     const val ARTICLES = "articles"
+    const val FRIEND_REQUESTS = "friend_requests"
 }
 
 data class BottomTab(val route: String, val label: String, val icon: ImageVector)
