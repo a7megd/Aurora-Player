@@ -19,6 +19,7 @@ jobs:
         run: |
           install -D overrides/AppRoot.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/AppRoot.kt
           install -D overrides/AuthScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/AuthScreens.kt
+          install -D overrides/ArticleScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/ArticleScreens.kt
           install -D overrides/FirebaseCommunity.kt AuroraPlayer/app/src/main/java/com/aurora/player/community/FirebaseCommunity.kt
           install -D overrides/MusicApp.kt AuroraPlayer/app/src/main/java/com/aurora/player/MusicApp.kt
           install -D overrides/firestore.rules AuroraPlayer/firestore.rules
