@@ -945,7 +945,8 @@ fun WhisperSongListScreen(
     onFavorite: (Song) -> Unit,
     onNavigate: (String) -> Unit,
     activeSongId: Long? = null,
-    onRequestAudioAccess: () -> Unit = {}
+    onRequestAudioAccess: () -> Unit = {},
+    notificationCount: Int = 0
 ) {
     var selectedSong by remember { mutableStateOf<Song?>(null) }
     var playHistoryVersion by remember { mutableIntStateOf(0) }
@@ -1032,7 +1033,9 @@ fun WhisperHomeScreen(
                 Text("by dr Ahmed Abdelhamid", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                IconButton(onClick = { onNavigate(Routes.FRIEND_REQUESTS) }) { Icon(Icons.Rounded.Notifications, contentDescription = "الإشعارات وطلبات الصداقة") }
+                BadgedBox(badge = { if (notificationCount > 0) Badge { Text(if (notificationCount > 99) "99+" else notificationCount.toString()) } }) {
+                    IconButton(onClick = { onNavigate(Routes.FRIEND_REQUESTS) }) { Icon(Icons.Rounded.Notifications, contentDescription = "الإشعارات وطلبات الصداقة") }
+                }
                 if (profilePhoto != null) AsyncImage(model = profilePhoto, contentDescription = "الصورة الشخصية", contentScale = ContentScale.Crop, modifier = Modifier.size(42.dp).clip(RoundedCornerShape(50.dp)))
                 IconButton(onClick = { onNavigate(Routes.SETTINGS) }) { Icon(Icons.Rounded.Settings, contentDescription = "الإعدادات") }
             }
@@ -1050,7 +1053,7 @@ fun WhisperHomeScreen(
         }
         Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Text("الصوت", style = MaterialTheme.typography.titleLarge)
-            if (songs.isEmpty()) Button(onClick = onRequestAudioAccess) { Icon(Icons.Rounded.FolderOpen, null); Spacer(Modifier.width(6.dp)); Text("افتح ملفات الهاتف") }
+            Button(onClick = onRequestAudioAccess) { Icon(Icons.Rounded.FolderOpen, null); Spacer(Modifier.width(6.dp)); Text("ملفات الهاتف") }
         }
         if (songs.isEmpty()) {
             Text("ستظهر ملفاتك الصوتية هنا بعد السماح بالوصول إلى الموسيقى.", color = MaterialTheme.colorScheme.onSurfaceVariant)
