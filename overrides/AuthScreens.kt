@@ -235,7 +235,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
    val all=FirebaseCommunity.communityMembers()
    members=all.filter{it.uid!=user.uid}
    following=FirebaseCommunity.followingIds(user.uid).intersect(members.map{it.uid}.toSet())
-   requested=FirebaseCommunity.outgoingFriendRequests(user.uid).filter{it.status=="pending" || it.status=="accepted"}.map{it.uid}.toSet()
+   requested=FirebaseCommunity.outgoingFriendRequests(user.uid).filter{it.status=="pending" || it.status=="accepted"}.map{it.uid}.toSet()+FirebaseCommunity.friendIds(user.uid)
    ownFollowers=FirebaseCommunity.followerCount(user.uid); ownFollowing=FirebaseCommunity.followingCount(user.uid); ownFriends=FirebaseCommunity.friendCount(user.uid)
    all.firstOrNull{it.uid==user.uid}?.let{displayName=it.displayName;photoUrl=it.photoUrl;photoData=it.photoData;bio=it.bio;favorites=it.favoriteSounds}
   } catch(e:Exception){errorText=(e.localizedMessage ?: "تعذر تحميل المستخدمين.")+"\nتأكد من نشر قواعد Firestore المحدّثة ومن تسجيل الدخول بحساب موثّق."}
