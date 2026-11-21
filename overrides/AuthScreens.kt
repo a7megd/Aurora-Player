@@ -234,7 +234,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
    FirebaseCommunity.ensureProfile(user)
    val all=FirebaseCommunity.communityMembers()
    members=all.filter{it.uid!=user.uid}
-   following=members.filter{FirebaseCommunity.isFollowing(user.uid,it.uid)}.map{it.uid}.toSet()
+   following=FirebaseCommunity.followingIds(user.uid).intersect(members.map{it.uid}.toSet())
    requested=FirebaseCommunity.outgoingFriendRequests(user.uid).filter{it.status=="pending" || it.status=="accepted"}.map{it.uid}.toSet()
    ownFollowers=FirebaseCommunity.followerCount(user.uid); ownFollowing=FirebaseCommunity.followingCount(user.uid); ownFriends=FirebaseCommunity.friendCount(user.uid)
    all.firstOrNull{it.uid==user.uid}?.let{displayName=it.displayName;photoUrl=it.photoUrl;photoData=it.photoData;bio=it.bio;favorites=it.favoriteSounds}
