@@ -21,6 +21,7 @@ import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -329,8 +330,52 @@ fun ArticleReaderScreen(user: FirebaseUser) {
                         val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, article.title + "\n\n" + article.body) }
                         context.startActivity(Intent.createChooser(send, "مشاركة المقال"))
                     }) { Text("مشاركة المقال") }
+                    ArticleComments(article.id, user)
                 }
             }
         }
+    }
+}
+
+
+@Composable
+private fun ArticleComments(articleId: String, user: FirebaseUser) {
+    val db = remember { FirebaseFirestore.getInstance() }
+    val scope = rememberCoroutineScope()
+    var comments by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    var draft by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    suspend fun reload() {
+        try {
+            comments = db.collection("articles").document(articleId).collection("comments").orderBy("createdAt", Query.Direction.ASCENDING).limit(100).get().await().documents.map { d ->
+                (d.getString("authorName") ?: "قارئ") to d.getString("body").orEmpty()
+            }
+        } catch (e: Exception) { error = e.localizedMessage ?: "تعذر تحميل التعليقات." }
+    }
+    LaunchedEffect(articleId) { reload() }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("التعليقات (" + comments.size + ")", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        comments.forEach { item ->
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(item.first, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Text(item.second)
+                }
+            }
+        }
+        OutlinedTextField(draft, { draft = it.take(2000) }, modifier = Modifier.fillMaxWidth(), label = { Text("اكتب تعليقك") }, minLines = 2)
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        Button(enabled = !busy && draft.isNotBlank(), onClick = {
+            val body = draft.trim()
+            busy = true
+            scope.launch {
+                try {
+                    db.collection("articles").document(articleId).collection("comments").add(mapOf("uid" to user.uid, "authorName" to (user.displayName ?: "قارئ Whisper"), "body" to body, "createdAt" to FieldValue.serverTimestamp())).await()
+                    draft = ""; error = null; reload()
+                } catch (e: Exception) { error = e.localizedMessage ?: "تعذر نشر التعليق." }
+                busy = false
+            }
+        }) { Text(if (busy) "جارٍ الإرسال…" else "إضافة تعليق") }
     }
 }
