@@ -50,10 +50,18 @@ object FirebaseCommunity {
                 "lastActiveAt" to FieldValue.serverTimestamp()
             )).await()
         } else {
+            // Backfill fields used by profile editing and leaderboard for accounts created by older builds.
             val updates = mutableMapOf<String, Any>("lastActiveAt" to FieldValue.serverTimestamp())
+            if (!snapshot.contains("displayName")) {
+                updates["displayName"] = user.displayName?.takeIf { it.isNotBlank() }
+                    ?: fallbackName?.takeIf { it.isNotBlank() }
+                    ?: user.email?.substringBefore('@')?.take(24) ?: "Whisper User"
+            }
             if (!snapshot.contains("photoUrl")) updates["photoUrl"] = ""
             if (!snapshot.contains("bio")) updates["bio"] = ""
             if (!snapshot.contains("favoriteSounds")) updates["favoriteSounds"] = ""
+            if (!snapshot.contains("totalListeningMs")) updates["totalListeningMs"] = 0L
+            if (!snapshot.contains("totalPlays")) updates["totalPlays"] = 0L
             ref.update(updates).await()
         }
     }
