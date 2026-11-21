@@ -60,6 +60,7 @@ private val allRoutes = listOf(
     Routes.FAVORITES to "المفضلة", Routes.RECENT to "شُغّلت مؤخرًا",
     Routes.NOW_PLAYING to "تعمل الآن", Routes.QUEUE to "قائمة التشغيل الحالية", Routes.LYRICS to "كلمات الأغاني", Routes.SEARCH to "بحث",
     Routes.EQUALIZER to "معادل الصوت", Routes.SETTINGS to "الإعدادات", Routes.COMMUNITY to "المجتمع",
+    Routes.WRITE_ARTICLE to "كتابة مقال", Routes.ARTICLES to "المقالات",
 )
 
 private fun audioPermission(): String =
@@ -438,7 +439,9 @@ private fun PlayerAppRoot(user: FirebaseUser) {
                         r == Routes.LYRICS -> WhisperLyricsScreen(controller)
                         r == Routes.SETTINGS -> WhisperSettingsScreen(app.container.settingsRepository, controller, onWallpaperChanged = { wallpaperUri = it })
                         r == Routes.EQUALIZER -> WhisperEqualizerScreen(controller)
-                        r == Routes.COMMUNITY -> CommunityScreen(user, onSignOut = { FirebaseAuth.getInstance().signOut() })
+                        r == Routes.COMMUNITY -> CommunityScreen(user, onSignOut = { FirebaseAuth.getInstance().signOut() }, onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } })
+                        r == Routes.WRITE_ARTICLE -> ArticleWriterScreen(user)
+                        r == Routes.ARTICLES -> ArticleReaderScreen(user)
                         else -> ScaffoldScreen(title)
                     }
                 }
