@@ -180,8 +180,12 @@ object FirebaseCommunity {
         val sender = db.collection("users").document(fromUid).collection("sentFriendRequests").document(targetUid)
         val receiver = db.collection("users").document(targetUid).collection("friendRequests").document(fromUid)
         val current = sender.get().await()
+        val incomingCurrent = receiver.get().await()
         require(!current.exists() || current.getString("status") == "rejected") {
             "لديك طلب صداقة قائم أو سبق قبوله لهذا المستخدم."
+        }
+        require(!incomingCurrent.exists() || incomingCurrent.getString("status") == "rejected") {
+            "يوجد طلب سابق بينكما. افتح طلبات الصداقة لقبوله أو رفضه أولًا."
         }
         val targetProfile = db.collection("users").document(targetUid).get().await()
         check(targetProfile.exists()) { "هذا الحساب لم يعد متاحًا." }
@@ -239,9 +243,10 @@ object FirebaseCommunity {
         require(fromUid != targetUid) { "لا يمكنك طلب محادثة مع نفسك." }
         val friendship = db.collection("users").document(fromUid).collection("friends").document(targetUid).get().await()
         check(friendship.exists()) { "المحادثة متاحة للأصدقاء فقط. أرسل طلب صداقة وانتظر قبوله." }
-        val existing = db.collection("chatRequests").whereEqualTo("requesterUid", fromUid)
-            .whereEqualTo("targetUid", targetUid).whereEqualTo("status", "pending").limit(1).get().await()
-        check(existing.isEmpty) { "طلب المحادثة قيد مراجعة الإدارة بالفعل." }
+        val existing = db.collection("chatRequests").whereEqualTo("requesterUid", fromUid).get().await()
+        check(existing.documents.none { it.getString("targetUid") == targetUid && it.getString("status") == "pending" }) {
+            "طلب المحادثة قيد مراجعة الإدارة بالفعل."
+        }
         db.collection("chatRequests").add(mapOf(
             "requesterUid" to fromUid, "requesterName" to fromName,
             "targetUid" to targetUid, "targetName" to targetName,
