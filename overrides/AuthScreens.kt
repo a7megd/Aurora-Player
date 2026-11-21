@@ -242,7 +242,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
        }
        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
         Button(enabled=busyUid==null,onClick={busyUid=m.uid;scope.launch{try{val next=m.uid !in following;FirebaseCommunity.follow(user.uid,m.uid,next);following=if(next)following+m.uid else following-m.uid}catch(e:Exception){errorText=e.localizedMessage ?: "تعذر تحديث المتابعة."};busyUid=null}}){Text(if(m.uid in following)"إلغاء المتابعة" else "متابعة")}
-        OutlinedButton(enabled=busyUid==null && m.uid !in requested,onClick={busyUid=m.uid;scope.launch{try{FirebaseCommunity.requestFriend(user.uid,displayName,m.uid);requested=requested+m.uid}catch(e:Exception){errorText=e.localizedMessage ?: "تعذر إرسال طلب الصداقة."};busyUid=null}}){Text(if(m.uid in requested)"تم إرسال الطلب" else "طلب صداقة")}
+        OutlinedButton(enabled=busyUid==null && m.uid !in requested,onClick={busyUid=m.uid;scope.launch{try{FirebaseCommunity.sendFriendRequest(user.uid,displayName,photoUrl,m.uid);requested=requested+m.uid}catch(e:Exception){errorText=e.localizedMessage ?: "تعذر إرسال طلب الصداقة."};busyUid=null}}){Text(if(m.uid in requested)"تم إرسال الطلب" else "طلب صداقة")}
        }
       }
      }
@@ -259,6 +259,98 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
  selected?.let{m->AlertDialog(onDismissRequest={selected=null},title={Text(m.displayName)},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){if(m.bio.isNotBlank())Text(m.bio);if(m.favoriteSounds.isNotBlank())Text("الأصوات المفضلة: "+m.favoriteSounds);Text("وقت الاستماع: "+formatListening(m.totalListeningMs));Text("مرات التشغيل: "+m.totalPlays)}},confirmButton={TextButton(onClick={selected=null}){Text("إغلاق")}})}
  if(showAdminPanel&&adminBuild) AdminDashboardDialog(onDismiss={showAdminPanel=false})
 }
+
+@Composable
+fun FriendRequestsScreen(user: FirebaseUser) {
+    val scope = rememberCoroutineScope()
+    var incoming by remember { mutableStateOf<List<com.aurora.player.community.FriendRequest>>(emptyList()) }
+    var outgoing by remember { mutableStateOf<List<com.aurora.player.community.FriendRequest>>(emptyList()) }
+    var showIncoming by remember { mutableStateOf(true) }
+    var loading by remember { mutableStateOf(true) }
+    var busyUid by remember { mutableStateOf<String?>(null) }
+    var message by remember { mutableStateOf<String?>(null) }
+
+    fun reload() {
+        scope.launch {
+            loading = true
+            try {
+                incoming = FirebaseCommunity.incomingFriendRequests(user.uid)
+                outgoing = FirebaseCommunity.outgoingFriendRequests(user.uid)
+            } catch (e: Exception) { message = e.localizedMessage ?: "تعذر تحميل طلبات الصداقة." }
+            loading = false
+        }
+    }
+    LaunchedEffect(user.uid) { reload() }
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("الإشعارات وطلبات الصداقة", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = showIncoming, onClick = { showIncoming = true }, label = { Text("الواردة (${incoming.count { it.status == "pending" }})") })
+                FilterChip(selected = !showIncoming, onClick = { showIncoming = false }, label = { Text("المرسلة (${outgoing.size})") })
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = { reload() }, enabled = !loading) { Icon(Icons.Rounded.Refresh, contentDescription = "تحديث") }
+            }
+            if (loading) Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            else {
+                val items = if (showIncoming) incoming else outgoing
+                if (items.isEmpty()) Text(if (showIncoming) "لا توجد طلبات صداقة واردة." else "لم ترسل طلبات صداقة بعد.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                items.forEach { request ->
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                if (request.photoUrl.isNotBlank()) AsyncImage(model = request.photoUrl, contentDescription = null,
+                                    modifier = Modifier.size(46.dp).clip(CircleShape))
+                                else Surface(modifier = Modifier.size(46.dp), shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.primaryContainer) {
+                                    Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Person, null) }
+                                }
+                                Column(Modifier.weight(1f)) {
+                                    Text(request.displayName, fontWeight = FontWeight.SemiBold)
+                                    Text(if (showIncoming) "أرسل إليك طلب صداقة" else "طلب صداقة أرسلته",
+                                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Text(when (request.status) {
+                                    "accepted" -> "مقبول"
+                                    "rejected" -> "مرفوض"
+                                    else -> "معلّق"
+                                }, color = when (request.status) {
+                                    "accepted" -> MaterialTheme.colorScheme.primary
+                                    "rejected" -> MaterialTheme.colorScheme.error
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                }, style = MaterialTheme.typography.labelMedium)
+                            }
+                            if (showIncoming && request.status == "pending") {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(enabled = busyUid == null, onClick = {
+                                        busyUid = request.uid
+                                        scope.launch {
+                                            try { FirebaseCommunity.respondToFriendRequest(user.uid, request.uid, true); reload() }
+                                            catch (e: Exception) { message = e.localizedMessage ?: "تعذر قبول الطلب." }
+                                            busyUid = null
+                                        }
+                                    }) { Text("قبول") }
+                                    OutlinedButton(enabled = busyUid == null, onClick = {
+                                        busyUid = request.uid
+                                        scope.launch {
+                                            try { FirebaseCommunity.respondToFriendRequest(user.uid, request.uid, false); reload() }
+                                            catch (e: Exception) { message = e.localizedMessage ?: "تعذر رفض الطلب." }
+                                            busyUid = null
+                                        }
+                                    }) { Text("رفض") }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    message?.let { msg -> AlertDialog(onDismissRequest = { message = null }, text = { Text(msg) },
+        confirmButton = { TextButton(onClick = { message = null }) { Text("حسنًا") } }) }
+}
+
 private fun formatListening(ms: Long): String {
     val minutes = ms.coerceAtLeast(0L) / 60_000L
     val hours = minutes / 60L
