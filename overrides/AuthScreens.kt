@@ -257,7 +257,10 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit) {
         title = { Text("تعديل الملف الشخصي") },
         text = { Column(Modifier.fillMaxWidth().heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             OutlinedTextField(value = displayName, onValueChange = { displayName = it.take(30) }, label = { Text("اسم العرض") }, singleLine = true)
-            OutlinedTextField(value = photoUrl, onValueChange = { photoUrl = it.take(500) }, label = { Text("رابط الصورة الشخصية (HTTPS)") }, supportingText = { Text("استخدم رابط صورة مباشر يبدأ بـ https://") }, singleLine = true)
+            OutlinedTextField(value = photoUrl, onValueChange = { photoUrl = it.take(500) }, label = { Text("رابط الصورة الشخصية (HTTPS)") }, supportingText = { Text("ضع رابط الصورة المباشر؛ ستظهر المعاينة هنا ثم تظهر الصورة لباقي الأعضاء بعد الحفظ.") }, singleLine = true)
+            if (photoUrl.startsWith("https://")) {
+                AsyncImage(model = photoUrl, contentDescription = "معاينة الصورة الشخصية", modifier = Modifier.fillMaxWidth().heightIn(max = 190.dp).clip(RoundedCornerShape(16.dp)))
+            }
             OutlinedTextField(value = bio, onValueChange = { bio = it.take(160) }, label = { Text("نبذة / كابشن") }, supportingText = { Text("${bio.length}/160") }, minLines = 2, maxLines = 4)
             OutlinedTextField(value = favorites, onValueChange = { favorites = it.take(500) }, label = { Text("أصواتك المفضلة") }, supportingText = { Text("اكتب أسماء الأصوات أو الأغاني، وافصل بينها بفاصلة أو سطر جديد.") }, minLines = 3, maxLines = 5)
         } },
