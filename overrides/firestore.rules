@@ -54,7 +54,17 @@ service cloud.firestore {
         allow read: if signedIn() && request.auth.uid == userId;
         allow create: if signedIn() && request.auth.uid == userId && targetUid != userId
           && request.resource.data.targetUid == targetUid;
+        allow update: if signedIn() && request.auth.uid == userId
+          && request.resource.data.targetUid == targetUid;
         allow delete: if signedIn() && request.auth.uid == userId;
+      }
+      match /followers/{followerUid} {
+        allow read: if signedIn() && request.auth.uid == userId;
+        allow create: if signedIn() && request.auth.uid == followerUid && followerUid != userId
+          && request.resource.data.uid == followerUid;
+        allow update: if signedIn() && request.auth.uid == followerUid
+          && request.resource.data.uid == followerUid;
+        allow delete: if signedIn() && request.auth.uid == followerUid;
       }
       match /friendRequests/{requesterUid} {
         allow read: if signedIn() && request.auth.uid == userId;
@@ -62,9 +72,15 @@ service cloud.firestore {
           && request.resource.data.requesterUid == requesterUid
           && request.resource.data.recipientUid == userId
           && request.resource.data.status == 'pending';
-        allow update: if signedIn() && request.auth.uid == userId
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','respondedAt'])
-          && request.resource.data.status in ['accepted','rejected'];
+        allow update: if signedIn() && (
+          (request.auth.uid == userId
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','respondedAt'])
+            && request.resource.data.status in ['accepted','rejected'])
+          || (request.auth.uid == requesterUid && resource.data.status == 'rejected'
+            && request.resource.data.requesterUid == requesterUid
+            && request.resource.data.recipientUid == userId
+            && request.resource.data.status == 'pending')
+        );
         allow delete: if signedIn() && (request.auth.uid == userId || request.auth.uid == requesterUid);
       }
       match /sentFriendRequests/{targetUid} {
@@ -73,9 +89,15 @@ service cloud.firestore {
           && request.resource.data.requesterUid == userId
           && request.resource.data.recipientUid == targetUid
           && request.resource.data.status == 'pending';
-        allow update: if signedIn() && request.auth.uid == targetUid
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','respondedAt'])
-          && request.resource.data.status in ['accepted','rejected'];
+        allow update: if signedIn() && (
+          (request.auth.uid == targetUid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','respondedAt'])
+            && request.resource.data.status in ['accepted','rejected'])
+          || (request.auth.uid == userId && resource.data.status == 'rejected'
+            && request.resource.data.requesterUid == userId
+            && request.resource.data.recipientUid == targetUid
+            && request.resource.data.status == 'pending')
+        );
         allow delete: if signedIn() && request.auth.uid == userId;
       }
       match /friends/{friendUid} {
