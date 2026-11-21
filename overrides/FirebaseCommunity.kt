@@ -85,7 +85,6 @@ object FirebaseCommunity {
             "رابط الصورة يجب أن يبدأ بـ https://"
         }
         require(photoData.length <= 180000) { "حجم الصورة بعد الضغط كبير جدًا." }
-        require(photoData.length <= 180000) { "حجم الصورة بعد الضغط كبير جدًا." }
         require(bio.length <= 160) { "النبذة لا يمكن أن تتجاوز 160 حرفًا." }
         require(favoriteSounds.length <= 500) { "قائمة الأصوات المفضلة طويلة جدًا." }
         db.collection("users").document(uid).update(
