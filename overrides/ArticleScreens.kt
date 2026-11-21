@@ -8,6 +8,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.Color
 import android.content.Intent
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseUser
@@ -112,5 +117,216 @@ fun ArticleHubDialog(user:FirebaseUser,onDismiss:()->Unit) {
                 }) { Text("مشاركة") }
             }
         },confirmButton={TextButton(onClick={selected=null}){Text("رجوع")}})
+    }
+}
+
+
+private data class FullWhisperArticle(
+    val id: String, val title: String, val subtitle: String, val body: String,
+    val cover: String, val uid: String, val author: String, val fontSize: Int,
+    val bold: Boolean, val align: String
+)
+
+private fun articleAlignment(value: String): TextAlign = when(value) {
+    "center" -> TextAlign.Center
+    "start" -> TextAlign.Start
+    "justify" -> TextAlign.Justify
+    else -> TextAlign.Right
+}
+
+@Composable
+fun ArticleWriterScreen(user: FirebaseUser) {
+    val db = remember { FirebaseFirestore.getInstance() }
+    val scope = rememberCoroutineScope()
+    var title by remember { mutableStateOf("") }
+    var subtitle by remember { mutableStateOf("") }
+    var body by remember { mutableStateOf("") }
+    var cover by remember { mutableStateOf("") }
+    var fontSize by remember { mutableIntStateOf(19) }
+    var bold by remember { mutableStateOf(false) }
+    var align by remember { mutableStateOf("right") }
+    var editingId by remember { mutableStateOf<String?>(null) }
+    var myArticles by remember { mutableStateOf<List<FullWhisperArticle>>(emptyList()) }
+    var busy by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+
+    suspend fun reloadMine() {
+        myArticles = db.collection("articles").whereEqualTo("authorUid", user.uid).get().await().documents.map { d ->
+            FullWhisperArticle(d.id, d.getString("title").orEmpty(), d.getString("subtitle").orEmpty(),
+                d.getString("body").orEmpty(), d.getString("coverUrl").orEmpty(), user.uid,
+                d.getString("authorName") ?: user.displayName.orEmpty(),
+                (d.getLong("bodyFontSize") ?: 19L).toInt(), d.getBoolean("bodyBold") == true,
+                d.getString("bodyAlign") ?: "right")
+        }.sortedByDescending { it.id }
+    }
+    LaunchedEffect(user.uid) { try { reloadMine() } catch (e: Exception) { message = e.localizedMessage } }
+
+    fun clearEditor() {
+        title = ""; subtitle = ""; body = ""; cover = ""; fontSize = 19; bold = false; align = "right"; editingId = null
+    }
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(if (editingId == null) "اكتب مقالك" else "تعديل المقال", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text("مساحة كتابة هادئة وكاملة الشاشة. يمكنك حفظ مسودة والعودة إليها وقتما تشاء.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            OutlinedTextField(value = title, onValueChange = { title = it.take(120) }, label = { Text("عنوان المقال") },
+                modifier = Modifier.fillMaxWidth(), textStyle = MaterialTheme.typography.titleLarge)
+            OutlinedTextField(value = subtitle, onValueChange = { subtitle = it.take(220) }, label = { Text("عنوان فرعي (اختياري)") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = cover, onValueChange = { cover = it.take(1000) }, label = { Text("رابط صورة الغلاف HTTPS (اختياري)") }, modifier = Modifier.fillMaxWidth())
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { fontSize = (fontSize - 1).coerceAtLeast(14) }) { Text("أ−") }
+                    Text("${fontSize}sp", style = MaterialTheme.typography.labelMedium)
+                    TextButton(onClick = { fontSize = (fontSize + 1).coerceAtMost(32) }) { Text("أ+") }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { bold = !bold }) { Text(if (bold) "عادي" else "عريض", fontWeight = FontWeight.Bold) }
+                    TextButton(onClick = { align = when(align) { "right" -> "center"; "center" -> "justify"; "justify" -> "start"; else -> "right" } }) {
+                        Text(when(align) { "center" -> "توسيط"; "justify" -> "ضبط"; "start" -> "يسار"; else -> "يمين" })
+                    }
+                }
+            }
+            Surface(Modifier.fillMaxWidth().heightIn(min = 340.dp), shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)) {
+                Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                    Text("نص المقال", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    OutlinedTextField(value = body, onValueChange = { body = it.take(30000) },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 300.dp),
+                        placeholder = { Text("ابدأ الكتابة هنا…") }, minLines = 12,
+                        textStyle = TextStyle(fontSize = fontSize.sp, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
+                            textAlign = articleAlignment(align), lineHeight = (fontSize + 10).sp))
+                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(enabled = !busy, onClick = {
+                    busy = true
+                    scope.launch {
+                        try {
+                            require(title.trim().length >= 3) { "اكتب عنوانًا من 3 أحرف على الأقل." }
+                            require(body.isNotBlank()) { "اكتب نص المقال أولًا." }
+                            require(cover.isBlank() || cover.startsWith("https://")) { "رابط الغلاف يجب أن يبدأ بـ HTTPS." }
+                            val data = hashMapOf<String, Any>("title" to title.trim(), "subtitle" to subtitle.trim(),
+                                "body" to body.trim(), "coverUrl" to cover.trim(), "authorUid" to user.uid,
+                                "authorName" to (user.displayName ?: "كاتب Whisper"), "status" to "draft",
+                                "bodyFontSize" to fontSize.toLong(), "bodyBold" to bold, "bodyAlign" to align,
+                                "updatedAt" to FieldValue.serverTimestamp())
+                            if (editingId == null) { data["createdAt"] = FieldValue.serverTimestamp(); db.collection("articles").add(data).await() }
+                            else db.collection("articles").document(editingId!!).update(data - "authorUid").await()
+                            message = "تم حفظ المسودة."; reloadMine()
+                        } catch (e: Exception) { message = e.localizedMessage ?: "تعذر حفظ المسودة." }
+                        busy = false
+                    }
+                }) { Text("حفظ مسودة") }
+                Button(enabled = !busy, onClick = {
+                    busy = true
+                    scope.launch {
+                        try {
+                            require(title.trim().length >= 3) { "اكتب عنوانًا من 3 أحرف على الأقل." }
+                            require(body.isNotBlank()) { "اكتب نص المقال أولًا." }
+                            require(cover.isBlank() || cover.startsWith("https://")) { "رابط الغلاف يجب أن يبدأ بـ HTTPS." }
+                            val data = hashMapOf<String, Any>("title" to title.trim(), "subtitle" to subtitle.trim(),
+                                "body" to body.trim(), "coverUrl" to cover.trim(), "authorUid" to user.uid,
+                                "authorName" to (user.displayName ?: "كاتب Whisper"), "status" to "published",
+                                "bodyFontSize" to fontSize.toLong(), "bodyBold" to bold, "bodyAlign" to align,
+                                "updatedAt" to FieldValue.serverTimestamp(), "publishedAt" to FieldValue.serverTimestamp())
+                            if (editingId == null) { data["createdAt"] = FieldValue.serverTimestamp(); db.collection("articles").add(data).await() }
+                            else db.collection("articles").document(editingId!!).update(data - "authorUid").await()
+                            message = "تم نشر المقال."; clearEditor(); reloadMine()
+                        } catch (e: Exception) { message = e.localizedMessage ?: "تعذر نشر المقال." }
+                        busy = false
+                    }
+                }) { Text(if (busy) "جارٍ الحفظ…" else "نشر المقال") }
+                TextButton(enabled = !busy, onClick = { clearEditor() }) { Text("جديد") }
+            }
+            Divider()
+            Text("مسوداتي ومقالاتي", style = MaterialTheme.typography.titleLarge)
+            if (myArticles.isEmpty()) Text("لم تكتب مقالات بعد.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            myArticles.forEach { article ->
+                Card {
+                    Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(article.title, fontWeight = FontWeight.SemiBold)
+                            Text(if (article.id == editingId) "قيد التحرير" else "اضغط تعديل للمتابعة", style = MaterialTheme.typography.labelSmall)
+                        }
+                        TextButton(onClick = {
+                            editingId = article.id; title = article.title; subtitle = article.subtitle; body = article.body
+                            cover = article.cover; fontSize = article.fontSize; bold = article.bold; align = article.align
+                        }) { Text("تعديل") }
+                    }
+                }
+            }
+        }
+    }
+    message?.let { msg -> AlertDialog(onDismissRequest = { message = null }, text = { Text(msg) },
+        confirmButton = { TextButton(onClick = { message = null }) { Text("حسنًا") } }) }
+}
+
+@Composable
+fun ArticleReaderScreen(user: FirebaseUser) {
+    val db = remember { FirebaseFirestore.getInstance() }
+    var articles by remember { mutableStateOf<List<FullWhisperArticle>>(emptyList()) }
+    var selected by remember { mutableStateOf<FullWhisperArticle?>(null) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(user.uid) {
+        loading = true
+        try {
+            articles = db.collection("articles").whereEqualTo("status", "published").get().await().documents.mapNotNull { d ->
+                val uid = d.getString("authorUid") ?: return@mapNotNull null
+                FullWhisperArticle(d.id, d.getString("title").orEmpty(), d.getString("subtitle").orEmpty(),
+                    d.getString("body").orEmpty(), d.getString("coverUrl").orEmpty(), uid,
+                    d.getString("authorName") ?: "كاتب Whisper", (d.getLong("bodyFontSize") ?: 19L).toInt(),
+                    d.getBoolean("bodyBold") == true, d.getString("bodyAlign") ?: "right")
+            }.sortedByDescending { it.id }
+        } catch (e: Exception) { error = e.localizedMessage ?: "تعذر تحميل المقالات." }
+        loading = false
+    }
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        if (selected == null) {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("مقالات Whisper", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Text("اقرأ أفكار وتجارب كتّاب المجتمع في صفحات مريحة وكاملة.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (loading) CircularProgressIndicator()
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                if (!loading && articles.isEmpty() && error == null) Text("لا توجد مقالات منشورة بعد.")
+                articles.forEach { article ->
+                    Card(onClick = { selected = article }) {
+                        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                            if (article.cover.isNotBlank()) AsyncImage(model = article.cover, contentDescription = null, modifier = Modifier.fillMaxWidth().heightIn(max = 210.dp))
+                            Text(article.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            if (article.subtitle.isNotBlank()) Text(article.subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("بقلم ${article.author}", style = MaterialTheme.typography.labelSmall)
+                            Text(article.body.take(190) + if (article.body.length > 190) "…" else "", maxLines = 4, style = MaterialTheme.typography.bodyMedium)
+                            Text("اقرأ المقال كاملًا ←", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
+                }
+            }
+        } else {
+            val article = selected!!
+            Column(Modifier.fillMaxSize()) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { selected = null }) { Text("رجوع للمقالات") }
+                    Spacer(Modifier.weight(1f))
+                    Text("Whisper", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                }
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    if (article.cover.isNotBlank()) AsyncImage(model = article.cover, contentDescription = null, modifier = Modifier.fillMaxWidth().heightIn(max = 280.dp))
+                    Text(article.title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    if (article.subtitle.isNotBlank()) Text(article.subtitle, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("بقلم ${article.author}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Divider()
+                    Text(article.body, style = TextStyle(fontSize = article.fontSize.sp,
+                        fontWeight = if (article.bold) FontWeight.Bold else FontWeight.Normal,
+                        textAlign = articleAlignment(article.align), lineHeight = (article.fontSize + 12).sp))
+                    OutlinedButton(onClick = {
+                        val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, article.title + "\n\n" + article.body) }
+                        LocalContext.current.startActivity(Intent.createChooser(send, "مشاركة المقال"))
+                    }) { Text("مشاركة المقال") }
+                }
+            }
+        }
     }
 }
