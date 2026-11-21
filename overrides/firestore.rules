@@ -10,12 +10,13 @@ service cloud.firestore {
       allow read: if signedIn(); // Profiles expose only public community fields; the UI filters suspended accounts.
 
       allow create: if signedIn() && request.auth.uid == userId
-        && request.resource.data.keys().hasOnly(['uid','displayName','photoUrl','bio','favoriteSounds','totalListeningMs','totalPlays','createdAt','lastActiveAt'])
+        && request.resource.data.keys().hasOnly(['uid','displayName','photoUrl','bio','favoriteSounds','photoData','totalListeningMs','totalPlays','createdAt','lastActiveAt'])
         && request.resource.data.uid == userId
         && request.resource.data.displayName is string
         && request.resource.data.displayName.size() >= 2
         && request.resource.data.displayName.size() <= 30
         && request.resource.data.photoUrl == ''
+        && request.resource.data.photoData == ''
         && request.resource.data.bio == ''
         && request.resource.data.favoriteSounds == ''
         && request.resource.data.totalListeningMs == 0
@@ -28,10 +29,12 @@ service cloud.firestore {
           && request.resource.data.suspended is bool)
         ||
         (request.auth.uid == userId
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName','photoUrl','bio','favoriteSounds','totalListeningMs','totalPlays','lastActiveAt'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName','photoUrl','photoData','bio','favoriteSounds','totalListeningMs','totalPlays','lastActiveAt'])
           && request.resource.data.get('displayName', '') is string
           && request.resource.data.get('displayName', '').size() >= 2
           && request.resource.data.get('displayName', '').size() <= 30
+          && request.resource.data.get('photoData', '') is string
+          && request.resource.data.get('photoData', '').size() <= 180000
           && request.resource.data.get('photoUrl', '') is string
           && request.resource.data.get('photoUrl', '').size() <= 500
           && (request.resource.data.get('photoUrl', '') == '' || request.resource.data.get('photoUrl', '').matches('https://.*'))
@@ -56,8 +59,30 @@ service cloud.firestore {
       match /friendRequests/{requesterUid} {
         allow read: if signedIn() && request.auth.uid == userId;
         allow create: if signedIn() && request.auth.uid == requesterUid && requesterUid != userId
-          && request.resource.data.requesterUid == requesterUid;
+          && request.resource.data.requesterUid == requesterUid
+          && request.resource.data.recipientUid == userId
+          && request.resource.data.status == 'pending';
+        allow update: if signedIn() && request.auth.uid == userId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','respondedAt'])
+          && request.resource.data.status in ['accepted','rejected'];
         allow delete: if signedIn() && (request.auth.uid == userId || request.auth.uid == requesterUid);
+      }
+      match /sentFriendRequests/{targetUid} {
+        allow read: if signedIn() && request.auth.uid == userId;
+        allow create: if signedIn() && request.auth.uid == userId && targetUid != userId
+          && request.resource.data.requesterUid == userId
+          && request.resource.data.recipientUid == targetUid
+          && request.resource.data.status == 'pending';
+        allow update: if signedIn() && request.auth.uid == targetUid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','respondedAt'])
+          && request.resource.data.status in ['accepted','rejected'];
+        allow delete: if signedIn() && request.auth.uid == userId;
+      }
+      match /friends/{friendUid} {
+        allow read: if signedIn() && request.auth.uid == userId;
+        allow create: if signedIn() && (request.auth.uid == userId || request.auth.uid == friendUid)
+          && request.resource.data.uid == friendUid;
+        allow delete: if signedIn() && (request.auth.uid == userId || request.auth.uid == friendUid);
       }
       allow delete: if false;
     }
