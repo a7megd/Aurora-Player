@@ -212,7 +212,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit) {
                     if (bio.isNotBlank()) Text(bio, style = MaterialTheme.typography.bodyMedium)
                     if (favorites.isNotBlank()) {
                         Text("أصواتي المفضلة", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                        favorites.split(",", "\n").map { it.trim() }.filter { it.isNotBlank() }.forEach { Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.Favorite, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(7.dp)); Text(it, style = MaterialTheme.typography.bodySmall) } }
+                        favorites.split(",", "\n").map { it.trim() }.filter { it.isNotBlank() }.forEach { Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.MusicNote, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(7.dp)); Text(it, style = MaterialTheme.typography.bodySmall) } }
                     }
                 }
             }
