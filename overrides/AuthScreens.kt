@@ -283,7 +283,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
         TextButton(onClick={selected=m}){Text("الملف")}
        }
        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
-        Button(enabled=busyUid==null,onClick={busyUid=m.uid;scope.launch{try{val next=m.uid !in following;FirebaseCommunity.follow(user.uid,m.uid,next);following=if(next)following+m.uid else following-m.uid}catch(e:Exception){errorText=e.localizedMessage ?: "تعذر تحديث المتابعة."};busyUid=null}}){Text(if(m.uid in following)"إلغاء المتابعة" else "متابعة")}
+        Button(enabled=busyUid==null,onClick={busyUid=m.uid;scope.launch{try{val next=m.uid !in following;FirebaseCommunity.follow(user.uid,m.uid,next);following=if(next)following+m.uid else following-m.uid;ownFollowing=(ownFollowing+if(next)1 else -1).coerceAtLeast(0)}catch(e:Exception){errorText=e.localizedMessage ?: "تعذر تحديث المتابعة."};busyUid=null}}){Text(if(m.uid in following)"إلغاء المتابعة" else "متابعة")}
         OutlinedButton(enabled=busyUid==null && m.uid !in requested,onClick={busyUid=m.uid;scope.launch{try{FirebaseCommunity.sendFriendRequest(user.uid,displayName,photoData,m.uid);requested=requested+m.uid}catch(e:Exception){errorText=e.localizedMessage ?: "تعذر إرسال طلب الصداقة."};busyUid=null}}){Text(if(m.uid in requested)"تم إرسال الطلب" else "طلب صداقة")}
        }
       }
