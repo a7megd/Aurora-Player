@@ -51,6 +51,7 @@ jobs:
           install -D overrides/NowPlayingScreen.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/NowPlayingScreen.kt
           install -D overrides/WhisperScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/WhisperScreens.kt
           install -D overrides/Routes.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/Routes.kt
+          install -D overrides/SocialScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/SocialScreens.kt
           install -D overrides/PlaybackService.kt AuroraPlayer/app/src/main/java/com/aurora/player/playback/PlaybackService.kt
           install -D overrides/PlaybackConnection.kt AuroraPlayer/app/src/main/java/com/aurora/player/playback/PlaybackConnection.kt
           install -D overrides/AudioOutputRouteCard.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/AudioOutputRouteCard.kt
