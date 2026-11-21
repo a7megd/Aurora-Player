@@ -246,7 +246,10 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
   Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
     Column{Text("مجتمع Whisper",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold);Text("تعرّف على الكتّاب والأعضاء وتابع ما يعجبك",color=MaterialTheme.colorScheme.onSurfaceVariant)}
-    TextButton(onClick=onSignOut){Text("تسجيل الخروج")}
+    Row(verticalAlignment=Alignment.CenterVertically) {
+     TextButton(onClick={onNavigate(Routes.CHAT)}){Text("المحادثات")}
+     TextButton(onClick=onSignOut){Text("تسجيل الخروج")}
+    }
    }
    Card(colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.primaryContainer)){
     Column(Modifier.fillMaxWidth().padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
