@@ -3,6 +3,9 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
     function isAdmin() { return signedIn() && request.auth.uid == 'Cva1DdKPU3QIVXOoA3kSJG0DYxw1'; }
+    function areFriends(a, b) {
+      return exists(/databases/$(database)/documents/users/$(a)/friends/$(b));
+    }
 
     match /users/{userId} {
       // Community profiles are readable by signed-in members; suspended profiles are hidden
@@ -110,6 +113,50 @@ service cloud.firestore {
     }
 
 
+    match /communityPosts/{postId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.authorName is string && request.resource.data.authorName.size() <= 60
+        && request.resource.data.kind in ['قصيدة','اقتباس','منشور']
+        && request.resource.data.body is string && request.resource.data.body.size() > 0
+        && request.resource.data.body.size() <= 5000;
+      allow update: if signedIn() && resource.data.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['body'])
+        && request.resource.data.body is string && request.resource.data.body.size() <= 5000;
+      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+
+    match /chatRequests/{requestId} {
+      allow create: if signedIn() && request.resource.data.requesterUid == request.auth.uid
+        && request.resource.data.targetUid is string
+        && request.resource.data.targetUid != request.auth.uid
+        && areFriends(request.auth.uid, request.resource.data.targetUid)
+        && request.resource.data.status == 'pending';
+      allow read: if isAdmin() || (signedIn() &&
+        (resource.data.requesterUid == request.auth.uid || resource.data.targetUid == request.auth.uid));
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedAt','threadId'])
+        && request.resource.data.status in ['approved','rejected'];
+      allow delete: if isAdmin();
+    }
+
+    match /chatThreads/{threadId} {
+      allow read: if signedIn() && request.auth.uid in resource.data.participants;
+      allow create, update, delete: if isAdmin();
+      match /messages/{messageId} {
+        function threadData() {
+          return get(/databases/$(database)/documents/chatThreads/$(threadId)).data;
+        }
+        allow read: if signedIn() && request.auth.uid in threadData().participants;
+        allow create: if signedIn() && request.auth.uid in threadData().participants
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.body is string
+          && request.resource.data.body.size() > 0
+          && request.resource.data.body.size() <= 2000;
+        allow update, delete: if false;
+      }
+    }
+
     match /articles/{articleId} {
       allow read: if signedIn() && (resource.data.status == 'published' || resource.data.authorUid == request.auth.uid || isAdmin());
       allow create: if signedIn() && request.resource.data.authorUid == request.auth.uid
@@ -130,6 +177,18 @@ service cloud.firestore {
         && (request.resource.data.coverUrl == '' || request.resource.data.coverUrl.matches('https://.*'))
         && request.resource.data.status in ['draft','published'];
       allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
+      match /comments/{commentId} {
+        allow read: if signedIn() && get(/databases/$(database)/documents/articles/$(articleId)).data.status == 'published';
+        allow create: if signedIn()
+          && get(/databases/$(database)/documents/articles/$(articleId)).data.status == 'published'
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.authorName is string
+          && request.resource.data.authorName.size() <= 60
+          && request.resource.data.body is string
+          && request.resource.data.body.size() > 0
+          && request.resource.data.body.size() <= 2000;
+        allow update, delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+      }
     }
     match /{document=**} { allow read, write: if false; }
   }
