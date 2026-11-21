@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -183,6 +184,8 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit) {
     var bio by remember { mutableStateOf("") }
     var favorites by remember { mutableStateOf("") }
     var message by remember { mutableStateOf<String?>(null) }
+    var showAdminPanel by remember { mutableStateOf(false) }
+    val adminBuild = LocalContext.current.packageName.endsWith(".test") && FirebaseCommunity.isAdmin(user.uid)
     fun refresh() { scope.launch {
         loading = true; errorText = null
         try {
@@ -200,6 +203,14 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column { Text("مجتمع Whisper", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text("استمع، تقدّم، وكن جزءًا من المجتمع", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 TextButton(onClick = onSignOut) { Text("تسجيل الخروج") }
+            }
+            if (adminBuild) {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                    Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column(Modifier.weight(1f)) { Text("لوحة تحكم المدير", fontWeight = FontWeight.Bold); Text("إدارة عضوية المجتمع ومراجعة الحسابات", style = MaterialTheme.typography.bodySmall) }
+                        Button(onClick = { showAdminPanel = true }) { Text("فتح اللوحة") }
+                    }
+                }
             }
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -259,10 +270,40 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit) {
         dismissButton = { TextButton(enabled = !saving, onClick = { editing = false }) { Text("إلغاء") } }
     )
     message?.let { AlertDialog(onDismissRequest = { message = null }, confirmButton = { TextButton(onClick = { message = null }) { Text("حسنًا") } }, text = { Text(it) }) }
+    if (showAdminPanel && adminBuild) AdminDashboardDialog(onDismiss = { showAdminPanel = false })
 }
 
 private fun formatListening(ms: Long): String {
     val minutes = ms.coerceAtLeast(0L) / 60_000L
     val hours = minutes / 60L
     return if (hours > 0) "${hours} س ${minutes % 60} د" else "${minutes} د"
+}
+
+
+@Composable
+private fun AdminDashboardDialog(onDismiss: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var members by remember { mutableStateOf<List<com.aurora.player.community.AdminMember>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var busyUid by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    suspend fun reload() { loading = true; try { members = FirebaseCommunity.adminMembers(); error = null } catch (e: Exception) { error = e.localizedMessage ?: "تعذر تحميل المستخدمين." }; loading = false }
+    LaunchedEffect(Unit) { reload() }
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("لوحة تحكم Whisper") }, text = {
+        Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("الحسابات: " + members.size + " • المعروض بحد أقصى 200 حساب", style = MaterialTheme.typography.bodySmall)
+            Text("يمكنك تعليق الوصول إلى المجتمع أو إعادة تفعيله. لا تعرض اللوحة كلمات المرور أو بيانات الدخول.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (loading) CircularProgressIndicator()
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            members.forEach { member -> Card { Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text(member.displayName, fontWeight = FontWeight.SemiBold)
+                Text("UID: " + member.uid, style = MaterialTheme.typography.labelSmall)
+                if (member.bio.isNotBlank()) Text(member.bio, style = MaterialTheme.typography.bodySmall)
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(if (member.suspended) "معلّق" else "نشط", color = if (member.suspended) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+                    OutlinedButton(enabled = busyUid == null && member.uid != FirebaseCommunity.ADMIN_UID, onClick = { busyUid = member.uid; scope.launch { try { FirebaseCommunity.setSuspended(member.uid, !member.suspended); reload() } catch (e: Exception) { error = e.localizedMessage ?: "تعذر تحديث الحساب." }; busyUid = null } }) { Text(if (member.suspended) "رفع التعليق" else "تعليق الحساب") }
+                }
+            } } }
+        }
+    }, confirmButton = { TextButton(onClick = onDismiss) { Text("إغلاق") } }, dismissButton = { TextButton(enabled = !loading, onClick = { scope.launch { reload() } }) { Text("تحديث") } })
 }
