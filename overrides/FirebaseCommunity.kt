@@ -15,7 +15,8 @@ data class CommunityMember(
     val totalPlays: Long,
     val photoUrl: String = "",
     val bio: String = "",
-    val favoriteSounds: String = ""
+    val favoriteSounds: String = "",
+    val photoData: String = ""
 )
 
 
@@ -24,7 +25,8 @@ data class FriendRequest(
     val displayName: String,
     val photoUrl: String,
     val status: String,
-    val createdAt: Long = 0L
+    val createdAt: Long = 0L,
+    val photoData: String = ""
 )
 \nobject FirebaseCommunity {
     const val ADMIN_UID = "Cva1DdKPU3QIVXOoA3kSJG0DYxw1"
@@ -65,7 +67,8 @@ data class FriendRequest(
                     ?: fallbackName?.takeIf { it.isNotBlank() }
                     ?: user.email?.substringBefore('@')?.take(24) ?: "Whisper User"
             }
-            if (!snapshot.contains("photoUrl")) updates["photoUrl"] = ""\n            if (!snapshot.contains("photoData")) updates["photoData"] = ""
+            if (!snapshot.contains("photoUrl")) updates["photoUrl"] = ""
+            if (!snapshot.contains("photoData")) updates["photoData"] = ""\n            if (!snapshot.contains("photoData")) updates["photoData"] = ""
             if (!snapshot.contains("bio")) updates["bio"] = ""
             if (!snapshot.contains("favoriteSounds")) updates["favoriteSounds"] = ""
             if (!snapshot.contains("totalListeningMs")) updates["totalListeningMs"] = 0L
@@ -79,12 +82,14 @@ data class FriendRequest(
         require(photoUrl.length <= 500 && (photoUrl.isBlank() || photoUrl.startsWith("https://"))) {
             "رابط الصورة يجب أن يبدأ بـ https://"
         }
-        require(photoData.length <= 180000) { "حجم الصورة بعد الضغط كبير جدًا." }\n        require(bio.length <= 160) { "النبذة لا يمكن أن تتجاوز 160 حرفًا." }
+        require(photoData.length <= 180000) { "حجم الصورة بعد الضغط كبير جدًا." }\n        require(photoData.length <= 180000) { "حجم الصورة بعد الضغط كبير جدًا." }
+        require(bio.length <= 160) { "النبذة لا يمكن أن تتجاوز 160 حرفًا." }
         require(favoriteSounds.length <= 500) { "قائمة الأصوات المفضلة طويلة جدًا." }
         db.collection("users").document(uid).update(
             mapOf(
                 "displayName" to displayName.trim(),
                 "photoUrl" to photoUrl.trim(),
+                "photoData" to photoData,
                 "bio" to bio.trim(),
                 "favoriteSounds" to favoriteSounds.trim()
             )
@@ -115,6 +120,7 @@ data class FriendRequest(
                     totalListeningMs = doc.getLong("totalListeningMs") ?: 0L,
                     totalPlays = doc.getLong("totalPlays") ?: 0L,
                     photoUrl = doc.getString("photoUrl").orEmpty(),
+                    photoData = doc.getString("photoData").orEmpty(),
                     bio = doc.getString("bio").orEmpty(),
                     favoriteSounds = doc.getString("favoriteSounds").orEmpty()
                 )
@@ -158,14 +164,14 @@ data class FriendRequest(
         db.collection("users").document(uid).collection("friendRequests").get().await().documents.map { d ->
             FriendRequest(d.id, d.getString("requesterName") ?: "عضو Whisper",
                 d.getString("requesterPhotoUrl").orEmpty(), d.getString("status") ?: "pending",
-                d.getTimestamp("createdAt")?.toDate()?.time ?: 0L)
+                d.getTimestamp("createdAt")?.toDate()?.time ?: 0L, d.getString("requesterPhotoData").orEmpty())
         }.sortedByDescending { it.createdAt }
 
     suspend fun outgoingFriendRequests(uid: String): List<FriendRequest> =
         db.collection("users").document(uid).collection("sentFriendRequests").get().await().documents.map { d ->
             FriendRequest(d.id, d.getString("recipientName") ?: d.getString("requesterName") ?: "عضو Whisper",
                 d.getString("recipientPhotoUrl").orEmpty(), d.getString("status") ?: "pending",
-                d.getTimestamp("createdAt")?.toDate()?.time ?: 0L)
+                d.getTimestamp("createdAt")?.toDate()?.time ?: 0L, d.getString("recipientPhotoData").orEmpty())
         }.sortedByDescending { it.createdAt }
 
     suspend fun respondToFriendRequest(recipientUid: String, requesterUid: String, accept: Boolean) {
