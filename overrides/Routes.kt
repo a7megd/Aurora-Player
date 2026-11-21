@@ -30,6 +30,8 @@ object Routes {
     const val WRITE_ARTICLE = "write_article"
     const val ARTICLES = "articles"
     const val FRIEND_REQUESTS = "friend_requests"
+    const val POSTS = "posts"
+    const val CHAT = "chat"
 }
 
 data class BottomTab(val route: String, val label: String, val icon: ImageVector)
@@ -39,6 +41,6 @@ val bottomTabs = listOf(
     BottomTab(Routes.SONGS, "الأغاني", Icons.Rounded.MusicNote),
     BottomTab(Routes.WRITE_ARTICLE, "اكتب مقالًا", Icons.Rounded.Edit),
     BottomTab(Routes.ARTICLES, "المقالات", Icons.Rounded.Article),
-    BottomTab(Routes.PLAYLISTS, "القوائم", Icons.AutoMirrored.Rounded.QueueMusic),
+    BottomTab(Routes.POSTS, "المنشورات", Icons.Rounded.Groups),
     BottomTab(Routes.COMMUNITY, "المجتمع", Icons.Rounded.Groups),
 )
