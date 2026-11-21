@@ -97,6 +97,37 @@ object FirebaseCommunity {
         ).await()
     }
 
+    suspend fun communityMembers(): List<CommunityMember> =
+        db.collection("users").limit(100).get().await().documents
+            .filter { it.getBoolean("suspended") != true }
+            .map { doc ->
+                CommunityMember(
+                    uid = doc.getString("uid") ?: doc.id,
+                    displayName = doc.getString("displayName") ?: "Whisper User",
+                    totalListeningMs = doc.getLong("totalListeningMs") ?: 0L,
+                    totalPlays = doc.getLong("totalPlays") ?: 0L,
+                    photoUrl = doc.getString("photoUrl").orEmpty(),
+                    bio = doc.getString("bio").orEmpty(),
+                    favoriteSounds = doc.getString("favoriteSounds").orEmpty()
+                )
+            }.sortedBy { it.displayName.lowercase() }
+
+    suspend fun isFollowing(uid: String, targetUid: String): Boolean =
+        db.collection("users").document(uid).collection("following").document(targetUid).get().await().exists()
+
+    suspend fun follow(uid: String, targetUid: String, enabled: Boolean) {
+        require(uid != targetUid) { "لا يمكنك متابعة حسابك." }
+        val ref = db.collection("users").document(uid).collection("following").document(targetUid)
+        if (enabled) ref.set(mapOf("targetUid" to targetUid, "createdAt" to FieldValue.serverTimestamp())).await()
+        else ref.delete().await()
+    }
+
+    suspend fun requestFriend(fromUid: String, fromName: String, targetUid: String) {
+        require(fromUid != targetUid) { "لا يمكنك إرسال طلب صداقة لنفسك." }
+        db.collection("users").document(targetUid).collection("friendRequests").document(fromUid)
+            .set(mapOf("requesterUid" to fromUid, "requesterName" to fromName, "createdAt" to FieldValue.serverTimestamp())).await()
+    }
+
     suspend fun leaderboard(): List<CommunityMember> =
         db.collection("users").orderBy("totalListeningMs", Query.Direction.DESCENDING)
             .limit(25).get().await().documents.map { doc ->
