@@ -1,6 +1,7 @@
 package com.aurora.player.ui.navigation
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -179,7 +180,7 @@ fun ArticleWriterScreen(user: FirebaseUser) {
                 modifier = Modifier.fillMaxWidth(), textStyle = MaterialTheme.typography.titleLarge)
             OutlinedTextField(value = subtitle, onValueChange = { subtitle = it.take(220) }, label = { Text("عنوان فرعي (اختياري)") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(value = cover, onValueChange = { cover = it.take(1000) }, label = { Text("رابط صورة الغلاف HTTPS (اختياري)") }, modifier = Modifier.fillMaxWidth())
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("لون الخط:")
                 listOf("#222222" to "أسود", "#6D28D9" to "بنفسجي", "#1565C0" to "أزرق", "#B23A48" to "أحمر", "#16805D" to "أخضر").forEach { (hex,label) ->
                     FilterChip(selected = bodyColor == hex, onClick = { bodyColor = hex }, label = { Text(label) })
@@ -206,7 +207,8 @@ fun ArticleWriterScreen(user: FirebaseUser) {
                         modifier = Modifier.fillMaxWidth().heightIn(min = 300.dp),
                         placeholder = { Text("ابدأ الكتابة هنا…") }, minLines = 12,
                         textStyle = TextStyle(fontSize = fontSize.sp, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
-                            textAlign = articleAlignment(align), lineHeight = (fontSize + 10).sp))
+                            textAlign = articleAlignment(align), lineHeight = (fontSize + 10).sp,
+                            color = runCatching { Color(android.graphics.Color.parseColor(bodyColor)) }.getOrDefault(MaterialTheme.colorScheme.onSurface)))
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
