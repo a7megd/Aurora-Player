@@ -50,6 +50,28 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+
+    match /articles/{articleId} {
+      allow read: if signedIn() && (resource.data.status == 'published' || resource.data.authorUid == request.auth.uid || isAdmin());
+      allow create: if signedIn() && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['title','subtitle','body','coverUrl','authorUid','authorName','status','createdAt','updatedAt','publishedAt'])
+        && request.resource.data.title is string && request.resource.data.title.size() >= 3 && request.resource.data.title.size() <= 120
+        && request.resource.data.subtitle is string && request.resource.data.subtitle.size() <= 220
+        && request.resource.data.body is string && request.resource.data.body.size() >= 1 && request.resource.data.body.size() <= 30000
+        && request.resource.data.coverUrl is string && request.resource.data.coverUrl.size() <= 1000
+        && (request.resource.data.coverUrl == '' || request.resource.data.coverUrl.matches('https://.*'))
+        && request.resource.data.status in ['draft','published'];
+      allow update: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin())
+        && request.resource.data.authorUid == resource.data.authorUid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','subtitle','body','coverUrl','authorName','status','updatedAt','publishedAt'])
+        && request.resource.data.title is string && request.resource.data.title.size() >= 3 && request.resource.data.title.size() <= 120
+        && request.resource.data.subtitle is string && request.resource.data.subtitle.size() <= 220
+        && request.resource.data.body is string && request.resource.data.body.size() <= 30000
+        && request.resource.data.coverUrl is string && request.resource.data.coverUrl.size() <= 1000
+        && (request.resource.data.coverUrl == '' || request.resource.data.coverUrl.matches('https://.*'))
+        && request.resource.data.status in ['draft','published'];
+      allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
+    }
     match /{document=**} { allow read, write: if false; }
   }
 }
