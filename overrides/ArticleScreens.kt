@@ -6,6 +6,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -264,6 +267,7 @@ fun ArticleWriterScreen(user: FirebaseUser) {
 
 @Composable
 fun ArticleReaderScreen(user: FirebaseUser) {
+    val context = LocalContext.current
     val db = remember { FirebaseFirestore.getInstance() }
     var articles by remember { mutableStateOf<List<FullWhisperArticle>>(emptyList()) }
     var selected by remember { mutableStateOf<FullWhisperArticle?>(null) }
@@ -323,7 +327,7 @@ fun ArticleReaderScreen(user: FirebaseUser) {
                         textAlign = articleAlignment(article.align), lineHeight = (article.fontSize + 12).sp))
                     OutlinedButton(onClick = {
                         val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, article.title + "\n\n" + article.body) }
-                        LocalContext.current.startActivity(Intent.createChooser(send, "مشاركة المقال"))
+                        context.startActivity(Intent.createChooser(send, "مشاركة المقال"))
                     }) { Text("مشاركة المقال") }
                 }
             }
