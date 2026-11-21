@@ -7,6 +7,7 @@ on:
       - codex/aurora-player-next
       - codex/whisper-player-stability-2026-11
       - codex/whisper-player-motion-2026-11
+      - codex/whisper-player-audio-bluetooth-2026-11
 
 concurrency:
   group: whisper-player-android-${{ github.ref }}
@@ -76,6 +77,19 @@ jobs:
 
       - name: Build Debug APK
         run: gradle -p AuroraPlayer assembleDebug
+
+
+      - name: Package expanded source for engineering audit
+        if: always()
+        run: |
+          if [ -d AuroraPlayer ]; then zip -qr whisper-player-expanded-source.zip AuroraPlayer; fi
+      - name: Upload expanded source audit bundle
+        if: always() && hashFiles('whisper-player-expanded-source.zip') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: Whisper-Player-Expanded-Source
+          path: whisper-player-expanded-source.zip
+          retention-days: 3
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
