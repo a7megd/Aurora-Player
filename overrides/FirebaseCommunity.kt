@@ -21,7 +21,7 @@ data class CommunityMember(
 )
 
 
-data class FriendRequest(
+data class ChatApprovalRequest(val id: String, val requesterUid: String, val requesterName: String, val targetUid: String, val targetName: String, val status: String, val createdAt: Long = 0L)\n\ndata class FriendRequest(
     val uid: String,
     val displayName: String,
     val photoUrl: String,
@@ -226,6 +226,53 @@ object FirebaseCommunity {
             }
         }.await()
     }
+
+    suspend fun requestChat(fromUid: String, fromName: String, targetUid: String, targetName: String) {
+        require(fromUid != targetUid) { "لا يمكنك طلب محادثة مع نفسك." }
+        val friendship = db.collection("users").document(fromUid).collection("friends").document(targetUid).get().await()
+        check(friendship.exists()) { "المحادثة متاحة للأصدقاء فقط. أرسل طلب صداقة وانتظر قبوله." }
+        val existing = db.collection("chatRequests").whereEqualTo("requesterUid", fromUid)
+            .whereEqualTo("targetUid", targetUid).whereEqualTo("status", "pending").limit(1).get().await()
+        check(existing.isEmpty) { "طلب المحادثة قيد مراجعة الإدارة بالفعل." }
+        db.collection("chatRequests").add(mapOf(
+            "requesterUid" to fromUid, "requesterName" to fromName,
+            "targetUid" to targetUid, "targetName" to targetName,
+            "status" to "pending", "createdAt" to FieldValue.serverTimestamp()
+        )).await()
+    }
+
+    suspend fun adminPendingChatRequests(): List<ChatApprovalRequest> {
+        check(isAdmin(com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid.orEmpty())) { "غير مصرح." }
+        return db.collection("chatRequests").whereEqualTo("status", "pending").get().await().documents.map { d ->
+            ChatApprovalRequest(d.id, d.getString("requesterUid").orEmpty(), d.getString("requesterName").orEmpty(),
+                d.getString("targetUid").orEmpty(), d.getString("targetName").orEmpty(), "pending",
+                d.getTimestamp("createdAt")?.toDate()?.time ?: 0L)
+        }.sortedBy { it.createdAt }
+    }
+
+    suspend fun reviewChatRequest(requestId: String, approve: Boolean) {
+        check(isAdmin(com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid.orEmpty())) { "غير مصرح." }
+        val ref = db.collection("chatRequests").document(requestId)
+        db.runTransaction { tx ->
+            val snap = tx.get(ref)
+            check(snap.exists() && snap.getString("status") == "pending") { "تمت مراجعة هذا الطلب بالفعل." }
+            val requester = snap.getString("requesterUid").orEmpty()
+            val target = snap.getString("targetUid").orEmpty()
+            tx.update(ref, "status", if (approve) "approved" else "rejected", "reviewedAt", FieldValue.serverTimestamp())
+            if (approve) {
+                val threadId = listOf(requester, target).sorted().joinToString("_")
+                val thread = db.collection("chatThreads").document(threadId)
+                tx.set(thread, mapOf("participants" to listOf(requester, target), "updatedAt" to FieldValue.serverTimestamp()), SetOptions.merge())
+                tx.update(ref, "threadId", threadId)
+            }
+        }.await()
+    }
+
+    suspend fun approvedChats(uid: String): List<Map<String, String>> =
+        db.collection("chatThreads").whereArrayContains("participants", uid).get().await().documents.map { d ->
+            val other = (d.get("participants") as? List<*>)?.filterIsInstance<String>()?.firstOrNull { it != uid }.orEmpty()
+            mapOf("threadId" to d.id, "otherUid" to other)
+        }
 
     suspend fun leaderboard(): List<CommunityMember> =
         db.collection("users").orderBy("totalListeningMs", Query.Direction.DESCENDING)
