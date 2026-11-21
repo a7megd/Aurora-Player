@@ -1,6 +1,7 @@
 name: Whisper Player installable test APK
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - codex/whisper-player-audio-bluetooth-2026-11
