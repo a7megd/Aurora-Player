@@ -55,7 +55,7 @@ object FirebaseCommunity {
                 ?: user.email?.substringBefore('@')?.take(24) ?: "Whisper User"
             ref.set(mapOf(
                 "uid" to user.uid, "displayName" to name,
-                "photoUrl" to "", "bio" to "", "favoriteSounds" to "",
+                "photoUrl" to "", "photoData" to "", "bio" to "", "favoriteSounds" to "",
                 "totalListeningMs" to 0L, "totalPlays" to 0L,
                 "createdAt" to FieldValue.serverTimestamp(),
                 "lastActiveAt" to FieldValue.serverTimestamp()
@@ -154,7 +154,7 @@ object FirebaseCommunity {
         val sender = db.collection("users").document(fromUid).collection("sentFriendRequests").document(targetUid)
         val receiver = db.collection("users").document(targetUid).collection("friendRequests").document(fromUid)
         val current = sender.get().await()
-        require(!current.exists() || current.getString("status") == "rejected") { "لديك طلب صداقة سابق أو قائم لهذا المستخدم." }
+        require(!current.exists()) { "لديك طلب صداقة سابق أو قائم لهذا المستخدم." }
         val targetProfile = db.collection("users").document(targetUid).get().await()
         val data = requestData(fromUid, fromName, "", targetUid) + mapOf("requesterPhotoData" to fromPhotoData) +
             mapOf("recipientName" to (targetProfile.getString("displayName") ?: "عضو Whisper"),
