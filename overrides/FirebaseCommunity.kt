@@ -70,7 +70,6 @@ object FirebaseCommunity {
             }
             if (!snapshot.contains("photoUrl")) updates["photoUrl"] = ""
             if (!snapshot.contains("photoData")) updates["photoData"] = ""
-            if (!snapshot.contains("photoData")) updates["photoData"] = ""
             if (!snapshot.contains("bio")) updates["bio"] = ""
             if (!snapshot.contains("favoriteSounds")) updates["favoriteSounds"] = ""
             if (!snapshot.contains("totalListeningMs")) updates["totalListeningMs"] = 0L
