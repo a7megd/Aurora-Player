@@ -28,7 +28,8 @@ data class FriendRequest(
     val createdAt: Long = 0L,
     val photoData: String = ""
 )
-\nobject FirebaseCommunity {
+
+object FirebaseCommunity {
     const val ADMIN_UID = "Cva1DdKPU3QIVXOoA3kSJG0DYxw1"
     fun isAdmin(uid: String): Boolean = uid == ADMIN_UID
     suspend fun isSuspended(uid: String): Boolean = db.collection("users").document(uid).get().await().getBoolean("suspended") == true
@@ -68,7 +69,8 @@ data class FriendRequest(
                     ?: user.email?.substringBefore('@')?.take(24) ?: "Whisper User"
             }
             if (!snapshot.contains("photoUrl")) updates["photoUrl"] = ""
-            if (!snapshot.contains("photoData")) updates["photoData"] = ""\n            if (!snapshot.contains("photoData")) updates["photoData"] = ""
+            if (!snapshot.contains("photoData")) updates["photoData"] = ""
+            if (!snapshot.contains("photoData")) updates["photoData"] = ""
             if (!snapshot.contains("bio")) updates["bio"] = ""
             if (!snapshot.contains("favoriteSounds")) updates["favoriteSounds"] = ""
             if (!snapshot.contains("totalListeningMs")) updates["totalListeningMs"] = 0L
@@ -82,7 +84,8 @@ data class FriendRequest(
         require(photoUrl.length <= 500 && (photoUrl.isBlank() || photoUrl.startsWith("https://"))) {
             "رابط الصورة يجب أن يبدأ بـ https://"
         }
-        require(photoData.length <= 180000) { "حجم الصورة بعد الضغط كبير جدًا." }\n        require(photoData.length <= 180000) { "حجم الصورة بعد الضغط كبير جدًا." }
+        require(photoData.length <= 180000) { "حجم الصورة بعد الضغط كبير جدًا." }
+        require(photoData.length <= 180000) { "حجم الصورة بعد الضغط كبير جدًا." }
         require(bio.length <= 160) { "النبذة لا يمكن أن تتجاوز 160 حرفًا." }
         require(favoriteSounds.length <= 500) { "قائمة الأصوات المفضلة طويلة جدًا." }
         db.collection("users").document(uid).update(
@@ -156,7 +159,8 @@ data class FriendRequest(
         val targetProfile = db.collection("users").document(targetUid).get().await()
         val data = requestData(fromUid, fromName, "", targetUid) + mapOf("requesterPhotoData" to fromPhotoData) +
             mapOf("recipientName" to (targetProfile.getString("displayName") ?: "عضو Whisper"),
-                "recipientPhotoUrl" to targetProfile.getString("photoUrl").orEmpty(),\n                "recipientPhotoData" to targetProfile.getString("photoData").orEmpty())
+                "recipientPhotoUrl" to targetProfile.getString("photoUrl").orEmpty(),
+                "recipientPhotoData" to targetProfile.getString("photoData").orEmpty())
         db.runBatch { batch -> batch.set(sender, data); batch.set(receiver, data) }.await()
     }
 
