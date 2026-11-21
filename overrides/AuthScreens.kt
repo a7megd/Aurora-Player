@@ -227,7 +227,8 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
    val all=FirebaseCommunity.communityMembers()
    members=all.filter{it.uid!=user.uid}
    following=members.filter{FirebaseCommunity.isFollowing(user.uid,it.uid)}.map{it.uid}.toSet()
-   all.firstOrNull{it.uid==user.uid}?.let{displayName=it.displayName;photoUrl=it.photoUrl;bio=it.bio;favorites=it.favoriteSounds}
+   requested=FirebaseCommunity.outgoingFriendRequests(user.uid).filter{it.status=="pending" || it.status=="accepted"}.map{it.uid}.toSet()
+   all.firstOrNull{it.uid==user.uid}?.let{displayName=it.displayName;photoUrl=it.photoUrl;photoData=it.photoData;bio=it.bio;favorites=it.favoriteSounds}
   } catch(e:Exception){errorText=(e.localizedMessage ?: "تعذر تحميل المستخدمين.")+"\nتأكد من نشر قواعد Firestore المحدّثة ومن تسجيل الدخول بحساب موثّق."}
   loading=false
  } }
@@ -266,7 +267,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
      Card(colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceVariant)){
       Column(Modifier.fillMaxWidth().padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
        Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){
-        if(m.photoUrl.isNotBlank()) AsyncImage(model=profilePhotoModel(m.photoData,m.photoUrl),contentDescription=null,modifier=Modifier.size(48.dp).clip(CircleShape))
+        if(m.photoData.isNotBlank() || m.photoUrl.isNotBlank()) AsyncImage(model=profilePhotoModel(m.photoData,m.photoUrl),contentDescription=null,modifier=Modifier.size(48.dp).clip(CircleShape))
         else Surface(modifier=Modifier.size(48.dp),shape=CircleShape,color=MaterialTheme.colorScheme.primaryContainer){Box(contentAlignment=Alignment.Center){Icon(Icons.Rounded.Person,null)}}
         Column(Modifier.weight(1f)){Text(m.displayName,fontWeight=FontWeight.SemiBold);Text(m.bio.ifBlank{"عضو في مجتمع Whisper"},maxLines=2,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
         TextButton(onClick={selected=m}){Text("الملف")}
@@ -335,7 +336,7 @@ fun FriendRequestsScreen(user: FirebaseUser) {
                     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                if (request.photoUrl.isNotBlank()) AsyncImage(model = request.photoUrl, contentDescription = null,
+                                if (request.photoData.isNotBlank() || request.photoUrl.isNotBlank()) AsyncImage(model = profilePhotoModel(request.photoData, request.photoUrl), contentDescription = null,
                                     modifier = Modifier.size(46.dp).clip(CircleShape))
                                 else Surface(modifier = Modifier.size(46.dp), shape = CircleShape,
                                     color = MaterialTheme.colorScheme.primaryContainer) {
