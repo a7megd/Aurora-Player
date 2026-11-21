@@ -87,7 +87,7 @@ private fun PlayerAppRoot(user: FirebaseUser) {
     val app = context.applicationContext as MusicApp
     val repository = app.container.libraryRepository
     val playback = remember { PlaybackConnection(context) }
-    LaunchedEffect(user.uid) { try { FirebaseCommunity.ensureProfile(user) } catch (_: Exception) { } }
+    LaunchedEffect(user.uid) { try { FirebaseCommunity.ensureProfile(user); if (FirebaseCommunity.isSuspended(user.uid)) FirebaseAuth.getInstance().signOut() } catch (_: Exception) { } }
     DisposableEffect(playback) { onDispose { playback.release() } }
     val controller by playback.controller.collectAsState()
     var showBrandSplash by remember { mutableStateOf(true) }
