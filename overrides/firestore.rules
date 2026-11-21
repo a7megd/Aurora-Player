@@ -47,6 +47,18 @@ service cloud.firestore {
           && request.resource.data.get('totalPlays', 0) <= resource.data.get('totalPlays', 0) + 1)
       );
 
+      match /following/{targetUid} {
+        allow read: if signedIn() && request.auth.uid == userId;
+        allow create: if signedIn() && request.auth.uid == userId && targetUid != userId
+          && request.resource.data.targetUid == targetUid;
+        allow delete: if signedIn() && request.auth.uid == userId;
+      }
+      match /friendRequests/{requesterUid} {
+        allow read: if signedIn() && request.auth.uid == userId;
+        allow create: if signedIn() && request.auth.uid == requesterUid && requesterUid != userId
+          && request.resource.data.requesterUid == requesterUid;
+        allow delete: if signedIn() && (request.auth.uid == userId || request.auth.uid == requesterUid);
+      }
       allow delete: if false;
     }
 
@@ -54,7 +66,7 @@ service cloud.firestore {
     match /articles/{articleId} {
       allow read: if signedIn() && (resource.data.status == 'published' || resource.data.authorUid == request.auth.uid || isAdmin());
       allow create: if signedIn() && request.resource.data.authorUid == request.auth.uid
-        && request.resource.data.keys().hasOnly(['title','subtitle','body','coverUrl','authorUid','authorName','status','createdAt','updatedAt','publishedAt'])
+        && request.resource.data.keys().hasOnly(['title','subtitle','body','coverUrl','authorUid','authorName','status','createdAt','updatedAt','publishedAt','bodyFontSize','bodyBold','bodyAlign'])
         && request.resource.data.title is string && request.resource.data.title.size() >= 3 && request.resource.data.title.size() <= 120
         && request.resource.data.subtitle is string && request.resource.data.subtitle.size() <= 220
         && request.resource.data.body is string && request.resource.data.body.size() >= 1 && request.resource.data.body.size() <= 30000
@@ -63,7 +75,7 @@ service cloud.firestore {
         && request.resource.data.status in ['draft','published'];
       allow update: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin())
         && request.resource.data.authorUid == resource.data.authorUid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','subtitle','body','coverUrl','authorName','status','updatedAt','publishedAt'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','subtitle','body','coverUrl','authorName','status','updatedAt','publishedAt','bodyFontSize','bodyBold','bodyAlign'])
         && request.resource.data.title is string && request.resource.data.title.size() >= 3 && request.resource.data.title.size() <= 120
         && request.resource.data.subtitle is string && request.resource.data.subtitle.size() <= 220
         && request.resource.data.body is string && request.resource.data.body.size() <= 30000
