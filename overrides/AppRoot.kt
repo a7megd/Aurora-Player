@@ -229,6 +229,13 @@ private fun PlayerAppRoot(user: FirebaseUser) {
         ?: controller?.currentMediaItem?.mediaId?.toLongOrNull()
     var wallpaperUri by remember(context) { mutableStateOf(context.getSharedPreferences("whisper_preferences", android.content.Context.MODE_PRIVATE).getString("wallpaper_uri", null)) }
     var favoriteRefresh by remember { mutableIntStateOf(0) }
+    var pendingFriendCount by remember { mutableIntStateOf(0) }
+    LaunchedEffect(user.uid) {
+        while (true) {
+            pendingFriendCount = try { FirebaseCommunity.incomingFriendRequests(user.uid).count { it.status == "pending" } } catch (_: Exception) { 0 }
+            delay(30_000L)
+        }
+    }
     val currentIsFavorite = remember(favoriteRefresh, playingSongId) {
         playingSongId?.let { id ->
             context.getSharedPreferences("whisper_favorites", android.content.Context.MODE_PRIVATE)
@@ -415,7 +422,7 @@ private fun PlayerAppRoot(user: FirebaseUser) {
                             ids.add(song.id.toString())
                             prefs.edit().putStringSet("ids", ids).apply()
                         },
-                        onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } }, activeSongId = playingSongId,
+                        onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } }, activeSongId = playingSongId, notificationCount = pendingFriendCount,
                         onRequestAudioAccess = { if (hasPermission) nav.navigate(Routes.SONGS) { launchSingleTop = true } else permissionLauncher.launch(audioPermission()) })
                         r == Routes.SEARCH -> WhisperSearchScreen(songs, onPlay = { song -> playback.play(song, songs); nav.navigate(Routes.NOW_PLAYING) }, onPlayNext = { song -> controller?.let { player ->
                             val mediaItem = androidx.media3.common.MediaItem.fromUri(android.content.ContentUris.withAppendedId(android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, song.id).toString())
