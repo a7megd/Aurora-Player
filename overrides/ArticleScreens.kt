@@ -38,7 +38,9 @@ fun ArticleHubDialog(user:FirebaseUser,onDismiss:()->Unit) {
     suspend fun reload() {
         loading=true
         try {
-            items=db.collection("articles").get().await().documents.mapNotNull { d ->
+            val docs=(db.collection("articles").whereEqualTo("status","published").get().await().documents +
+                db.collection("articles").whereEqualTo("authorUid",user.uid).get().await().documents).distinctBy { it.id }
+            items=docs.mapNotNull { d ->
                 val uid=d.getString("authorUid") ?: return@mapNotNull null
                 WhisperArticle(d.id,d.getString("title").orEmpty(),d.getString("subtitle").orEmpty(),d.getString("body").orEmpty(),d.getString("coverUrl").orEmpty(),uid,d.getString("authorName") ?: "كاتب Whisper",d.getString("status") ?: "draft")
             }.filter { it.status=="published" || it.uid==user.uid }.sortedByDescending { it.id }
