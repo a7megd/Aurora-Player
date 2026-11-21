@@ -60,7 +60,7 @@ private val allRoutes = listOf(
     Routes.FAVORITES to "المفضلة", Routes.RECENT to "شُغّلت مؤخرًا",
     Routes.NOW_PLAYING to "تعمل الآن", Routes.QUEUE to "قائمة التشغيل الحالية", Routes.LYRICS to "كلمات الأغاني", Routes.SEARCH to "بحث",
     Routes.EQUALIZER to "معادل الصوت", Routes.SETTINGS to "الإعدادات", Routes.COMMUNITY to "المجتمع",
-    Routes.WRITE_ARTICLE to "كتابة مقال", Routes.ARTICLES to "المقالات",
+    Routes.WRITE_ARTICLE to "كتابة مقال", Routes.ARTICLES to "المقالات", Routes.FRIEND_REQUESTS to "طلبات الصداقة",
 )
 
 private fun audioPermission(): String =
@@ -415,7 +415,8 @@ private fun PlayerAppRoot(user: FirebaseUser) {
                             ids.add(song.id.toString())
                             prefs.edit().putStringSet("ids", ids).apply()
                         },
-                        onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } }, activeSongId = playingSongId)
+                        onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } }, activeSongId = playingSongId,
+                        onRequestAudioAccess = { if (hasPermission) nav.navigate(Routes.SONGS) { launchSingleTop = true } else permissionLauncher.launch(audioPermission()) })
                         r == Routes.SEARCH -> WhisperSearchScreen(songs, onPlay = { song -> playback.play(song, songs); nav.navigate(Routes.NOW_PLAYING) }, onPlayNext = { song -> controller?.let { player ->
                             val mediaItem = androidx.media3.common.MediaItem.fromUri(android.content.ContentUris.withAppendedId(android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, song.id).toString())
                             val insertAt = (player.currentMediaItemIndex + 1).coerceAtLeast(0).coerceAtMost(player.mediaItemCount)
@@ -442,6 +443,7 @@ private fun PlayerAppRoot(user: FirebaseUser) {
                         r == Routes.COMMUNITY -> CommunityScreen(user, onSignOut = { FirebaseAuth.getInstance().signOut() }, onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } })
                         r == Routes.WRITE_ARTICLE -> ArticleWriterScreen(user)
                         r == Routes.ARTICLES -> ArticleReaderScreen(user)
+                        r == Routes.FRIEND_REQUESTS -> FriendRequestsScreen(user)
                         else -> ScaffoldScreen(title)
                     }
                 }
