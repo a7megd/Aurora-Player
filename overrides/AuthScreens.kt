@@ -195,6 +195,13 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
  var members by remember { mutableStateOf<List<com.aurora.player.community.CommunityMember>>(emptyList()) }
  var following by remember { mutableStateOf<Set<String>>(emptySet()) }
  var requested by remember { mutableStateOf<Set<String>>(emptySet()) }
+ var ownFollowers by remember { mutableIntStateOf(0) }
+ var ownFollowing by remember { mutableIntStateOf(0) }
+ var ownFriends by remember { mutableIntStateOf(0) }
+ var selectedIsFriend by remember { mutableStateOf(false) }
+ var selectedFollowers by remember { mutableIntStateOf(0) }
+ var selectedFollowing by remember { mutableIntStateOf(0) }
+ var selectedFriends by remember { mutableIntStateOf(0) }
  var loading by remember { mutableStateOf(true) }
  var busyUid by remember { mutableStateOf<String?>(null) }
  var errorText by remember { mutableStateOf<String?>(null) }
@@ -229,6 +236,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
    members=all.filter{it.uid!=user.uid}
    following=members.filter{FirebaseCommunity.isFollowing(user.uid,it.uid)}.map{it.uid}.toSet()
    requested=FirebaseCommunity.outgoingFriendRequests(user.uid).filter{it.status=="pending" || it.status=="accepted"}.map{it.uid}.toSet()
+   ownFollowers=FirebaseCommunity.followerCount(user.uid); ownFollowing=FirebaseCommunity.followingCount(user.uid); ownFriends=FirebaseCommunity.friendCount(user.uid)
    all.firstOrNull{it.uid==user.uid}?.let{displayName=it.displayName;photoUrl=it.photoUrl;photoData=it.photoData;bio=it.bio;favorites=it.favoriteSounds}
   } catch(e:Exception){errorText=(e.localizedMessage ?: "تعذر تحميل المستخدمين.")+"\nتأكد من نشر قواعد Firestore المحدّثة ومن تسجيل الدخول بحساب موثّق."}
   loading=false
@@ -255,6 +263,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
       Column(Modifier.weight(1f)){Text(displayName.ifBlank{"عضو Whisper"},style=MaterialTheme.typography.titleLarge);Text("ملفك الشخصي",style=MaterialTheme.typography.bodySmall)}
       TextButton(onClick={editing=true}){Text("تعديل")}
      }
+     Text("متابعون $ownFollowers   •   تتابع $ownFollowing   •   أصدقاء $ownFriends",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
      if(bio.isNotBlank()) Text(bio)
      if(favorites.isNotBlank()) Text("الأصوات المفضلة: $favorites",style=MaterialTheme.typography.bodySmall)
     }
@@ -298,7 +307,24 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
   .putString("display_name",displayName.trim()).putString("photo_data",photoData).putString("photo_uri",photoUrl).apply()
  editing=false
 }catch(e:Exception){errorText=e.localizedMessage ?: "تعذر حفظ الملف."};saving=false;refresh()}}){Text(if(saving)"جارٍ الحفظ…" else "حفظ")}},dismissButton={TextButton(enabled=!saving,onClick={editing=false}){Text("إلغاء")}})
- selected?.let{m->AlertDialog(onDismissRequest={selected=null},title={Text(m.displayName)},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){if(m.bio.isNotBlank())Text(m.bio);if(m.favoriteSounds.isNotBlank())Text("الأصوات المفضلة: "+m.favoriteSounds);Text("وقت الاستماع: "+formatListening(m.totalListeningMs));Text("مرات التشغيل: "+m.totalPlays)}},confirmButton={TextButton(onClick={selected=null}){Text("إغلاق")}})}
+ LaunchedEffect(selected?.uid) {
+  val m=selected
+  if(m!=null) {
+   selectedIsFriend=runCatching{FirebaseCommunity.isFriend(user.uid,m.uid)}.getOrDefault(false)
+   selectedFollowers=runCatching{FirebaseCommunity.followerCount(m.uid)}.getOrDefault(0)
+   selectedFollowing=runCatching{FirebaseCommunity.followingCount(m.uid)}.getOrDefault(0)
+   selectedFriends=runCatching{FirebaseCommunity.friendCount(m.uid)}.getOrDefault(0)
+  }
+ }
+ selected?.let{m->AlertDialog(onDismissRequest={selected=null},title={Text(m.displayName)},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
+  if(m.bio.isNotBlank())Text(m.bio)
+  Text("المتابعون $selectedFollowers • يتابع $selectedFollowing • الأصدقاء $selectedFriends",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
+  if(m.favoriteSounds.isNotBlank())Text("الأصوات المفضلة: "+m.favoriteSounds)
+  Text("وقت الاستماع: "+formatListening(m.totalListeningMs));Text("مرات التشغيل: "+m.totalPlays)
+ }},confirmButton={
+  Row { if(selectedIsFriend) TextButton(onClick={scope.launch{try{FirebaseCommunity.requestChat(user.uid,displayName,m.uid,m.displayName);errorText="تم إرسال طلب المحادثة إلى الإدارة للمراجعة."}catch(e:Exception){errorText=e.localizedMessage};}}){Text("طلب محادثة")}
+   TextButton(onClick={selected=null}){Text("إغلاق")} }
+ })}
  if(showAdminPanel&&adminBuild) AdminDashboardDialog(onDismiss={showAdminPanel=false})
 }
 
