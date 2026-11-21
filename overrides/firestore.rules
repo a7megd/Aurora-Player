@@ -1,35 +1,55 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function verifiedUser() { return request.auth != null && request.auth.token.email_verified == true; }
-    function isAdmin() { return verifiedUser() && request.auth.uid == 'Cva1DdKPU3QIVXOoA3kSJG0DYxw1'; }
+    function signedIn() { return request.auth != null; }
+    function isAdmin() { return signedIn() && request.auth.uid == 'Cva1DdKPU3QIVXOoA3kSJG0DYxw1'; }
+
     match /users/{userId} {
-      allow read: if verifiedUser() && (isAdmin() || request.auth.uid == userId || resource.data.suspended != true);
-      allow create: if verifiedUser() && request.auth.uid == userId
+      // Community profiles are readable by signed-in members; suspended profiles are hidden
+      // from other members, while the owner and admin can still inspect their own records.
+      allow read: if signedIn() && (isAdmin() || request.auth.uid == userId || resource.data.suspended != true);
+
+      allow create: if signedIn() && request.auth.uid == userId
         && request.resource.data.keys().hasOnly(['uid','displayName','photoUrl','bio','favoriteSounds','totalListeningMs','totalPlays','createdAt','lastActiveAt'])
         && request.resource.data.uid == userId
         && request.resource.data.displayName is string
-        && request.resource.data.displayName.size() >= 2 && request.resource.data.displayName.size() <= 30
-        && request.resource.data.photoUrl == '' && request.resource.data.bio == '' && request.resource.data.favoriteSounds == ''
-        && request.resource.data.totalListeningMs == 0 && request.resource.data.totalPlays == 0;
-      allow update: if verifiedUser() && (
-        (isAdmin() && userId != 'Cva1DdKPU3QIVXOoA3kSJG0DYxw1' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['suspended']) && request.resource.data.suspended is bool)
+        && request.resource.data.displayName.size() >= 2
+        && request.resource.data.displayName.size() <= 30
+        && request.resource.data.photoUrl == ''
+        && request.resource.data.bio == ''
+        && request.resource.data.favoriteSounds == ''
+        && request.resource.data.totalListeningMs == 0
+        && request.resource.data.totalPlays == 0;
+
+      allow update: if signedIn() && (
+        (isAdmin()
+          && userId != 'Cva1DdKPU3QIVXOoA3kSJG0DYxw1'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['suspended'])
+          && request.resource.data.suspended is bool)
         ||
         (request.auth.uid == userId
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName','photoUrl','bio','favoriteSounds','totalListeningMs','totalPlays','lastActiveAt'])
-          && request.resource.data.displayName is string
-          && request.resource.data.displayName.size() >= 2 && request.resource.data.displayName.size() <= 30
-          && request.resource.data.photoUrl is string && request.resource.data.photoUrl.size() <= 500
-          && (request.resource.data.photoUrl == '' || request.resource.data.photoUrl.matches('https://.*'))
-          && request.resource.data.bio is string && request.resource.data.bio.size() <= 160
-          && request.resource.data.favoriteSounds is string && request.resource.data.favoriteSounds.size() <= 500
-          && request.resource.data.totalListeningMs >= resource.data.totalListeningMs
-          && request.resource.data.totalListeningMs <= resource.data.totalListeningMs + 120000
-          && request.resource.data.totalPlays >= resource.data.totalPlays
-          && request.resource.data.totalPlays <= resource.data.totalPlays + 1)
+          && request.resource.data.get('displayName', '') is string
+          && request.resource.data.get('displayName', '').size() >= 2
+          && request.resource.data.get('displayName', '').size() <= 30
+          && request.resource.data.get('photoUrl', '') is string
+          && request.resource.data.get('photoUrl', '').size() <= 500
+          && (request.resource.data.get('photoUrl', '') == '' || request.resource.data.get('photoUrl', '').matches('https://.*'))
+          && request.resource.data.get('bio', '') is string
+          && request.resource.data.get('bio', '').size() <= 160
+          && request.resource.data.get('favoriteSounds', '') is string
+          && request.resource.data.get('favoriteSounds', '').size() <= 500
+          && request.resource.data.get('totalListeningMs', 0) is int
+          && request.resource.data.get('totalListeningMs', 0) >= resource.data.get('totalListeningMs', 0)
+          && request.resource.data.get('totalListeningMs', 0) <= resource.data.get('totalListeningMs', 0) + 120000
+          && request.resource.data.get('totalPlays', 0) is int
+          && request.resource.data.get('totalPlays', 0) >= resource.data.get('totalPlays', 0)
+          && request.resource.data.get('totalPlays', 0) <= resource.data.get('totalPlays', 0) + 1)
       );
+
       allow delete: if false;
     }
+
     match /{document=**} { allow read, write: if false; }
   }
 }
