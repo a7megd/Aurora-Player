@@ -291,7 +291,12 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
   OutlinedTextField(photoUrl,{photoUrl=it.take(500)},label={Text("أو رابط صورة HTTPS")})
   OutlinedTextField(bio,{bio=it.take(160)},label={Text("نبذة عنك")},minLines=2)
   OutlinedTextField(favorites,{favorites=it.take(500)},label={Text("أصواتك المفضلة")},minLines=2)
- }},confirmButton={TextButton(enabled=!saving,onClick={saving=true;scope.launch{try{FirebaseCommunity.updateProfile(user.uid,displayName,photoUrl,bio,favorites,photoData);editing=false}catch(e:Exception){errorText=e.localizedMessage ?: "تعذر حفظ الملف."};saving=false;refresh()}}){Text(if(saving)"جارٍ الحفظ…" else "حفظ")}},dismissButton={TextButton(enabled=!saving,onClick={editing=false}){Text("إلغاء")}})
+ }},confirmButton={TextButton(enabled=!saving,onClick={saving=true;scope.launch{try{
+ FirebaseCommunity.updateProfile(user.uid,displayName,photoUrl,bio,favorites,photoData)
+ context.getSharedPreferences("tayer_profile", android.content.Context.MODE_PRIVATE).edit()
+  .putString("display_name",displayName.trim()).putString("photo_data",photoData).putString("photo_uri",photoUrl).apply()
+ editing=false
+}catch(e:Exception){errorText=e.localizedMessage ?: "تعذر حفظ الملف."};saving=false;refresh()}}){Text(if(saving)"جارٍ الحفظ…" else "حفظ")}},dismissButton={TextButton(enabled=!saving,onClick={editing=false}){Text("إلغاء")}})
  selected?.let{m->AlertDialog(onDismissRequest={selected=null},title={Text(m.displayName)},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){if(m.bio.isNotBlank())Text(m.bio);if(m.favoriteSounds.isNotBlank())Text("الأصوات المفضلة: "+m.favoriteSounds);Text("وقت الاستماع: "+formatListening(m.totalListeningMs));Text("مرات التشغيل: "+m.totalPlays)}},confirmButton={TextButton(onClick={selected=null}){Text("إغلاق")}})}
  if(showAdminPanel&&adminBuild) AdminDashboardDialog(onDismiss={showAdminPanel=false})
 }
