@@ -21,7 +21,7 @@ class MusicApp : Application() {
     override fun onCreate() {
         super.onCreate()
         if (FirebaseApp.getApps(this).isEmpty()) {
-            val appId = if (BuildConfig.APPLICATION_ID.endsWith(".test")) {
+            val appId = if (packageName.endsWith(".test")) {
                 "1:463692900230:android:aae24466db5c701b57ee07"
             } else {
                 "1:463692900230:android:1966fe3efbbbb7ae57ee07"

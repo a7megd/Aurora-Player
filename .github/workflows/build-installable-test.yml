@@ -56,7 +56,7 @@ jobs:
               line = f'    <uses-permission android:name="{perm}" />'
               if perm not in s:
                   i = s.find('>', s.find('<manifest')) + 1
-                  s = s[:i] + '\\n' + line + s[i:]
+                  s = s[:i] + '\n' + line + s[i:]
           p.write_text(s)
           PY
       - uses: actions/setup-java@v4
