@@ -128,7 +128,7 @@ fun ArticleHubDialog(user:FirebaseUser,onDismiss:()->Unit) {
 private data class FullWhisperArticle(
     val id: String, val title: String, val subtitle: String, val body: String,
     val cover: String, val uid: String, val author: String, val fontSize: Int,
-    val bold: Boolean, val align: String
+    val bold: Boolean, val align: String, val fontColor: String = "#222222"
 )
 
 private fun articleAlignment(value: String): TextAlign = when(value) {
@@ -149,6 +149,7 @@ fun ArticleWriterScreen(user: FirebaseUser) {
     var fontSize by remember { mutableIntStateOf(19) }
     var bold by remember { mutableStateOf(false) }
     var align by remember { mutableStateOf("right") }
+    var bodyColor by remember { mutableStateOf("#222222") }
     var editingId by remember { mutableStateOf<String?>(null) }
     var myArticles by remember { mutableStateOf<List<FullWhisperArticle>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
@@ -166,7 +167,7 @@ fun ArticleWriterScreen(user: FirebaseUser) {
     LaunchedEffect(user.uid) { try { reloadMine() } catch (e: Exception) { message = e.localizedMessage } }
 
     fun clearEditor() {
-        title = ""; subtitle = ""; body = ""; cover = ""; fontSize = 19; bold = false; align = "right"; editingId = null
+        title = ""; subtitle = ""; body = ""; cover = ""; fontSize = 19; bold = false; align = "right"; bodyColor = "#222222"; editingId = null
     }
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 12.dp),
@@ -178,6 +179,12 @@ fun ArticleWriterScreen(user: FirebaseUser) {
                 modifier = Modifier.fillMaxWidth(), textStyle = MaterialTheme.typography.titleLarge)
             OutlinedTextField(value = subtitle, onValueChange = { subtitle = it.take(220) }, label = { Text("عنوان فرعي (اختياري)") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(value = cover, onValueChange = { cover = it.take(1000) }, label = { Text("رابط صورة الغلاف HTTPS (اختياري)") }, modifier = Modifier.fillMaxWidth())
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("لون الخط:")
+                listOf("#222222" to "أسود", "#6D28D9" to "بنفسجي", "#1565C0" to "أزرق", "#B23A48" to "أحمر", "#16805D" to "أخضر").forEach { (hex,label) ->
+                    FilterChip(selected = bodyColor == hex, onClick = { bodyColor = hex }, label = { Text(label) })
+                }
+            }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = { fontSize = (fontSize - 1).coerceAtLeast(14) }) { Text("أ−") }
@@ -213,7 +220,7 @@ fun ArticleWriterScreen(user: FirebaseUser) {
                             val data = hashMapOf<String, Any>("title" to title.trim(), "subtitle" to subtitle.trim(),
                                 "body" to body.trim(), "coverUrl" to cover.trim(), "authorUid" to user.uid,
                                 "authorName" to (user.displayName ?: "كاتب Whisper"), "status" to "draft",
-                                "bodyFontSize" to fontSize.toLong(), "bodyBold" to bold, "bodyAlign" to align,
+                                "bodyFontSize" to fontSize.toLong(), "bodyBold" to bold, "bodyAlign" to align, "bodyColor" to bodyColor,
                                 "updatedAt" to FieldValue.serverTimestamp())
                             if (editingId == null) { data["createdAt"] = FieldValue.serverTimestamp(); db.collection("articles").add(data).await() }
                             else db.collection("articles").document(editingId!!).update(data - "authorUid").await()
@@ -255,7 +262,7 @@ fun ArticleWriterScreen(user: FirebaseUser) {
                         }
                         TextButton(onClick = {
                             editingId = article.id; title = article.title; subtitle = article.subtitle; body = article.body
-                            cover = article.cover; fontSize = article.fontSize; bold = article.bold; align = article.align
+                            cover = article.cover; fontSize = article.fontSize; bold = article.bold; align = article.align; bodyColor = article.fontColor
                         }) { Text("تعديل") }
                     }
                 }
@@ -282,7 +289,7 @@ fun ArticleReaderScreen(user: FirebaseUser) {
                 FullWhisperArticle(d.id, d.getString("title").orEmpty(), d.getString("subtitle").orEmpty(),
                     d.getString("body").orEmpty(), d.getString("coverUrl").orEmpty(), uid,
                     d.getString("authorName") ?: "كاتب Whisper", (d.getLong("bodyFontSize") ?: 19L).toInt(),
-                    d.getBoolean("bodyBold") == true, d.getString("bodyAlign") ?: "right")
+                    d.getBoolean("bodyBold") == true, d.getString("bodyAlign") ?: "right", d.getString("bodyColor") ?: "#222222")
             }.sortedByDescending { it.id }
         } catch (e: Exception) { error = e.localizedMessage ?: "تعذر تحميل المقالات." }
         loading = false
@@ -325,7 +332,8 @@ fun ArticleReaderScreen(user: FirebaseUser) {
                     Divider()
                     Text(article.body, style = TextStyle(fontSize = article.fontSize.sp,
                         fontWeight = if (article.bold) FontWeight.Bold else FontWeight.Normal,
-                        textAlign = articleAlignment(article.align), lineHeight = (article.fontSize + 12).sp))
+                        textAlign = articleAlignment(article.align), lineHeight = (article.fontSize + 12).sp,
+                        color = runCatching { Color(android.graphics.Color.parseColor(article.fontColor)) }.getOrDefault(MaterialTheme.colorScheme.onSurface)))
                     OutlinedButton(onClick = {
                         val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, article.title + "\n\n" + article.body) }
                         context.startActivity(Intent.createChooser(send, "مشاركة المقال"))
