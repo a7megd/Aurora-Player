@@ -1,5 +1,8 @@
 package com.aurora.player.playback
 
+import android.app.PendingIntent
+import android.content.Intent
+import com.aurora.player.MainActivity
 import android.content.ContentUris
 import android.net.Uri
 import android.util.Log
@@ -68,7 +71,19 @@ class PlaybackService : MediaSessionService() {
                     }
                 })
             }
-        mediaSession = MediaSession.Builder(this, player).build()
+        val openAppIntent = Intent(this, MainActivity::class.java).apply {
+            action = Intent.ACTION_MAIN
+            addCategory(Intent.CATEGORY_LAUNCHER)
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val sessionActivity = PendingIntent.getActivity(
+            this, 1001, openAppIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        // Tapping the system media card opens Whisper Player; transport buttons remain media controls.
+        mediaSession = MediaSession.Builder(this, player)
+            .setSessionActivity(sessionActivity)
+            .build()
         restoreQueue()
     }
 
