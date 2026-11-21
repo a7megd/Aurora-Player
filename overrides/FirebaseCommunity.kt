@@ -6,6 +6,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
 
+data class AdminMember(val uid: String, val displayName: String, val bio: String, val suspended: Boolean)
+
 data class CommunityMember(
     val uid: String,
     val displayName: String,
@@ -17,6 +19,20 @@ data class CommunityMember(
 )
 
 object FirebaseCommunity {
+    const val ADMIN_UID = "Cva1DdKPU3QIVXOoA3kSJG0DYxw1"
+    fun isAdmin(uid: String): Boolean = uid == ADMIN_UID
+    suspend fun isSuspended(uid: String): Boolean = db.collection("users").document(uid).get().await().getBoolean("suspended") == true
+    suspend fun adminMembers(): List<AdminMember> {
+        check(isAdmin(com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid.orEmpty())) { "غير مصرح لك باستخدام لوحة الإدارة." }
+        return db.collection("users").limit(200).get().await().documents.map { doc ->
+            AdminMember(doc.id, doc.getString("displayName") ?: "عضو Whisper", doc.getString("bio").orEmpty(), doc.getBoolean("suspended") == true)
+        }
+    }
+    suspend fun setSuspended(targetUid: String, suspended: Boolean) {
+        check(isAdmin(com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid.orEmpty())) { "غير مصرح لك بتنفيذ هذا الإجراء." }
+        require(targetUid != ADMIN_UID) { "لا يمكن تعليق حساب المدير." }
+        db.collection("users").document(targetUid).update("suspended", suspended).await()
+    }
     private val db: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
 
     suspend fun ensureProfile(user: FirebaseUser, fallbackName: String? = null) {
