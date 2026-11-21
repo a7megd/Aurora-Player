@@ -18,7 +18,15 @@ data class CommunityMember(
     val favoriteSounds: String = ""
 )
 
-object FirebaseCommunity {
+
+data class FriendRequest(
+    val uid: String,
+    val displayName: String,
+    val photoUrl: String,
+    val status: String,
+    val createdAt: Long = 0L
+)
+\nobject FirebaseCommunity {
     const val ADMIN_UID = "Cva1DdKPU3QIVXOoA3kSJG0DYxw1"
     fun isAdmin(uid: String): Boolean = uid == ADMIN_UID
     suspend fun isSuspended(uid: String): Boolean = db.collection("users").document(uid).get().await().getBoolean("suspended") == true
@@ -126,6 +134,51 @@ object FirebaseCommunity {
         require(fromUid != targetUid) { "لا يمكنك إرسال طلب صداقة لنفسك." }
         db.collection("users").document(targetUid).collection("friendRequests").document(fromUid)
             .set(mapOf("requesterUid" to fromUid, "requesterName" to fromName, "createdAt" to FieldValue.serverTimestamp())).await()
+    }
+
+
+    private fun requestData(uid: String, displayName: String, photoUrl: String, targetUid: String): Map<String, Any> =
+        mapOf("requesterUid" to uid, "requesterName" to displayName, "requesterPhotoUrl" to photoUrl,
+            "recipientUid" to targetUid, "status" to "pending", "createdAt" to FieldValue.serverTimestamp())
+
+    suspend fun sendFriendRequest(fromUid: String, fromName: String, fromPhotoUrl: String, targetUid: String) {
+        require(fromUid != targetUid) { "لا يمكنك إرسال طلب صداقة لنفسك." }
+        val sender = db.collection("users").document(fromUid).collection("sentFriendRequests").document(targetUid)
+        val receiver = db.collection("users").document(targetUid).collection("friendRequests").document(fromUid)
+        val current = sender.get().await()
+        require(!current.exists() || current.getString("status") == "rejected") { "لديك طلب صداقة سابق أو قائم لهذا المستخدم." }
+        val data = requestData(fromUid, fromName, fromPhotoUrl, targetUid)
+        db.runBatch { batch -> batch.set(sender, data); batch.set(receiver, data) }.await()
+    }
+
+    suspend fun incomingFriendRequests(uid: String): List<FriendRequest> =
+        db.collection("users").document(uid).collection("friendRequests").get().await().documents.map { d ->
+            FriendRequest(d.id, d.getString("requesterName") ?: "عضو Whisper",
+                d.getString("requesterPhotoUrl").orEmpty(), d.getString("status") ?: "pending",
+                d.getTimestamp("createdAt")?.toDate()?.time ?: 0L)
+        }.sortedByDescending { it.createdAt }
+
+    suspend fun outgoingFriendRequests(uid: String): List<FriendRequest> =
+        db.collection("users").document(uid).collection("sentFriendRequests").get().await().documents.map { d ->
+            FriendRequest(d.id, d.getString("recipientName") ?: d.getString("requesterName") ?: "عضو Whisper",
+                d.getString("recipientPhotoUrl").orEmpty(), d.getString("status") ?: "pending",
+                d.getTimestamp("createdAt")?.toDate()?.time ?: 0L)
+        }.sortedByDescending { it.createdAt }
+
+    suspend fun respondToFriendRequest(recipientUid: String, requesterUid: String, accept: Boolean) {
+        val incoming = db.collection("users").document(recipientUid).collection("friendRequests").document(requesterUid)
+        val outgoing = db.collection("users").document(requesterUid).collection("sentFriendRequests").document(recipientUid)
+        val newStatus = if (accept) "accepted" else "rejected"
+        db.runBatch { batch ->
+            batch.update(incoming, "status", newStatus, "respondedAt", FieldValue.serverTimestamp())
+            batch.update(outgoing, "status", newStatus, "respondedAt", FieldValue.serverTimestamp())
+            if (accept) {
+                batch.set(db.collection("users").document(recipientUid).collection("friends").document(requesterUid),
+                    mapOf("uid" to requesterUid, "createdAt" to FieldValue.serverTimestamp()))
+                batch.set(db.collection("users").document(requesterUid).collection("friends").document(recipientUid),
+                    mapOf("uid" to recipientUid, "createdAt" to FieldValue.serverTimestamp()))
+            }
+        }.await()
     }
 
     suspend fun leaderboard(): List<CommunityMember> =
