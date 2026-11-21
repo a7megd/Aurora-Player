@@ -230,7 +230,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 if (member.photoUrl.isNotBlank()) AsyncImage(model = member.photoUrl, contentDescription = null, modifier = Modifier.size(42.dp).clip(CircleShape))
                                 else Surface(modifier = Modifier.size(42.dp).clip(CircleShape), color = MaterialTheme.colorScheme.primaryContainer) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Person, null) } }
-                                Column(Modifier.weight(1f)) { Text("\${index + 1}. \${member.displayName}", fontWeight = FontWeight.SemiBold); Text("\${member.totalPlays} تشغيلات • \${formatListening(member.totalListeningMs)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                                Column(Modifier.weight(1f)) { Text("${index + 1}. ${member.displayName}", fontWeight = FontWeight.SemiBold); Text("${member.totalPlays} تشغيلات • ${formatListening(member.totalListeningMs)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                             }
                             if (member.bio.isNotBlank()) Text(member.bio, style = MaterialTheme.typography.bodySmall)
                             if (member.favoriteSounds.isNotBlank()) Text("المفضلة: " + member.favoriteSounds.replace("\n", " • "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -247,7 +247,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit) {
         text = { Column(Modifier.fillMaxWidth().heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             OutlinedTextField(value = displayName, onValueChange = { displayName = it.take(30) }, label = { Text("اسم العرض") }, singleLine = true)
             OutlinedTextField(value = photoUrl, onValueChange = { photoUrl = it.take(500) }, label = { Text("رابط الصورة الشخصية (HTTPS)") }, supportingText = { Text("استخدم رابط صورة مباشر يبدأ بـ https://") }, singleLine = true)
-            OutlinedTextField(value = bio, onValueChange = { bio = it.take(160) }, label = { Text("نبذة / كابشن") }, supportingText = { Text("\${bio.length}/160") }, minLines = 2, maxLines = 4)
+            OutlinedTextField(value = bio, onValueChange = { bio = it.take(160) }, label = { Text("نبذة / كابشن") }, supportingText = { Text("${bio.length}/160") }, minLines = 2, maxLines = 4)
             OutlinedTextField(value = favorites, onValueChange = { favorites = it.take(500) }, label = { Text("أصواتك المفضلة") }, supportingText = { Text("اكتب أسماء الأصوات أو الأغاني، وافصل بينها بفاصلة أو سطر جديد.") }, minLines = 3, maxLines = 5)
         } },
         confirmButton = { TextButton(enabled = !saving, onClick = { scope.launch {
