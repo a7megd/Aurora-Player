@@ -158,6 +158,9 @@ object FirebaseCommunity {
     suspend fun friendCount(uid: String): Int =
         db.collection("users").document(uid).collection("friends").get().await().size()
 
+    suspend fun isFriend(uid: String, targetUid: String): Boolean =
+        db.collection("users").document(uid).collection("friends").document(targetUid).get().await().exists()
+
     suspend fun requestFriend(fromUid: String, fromName: String, targetUid: String) {
         require(fromUid != targetUid) { "لا يمكنك إرسال طلب صداقة لنفسك." }
         db.collection("users").document(targetUid).collection("friendRequests").document(fromUid)
