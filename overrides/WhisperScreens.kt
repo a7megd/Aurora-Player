@@ -1003,7 +1003,8 @@ fun WhisperHomeScreen(
     onPlayNext: (Song) -> Unit = {},
     onRadio: (Song) -> Unit = {},
     onFavorite: (Song) -> Unit = {},
-    activeSongId: Long? = null
+    activeSongId: Long? = null,
+    onRequestAudioAccess: () -> Unit = {}
 ) {
     var selectedSong by remember { mutableStateOf<Song?>(null) }
     val context = LocalContext.current
