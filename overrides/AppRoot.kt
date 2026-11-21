@@ -47,6 +47,9 @@ import androidx.navigation.compose.*
 import androidx.media3.common.Player
 import com.aurora.player.MusicApp
 import com.aurora.player.playback.PlaybackConnection
+import com.aurora.player.community.FirebaseCommunity
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
 import com.aurora.player.ui.library.LibraryScreen
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -56,7 +59,7 @@ private val allRoutes = listOf(
     Routes.ARTISTS to "الفنانون", Routes.PLAYLISTS to "قوائم التشغيل", Routes.FOLDERS to "المجلدات",
     Routes.FAVORITES to "المفضلة", Routes.RECENT to "شُغّلت مؤخرًا",
     Routes.NOW_PLAYING to "تعمل الآن", Routes.QUEUE to "قائمة التشغيل الحالية", Routes.LYRICS to "كلمات الأغاني", Routes.SEARCH to "بحث",
-    Routes.EQUALIZER to "معادل الصوت", Routes.SETTINGS to "الإعدادات",
+    Routes.EQUALIZER to "معادل الصوت", Routes.SETTINGS to "الإعدادات", Routes.COMMUNITY to "المجتمع",
 )
 
 private fun audioPermission(): String =
@@ -65,10 +68,26 @@ private fun audioPermission(): String =
 
 @Composable
 fun AppRoot() {
+    val auth = remember { FirebaseAuth.getInstance() }
+    var verifiedUser by remember { mutableStateOf(auth.currentUser?.takeIf { it.isEmailVerified }) }
+    DisposableEffect(auth) {
+        val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+            verifiedUser = firebaseAuth.currentUser?.takeIf { it.isEmailVerified }
+        }
+        auth.addAuthStateListener(listener)
+        onDispose { auth.removeAuthStateListener(listener) }
+    }
+    if (verifiedUser == null) AuthScreen(onAuthenticated = { verifiedUser = it })
+    else PlayerAppRoot(user = verifiedUser!!)
+}
+
+@Composable
+private fun PlayerAppRoot(user: FirebaseUser) {
     val context = LocalContext.current
     val app = context.applicationContext as MusicApp
     val repository = app.container.libraryRepository
     val playback = remember { PlaybackConnection(context) }
+    LaunchedEffect(user.uid) { try { FirebaseCommunity.ensureProfile(user) } catch (_: Exception) { } }
     DisposableEffect(playback) { onDispose { playback.release() } }
     val controller by playback.controller.collectAsState()
     var showBrandSplash by remember { mutableStateOf(true) }
@@ -105,6 +124,7 @@ fun AppRoot() {
                             .putInt(key, playStatsPrefs.getInt(key, 0) + 1)
                             .putLong("last_played:$trackId", System.currentTimeMillis())
                             .apply()
+                        FirebaseCommunity.recordPlay(user.uid)
                         lastCountedMediaId = trackId
                     }
                 }
@@ -185,6 +205,13 @@ fun AppRoot() {
                 }
             }
             delay(5000)
+        }
+    }
+    LaunchedEffect(user.uid, controller) {
+        val activeController = controller ?: return@LaunchedEffect
+        while (true) {
+            delay(60_000L)
+            if (activeController.isPlaying) try { FirebaseCommunity.addListeningMinute(user.uid) } catch (_: Exception) { }
         }
     }
     val excludedFolders by repository.excludedFolders.collectAsState()
@@ -411,6 +438,7 @@ fun AppRoot() {
                         r == Routes.LYRICS -> WhisperLyricsScreen(controller)
                         r == Routes.SETTINGS -> WhisperSettingsScreen(app.container.settingsRepository, controller, onWallpaperChanged = { wallpaperUri = it })
                         r == Routes.EQUALIZER -> WhisperEqualizerScreen(controller)
+                        r == Routes.COMMUNITY -> CommunityScreen(user, onSignOut = { FirebaseAuth.getInstance().signOut() })
                         else -> ScaffoldScreen(title)
                     }
                 }

@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function verifiedUser() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    match /users/{userId} {
+      // Only public profile and aggregate statistics are stored in this collection.
+      allow read: if verifiedUser();
+      allow create: if verifiedUser()
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['uid','displayName','totalListeningMs','totalPlays','createdAt','lastActiveAt'])
+        && request.resource.data.uid == userId
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 2
+        && request.resource.data.displayName.size() <= 30
+        && request.resource.data.totalListeningMs == 0
+        && request.resource.data.totalPlays == 0;
+      allow update: if verifiedUser()
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName','totalListeningMs','totalPlays','lastActiveAt'])
+        && request.resource.data.totalListeningMs >= resource.data.totalListeningMs
+        && request.resource.data.totalListeningMs <= resource.data.totalListeningMs + 120000
+        && request.resource.data.totalPlays >= resource.data.totalPlays
+        && request.resource.data.totalPlays <= resource.data.totalPlays + 1
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 2
+        && request.resource.data.displayName.size() <= 30;
+      allow delete: if false;
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}
