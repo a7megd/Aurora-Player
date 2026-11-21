@@ -2,6 +2,8 @@ package com.aurora.player.playback
 
 import android.content.ComponentName
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import androidx.media3.common.MediaItem
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -21,6 +23,17 @@ class PlaybackConnection(context: Context) {
     private var connecting = false
     private var released = false
     private var pendingCommand: ((MediaController) -> Unit)? = null
+    private val retryHandler = Handler(Looper.getMainLooper())
+    private var retryDelayMs = 500L
+    private val retryRunnable = Runnable { connect() }
+    private val controllerListener = object : MediaController.Listener {
+        override fun onDisconnected(controller: MediaController) {
+            if (released || _controller.value !== controller) return
+            _controller.value = null
+            connecting = false
+            scheduleReconnect()
+        }
+    }
 
     private val _controller = MutableStateFlow<MediaController?>(null)
     val controller = _controller.asStateFlow()
@@ -29,10 +42,20 @@ class PlaybackConnection(context: Context) {
 
     init { connect() }
 
+    private fun scheduleReconnect() {
+        if (released) return
+        retryHandler.removeCallbacks(retryRunnable)
+        retryHandler.postDelayed(retryRunnable, retryDelayMs)
+        retryDelayMs = (retryDelayMs * 2L).coerceAtMost(8_000L)
+    }
+
     private fun connect() {
         if (released || connecting || _controller.value != null) return
+        retryHandler.removeCallbacks(retryRunnable)
         connecting = true
-        val attempt = MediaController.Builder(appContext, token).buildAsync()
+        val attempt = MediaController.Builder(appContext, token)
+            .setListener(controllerListener)
+            .buildAsync()
         future = attempt
         attempt.addListener({
             connecting = false
@@ -43,13 +66,15 @@ class PlaybackConnection(context: Context) {
             try {
                 val connected = attempt.get()
                 _controller.value = connected
+                retryDelayMs = 500L
                 _connectionError.value = null
                 val command = pendingCommand
                 pendingCommand = null
                 command?.invoke(connected)
             } catch (error: Exception) {
                 _connectionError.value = error.message ?: "تعذر الاتصال بخدمة تشغيل الصوت"
-                // Keep the last requested play command. The next user action retries the binding.
+                // Keep the last requested play command and retry with bounded backoff.
+                scheduleReconnect()
             }
         }, mainExecutor)
     }
@@ -85,6 +110,7 @@ class PlaybackConnection(context: Context) {
 
     fun release() {
         released = true
+        retryHandler.removeCallbacks(retryRunnable)
         pendingCommand = null
         future?.let { MediaController.releaseFuture(it) }
         future = null
