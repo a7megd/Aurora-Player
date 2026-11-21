@@ -227,7 +227,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
  var favorites by remember { mutableStateOf("") }
  var selected by remember { mutableStateOf<com.aurora.player.community.CommunityMember?>(null) }
  var showAdminPanel by remember { mutableStateOf(false) }
- val adminBuild=LocalContext.current.packageName.endsWith(".test") && FirebaseCommunity.isAdmin(user.uid)
+ val adminBuild=FirebaseCommunity.isAdmin(user.uid)
  fun refresh(){ scope.launch {
   loading=true; errorText=null
   try {
