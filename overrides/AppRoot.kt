@@ -256,7 +256,7 @@ private fun PlayerAppRoot(user: FirebaseUser) {
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             Column {
-                if (controller?.currentMediaItem != null && route != Routes.NOW_PLAYING) {
+                if (controller?.currentMediaItem != null && route != Routes.NOW_PLAYING && route != Routes.WRITE_ARTICLE && route != Routes.ARTICLES) {
                     Surface(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp).animateContentSize().clickable {
                             nav.navigate(Routes.NOW_PLAYING) { launchSingleTop = true }
