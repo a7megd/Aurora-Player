@@ -82,10 +82,11 @@ fun NowPlayingScreen(controller: MediaController?, onNavigate: (String) -> Unit 
             delay(1000)
         }
     }
-    LaunchedEffect(controller) {
-        while (true) {
-            controller?.let { player ->
-                if (!dragging) position = player.currentPosition.coerceAtLeast(0L)
+    val isDragging by rememberUpdatedState(dragging)
+    DisposableEffect(controller) {
+        val listener = object : Player.Listener {
+            override fun onEvents(player: Player, events: Player.Events) {
+                if (!isDragging) position = player.currentPosition.coerceAtLeast(0L)
                 duration = player.duration.takeIf { it > 0L } ?: 0L
                 val metadata = player.currentMediaItem?.mediaMetadata
                 title = metadata?.title?.toString().orEmpty()
@@ -97,7 +98,34 @@ fun NowPlayingScreen(controller: MediaController?, onNavigate: (String) -> Unit 
                 repeat = player.repeatMode
                 speed = player.playbackParameters.speed
             }
-            delay(400)
+        }
+        controller?.addListener(listener)
+        controller?.let { player ->
+            duration = player.duration.takeIf { it > 0L } ?: 0L
+            title = player.currentMediaItem?.mediaMetadata?.title?.toString().orEmpty()
+            artist = player.currentMediaItem?.mediaMetadata?.artist?.toString().orEmpty()
+            album = player.currentMediaItem?.mediaMetadata?.albumTitle?.toString().orEmpty()
+            artwork = player.currentMediaItem?.mediaMetadata?.artworkUri
+            playing = player.isPlaying
+            shuffle = player.shuffleModeEnabled
+            repeat = player.repeatMode
+            speed = player.playbackParameters.speed
+        }
+        onDispose { controller?.removeListener(listener) }
+    }
+
+    // Position is the only rapidly changing value. Poll it only while audio is moving;
+    // metadata and transport state are event-driven to avoid needless full-screen work.
+    LaunchedEffect(controller, playing, dragging) {
+        val player = controller ?: return@LaunchedEffect
+        if (playing && !dragging) {
+            while (playing && !dragging) {
+                position = player.currentPosition.coerceAtLeast(0L)
+                duration = player.duration.takeIf { it > 0L } ?: 0L
+                delay(250)
+            }
+        } else if (!dragging) {
+            position = player.currentPosition.coerceAtLeast(0L)
         }
     }
 
@@ -107,6 +135,8 @@ fun NowPlayingScreen(controller: MediaController?, onNavigate: (String) -> Unit 
         verticalArrangement = Arrangement.Top
     ) {
         Text("تعمل الآن", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.height(10.dp))
+        AudioOutputRouteCard()
         Spacer(Modifier.height(14.dp))
         Box(Modifier.fillMaxWidth()) {
             Box(
