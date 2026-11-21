@@ -7,6 +7,8 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Article
 import androidx.compose.ui.graphics.vector.ImageVector
 
 object Routes {
@@ -25,6 +27,8 @@ object Routes {
     const val EQUALIZER = "equalizer"
     const val SETTINGS = "settings"
     const val COMMUNITY = "community"
+    const val WRITE_ARTICLE = "write_article"
+    const val ARTICLES = "articles"
 }
 
 data class BottomTab(val route: String, val label: String, val icon: ImageVector)
@@ -32,8 +36,8 @@ data class BottomTab(val route: String, val label: String, val icon: ImageVector
 val bottomTabs = listOf(
     BottomTab(Routes.HOME, "الرئيسية", Icons.Rounded.Home),
     BottomTab(Routes.SONGS, "الأغاني", Icons.Rounded.MusicNote),
-    BottomTab(Routes.ALBUMS, "الألبومات", Icons.Rounded.Album),
-    BottomTab(Routes.ARTISTS, "الفنانون", Icons.Rounded.Person),
+    BottomTab(Routes.WRITE_ARTICLE, "اكتب مقالًا", Icons.Rounded.Edit),
+    BottomTab(Routes.ARTICLES, "المقالات", Icons.Rounded.Article),
     BottomTab(Routes.PLAYLISTS, "القوائم", Icons.AutoMirrored.Rounded.QueueMusic),
     BottomTab(Routes.COMMUNITY, "المجتمع", Icons.Rounded.Groups),
 )
