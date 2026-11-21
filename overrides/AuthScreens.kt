@@ -1,5 +1,11 @@
 package com.aurora.player.ui.navigation
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.util.Base64
+import java.io.ByteArrayOutputStream
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -171,6 +177,17 @@ fun AuthScreen(onAuthenticated: (FirebaseUser) -> Unit) {
     }
 }
 
+private fun profilePhotoModel(photoData: String, photoUrl: String): Any? {
+    if (photoData.isNotBlank()) {
+        val bitmap = runCatching {
+            val bytes = Base64.decode(photoData, Base64.DEFAULT)
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        }.getOrNull()
+        if (bitmap != null) return bitmap
+    }
+    return photoUrl.takeIf { it.startsWith("https://") }
+}
+
 @Composable
 fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (String) -> Unit) {
  val scope=rememberCoroutineScope()
@@ -217,7 +234,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
    Card(colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceVariant)){
     Column(Modifier.fillMaxWidth().padding(15.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
      Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
-      if(photoUrl.isNotBlank()) AsyncImage(model=photoUrl,contentDescription="صورتك الشخصية",modifier=Modifier.size(62.dp).clip(CircleShape))
+      if(photoUrl.isNotBlank()) AsyncImage(model=profilePhotoModel(photoData,photoUrl),contentDescription="صورتك الشخصية",modifier=Modifier.size(62.dp).clip(CircleShape))
       else Surface(modifier=Modifier.size(62.dp),shape=CircleShape,color=MaterialTheme.colorScheme.primaryContainer){Box(contentAlignment=Alignment.Center){Icon(Icons.Rounded.Person,null,modifier=Modifier.size(32.dp))}}
       Column(Modifier.weight(1f)){Text(displayName.ifBlank{"عضو Whisper"},style=MaterialTheme.typography.titleLarge);Text("ملفك الشخصي",style=MaterialTheme.typography.bodySmall)}
       TextButton(onClick={editing=true}){Text("تعديل")}
@@ -235,14 +252,14 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
      Card(colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceVariant)){
       Column(Modifier.fillMaxWidth().padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
        Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){
-        if(m.photoUrl.isNotBlank()) AsyncImage(model=m.photoUrl,contentDescription=null,modifier=Modifier.size(48.dp).clip(CircleShape))
+        if(m.photoUrl.isNotBlank()) AsyncImage(model=profilePhotoModel(m.photoData,m.photoUrl),contentDescription=null,modifier=Modifier.size(48.dp).clip(CircleShape))
         else Surface(modifier=Modifier.size(48.dp),shape=CircleShape,color=MaterialTheme.colorScheme.primaryContainer){Box(contentAlignment=Alignment.Center){Icon(Icons.Rounded.Person,null)}}
         Column(Modifier.weight(1f)){Text(m.displayName,fontWeight=FontWeight.SemiBold);Text(m.bio.ifBlank{"عضو في مجتمع Whisper"},maxLines=2,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
         TextButton(onClick={selected=m}){Text("الملف")}
        }
        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
         Button(enabled=busyUid==null,onClick={busyUid=m.uid;scope.launch{try{val next=m.uid !in following;FirebaseCommunity.follow(user.uid,m.uid,next);following=if(next)following+m.uid else following-m.uid}catch(e:Exception){errorText=e.localizedMessage ?: "تعذر تحديث المتابعة."};busyUid=null}}){Text(if(m.uid in following)"إلغاء المتابعة" else "متابعة")}
-        OutlinedButton(enabled=busyUid==null && m.uid !in requested,onClick={busyUid=m.uid;scope.launch{try{FirebaseCommunity.sendFriendRequest(user.uid,displayName,photoUrl,m.uid);requested=requested+m.uid}catch(e:Exception){errorText=e.localizedMessage ?: "تعذر إرسال طلب الصداقة."};busyUid=null}}){Text(if(m.uid in requested)"تم إرسال الطلب" else "طلب صداقة")}
+        OutlinedButton(enabled=busyUid==null && m.uid !in requested,onClick={busyUid=m.uid;scope.launch{try{FirebaseCommunity.sendFriendRequest(user.uid,displayName,photoData,m.uid);requested=requested+m.uid}catch(e:Exception){errorText=e.localizedMessage ?: "تعذر إرسال طلب الصداقة."};busyUid=null}}){Text(if(m.uid in requested)"تم إرسال الطلب" else "طلب صداقة")}
        }
       }
      }
@@ -252,10 +269,14 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
  }
  if(editing) AlertDialog(onDismissRequest={if(!saving)editing=false},title={Text("تعديل الملف الشخصي")},text={Column(Modifier.fillMaxWidth().heightIn(max=520.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(9.dp)){
   OutlinedTextField(displayName,{displayName=it.take(30)},label={Text("اسم العرض")},singleLine=true)
-  OutlinedTextField(photoUrl,{photoUrl=it.take(500)},label={Text("رابط الصورة HTTPS")})
+  Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
+   Button(onClick={photoPicker.launch("image/*")}){Text("اختيار صورة من الهاتف")}
+   if(photoData.isNotBlank()) Text("تم اختيار صورة")
+  }
+  OutlinedTextField(photoUrl,{photoUrl=it.take(500)},label={Text("أو رابط صورة HTTPS")})
   OutlinedTextField(bio,{bio=it.take(160)},label={Text("نبذة عنك")},minLines=2)
   OutlinedTextField(favorites,{favorites=it.take(500)},label={Text("أصواتك المفضلة")},minLines=2)
- }},confirmButton={TextButton(enabled=!saving,onClick={saving=true;scope.launch{try{FirebaseCommunity.updateProfile(user.uid,displayName,photoUrl,bio,favorites);editing=false}catch(e:Exception){errorText=e.localizedMessage ?: "تعذر حفظ الملف."};saving=false;refresh()}}){Text(if(saving)"جارٍ الحفظ…" else "حفظ")}},dismissButton={TextButton(enabled=!saving,onClick={editing=false}){Text("إلغاء")}})
+ }},confirmButton={TextButton(enabled=!saving,onClick={saving=true;scope.launch{try{FirebaseCommunity.updateProfile(user.uid,displayName,photoUrl,bio,favorites,photoData);editing=false}catch(e:Exception){errorText=e.localizedMessage ?: "تعذر حفظ الملف."};saving=false;refresh()}}){Text(if(saving)"جارٍ الحفظ…" else "حفظ")}},dismissButton={TextButton(enabled=!saving,onClick={editing=false}){Text("إلغاء")}})
  selected?.let{m->AlertDialog(onDismissRequest={selected=null},title={Text(m.displayName)},text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){if(m.bio.isNotBlank())Text(m.bio);if(m.favoriteSounds.isNotBlank())Text("الأصوات المفضلة: "+m.favoriteSounds);Text("وقت الاستماع: "+formatListening(m.totalListeningMs));Text("مرات التشغيل: "+m.totalPlays)}},confirmButton={TextButton(onClick={selected=null}){Text("إغلاق")}})}
  if(showAdminPanel&&adminBuild) AdminDashboardDialog(onDismiss={showAdminPanel=false})
 }
