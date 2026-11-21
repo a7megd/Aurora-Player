@@ -944,7 +944,8 @@ fun WhisperSongListScreen(
     onRadio: (Song) -> Unit,
     onFavorite: (Song) -> Unit,
     onNavigate: (String) -> Unit,
-    activeSongId: Long? = null
+    activeSongId: Long? = null,
+    onRequestAudioAccess: () -> Unit = {}
 ) {
     var selectedSong by remember { mutableStateOf<Song?>(null) }
     var playHistoryVersion by remember { mutableIntStateOf(0) }
@@ -1030,6 +1031,7 @@ fun WhisperHomeScreen(
                 Text("by dr Ahmed Abdelhamid", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                IconButton(onClick = { onNavigate(Routes.FRIEND_REQUESTS) }) { Icon(Icons.Rounded.Notifications, contentDescription = "الإشعارات وطلبات الصداقة") }
                 if (profilePhoto != null) AsyncImage(model = profilePhoto, contentDescription = "الصورة الشخصية", contentScale = ContentScale.Crop, modifier = Modifier.size(42.dp).clip(RoundedCornerShape(50.dp)))
                 IconButton(onClick = { onNavigate(Routes.SETTINGS) }) { Icon(Icons.Rounded.Settings, contentDescription = "الإعدادات") }
             }
@@ -1045,7 +1047,10 @@ fun WhisperHomeScreen(
                 IconButton(onClick = { onNavigate(route) }) { Icon(icon, contentDescription = label) }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {\n            Text("الصوت", style = MaterialTheme.typography.titleLarge)\n            if (songs.isEmpty()) Button(onClick = onRequestAudioAccess) { Icon(Icons.Rounded.FolderOpen, null); Spacer(Modifier.width(6.dp)); Text("افتح ملفات الهاتف") }\n        }
+        Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text("الصوت", style = MaterialTheme.typography.titleLarge)
+            if (songs.isEmpty()) Button(onClick = onRequestAudioAccess) { Icon(Icons.Rounded.FolderOpen, null); Spacer(Modifier.width(6.dp)); Text("افتح ملفات الهاتف") }
+        }
         if (songs.isEmpty()) {
             Text("ستظهر ملفاتك الصوتية هنا بعد السماح بالوصول إلى الموسيقى.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
