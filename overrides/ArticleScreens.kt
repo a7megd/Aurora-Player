@@ -43,6 +43,7 @@ fun ArticleHubDialog(user:FirebaseUser,onDismiss:()->Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var editor by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<WhisperArticle?>(null) }
+    var message by remember { mutableStateOf<String?>(null) }
     var title by remember { mutableStateOf("") }
     var subtitle by remember { mutableStateOf("") }
     var body by remember { mutableStateOf("") }
@@ -186,7 +187,6 @@ fun ArticleWriterScreen(user: FirebaseUser) {
     var editingId by remember { mutableStateOf<String?>(null) }
     var myArticles by remember { mutableStateOf<List<FullWhisperArticle>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf<String?>(null) }
 
     suspend fun reloadMine() {
         myArticles = db.collection("articles").whereEqualTo("authorUid", user.uid).get().await().documents.map { d ->
