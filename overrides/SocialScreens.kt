@@ -56,8 +56,8 @@ fun SocialPostsScreen(user: FirebaseUser) {
                             FilterChip(selected = kind == value, onClick = { kind = value }, label = { Text(value) })
                         }
                     }
-                    OutlinedTextField(draft,{draft=it.take(5000)},modifier=Modifier.fillMaxWidth(),
-                        minLines=4,placeholder={Text("اكتب كلماتك هنا…")},label={Text(kind)})
+                    OutlinedTextField(draft,{draft=it},modifier=Modifier.fillMaxWidth(),
+                        minLines=3,placeholder={Text("بماذا تفكر؟")},label={Text(kind)})
                     Button(enabled = !busy && draft.isNotBlank(), onClick = {
                         busy = true
                         scope.launch {
@@ -162,7 +162,7 @@ fun ChatScreen(user: FirebaseUser) {
                     }
                 }
                 Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(draft,{draft=it.take(2000)},modifier=Modifier.weight(1f),placeholder={Text("اكتب رسالة…")},maxLines=4)
+                    OutlinedTextField(draft,{draft=it},modifier=Modifier.weight(1f),placeholder={Text("اكتب رسالة…")},maxLines=4)
                     Button(enabled=!busy&&draft.isNotBlank(),onClick={
                         val body=draft.trim();val thread=selected!!.first;busy=true
                         scope.launch { try {
