@@ -1,0 +1,28 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null; }
+    function threadMember(threadId) {
+      return signedIn() && firestore.exists(/databases/(default)/documents/chatThreads/$(threadId))
+        && request.auth.uid in firestore.get(/databases/(default)/documents/chatThreads/$(threadId)).data.participants;
+    }
+    match /article-covers/{uid}/{fileName} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == uid
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+    match /community-media/{uid}/{fileName} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == uid
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+    match /chat-media/{threadId}/{uid}/{fileName} {
+      allow read: if threadMember(threadId);
+      allow write: if threadMember(threadId) && request.auth.uid == uid
+        && request.resource.size < 25 * 1024 * 1024
+        && (request.resource.contentType.matches('image/.*') || request.resource.contentType.matches('audio/.*'));
+    }
+  }
+}
