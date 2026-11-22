@@ -261,7 +261,7 @@ fun ArticleWriterScreen(user: FirebaseUser) {
                             val data = hashMapOf<String, Any>("title" to title.trim(), "subtitle" to subtitle.trim(),
                                 "body" to body.trim(), "coverUrl" to cover.trim(), "authorUid" to user.uid,
                                 "authorName" to (user.displayName ?: "كاتب Whisper"), "status" to "draft",
-                                "bodyFontSize" to fontSize.toLong(), "bodyBold" to bold, "bodyAlign" to align, "bodyColor" to bodyColor,
+                                "bodyFontSize" to fontSize.toLong(), "bodyBold" to bold, "bodyAlign" to align, "bodyColor" to bodyColor, "audioUrl" to audioUrl,
                                 "updatedAt" to FieldValue.serverTimestamp())
                             if (editingId == null) { data["createdAt"] = FieldValue.serverTimestamp(); db.collection("articles").add(data).await() }
                             else db.collection("articles").document(editingId!!).update(data - "authorUid").await()
@@ -280,7 +280,7 @@ fun ArticleWriterScreen(user: FirebaseUser) {
                             val data = hashMapOf<String, Any>("title" to title.trim(), "subtitle" to subtitle.trim(),
                                 "body" to body.trim(), "coverUrl" to cover.trim(), "authorUid" to user.uid,
                                 "authorName" to (user.displayName ?: "كاتب Whisper"), "status" to "published",
-                                "bodyFontSize" to fontSize.toLong(), "bodyBold" to bold, "bodyAlign" to align,
+                                "bodyFontSize" to fontSize.toLong(), "bodyBold" to bold, "bodyAlign" to align, "bodyColor" to bodyColor, "audioUrl" to audioUrl,
                                 "updatedAt" to FieldValue.serverTimestamp(), "publishedAt" to FieldValue.serverTimestamp())
                             if (editingId == null) { data["createdAt"] = FieldValue.serverTimestamp(); db.collection("articles").add(data).await() }
                             else db.collection("articles").document(editingId!!).update(data - "authorUid").await()
