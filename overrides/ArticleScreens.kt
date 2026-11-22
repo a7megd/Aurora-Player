@@ -5,6 +5,10 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.google.firebase.storage.FirebaseStorage
+import java.util.UUID
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -147,6 +151,19 @@ fun ArticleWriterScreen(user: FirebaseUser) {
     var subtitle by remember { mutableStateOf("") }
     var body by remember { mutableStateOf("") }
     var cover by remember { mutableStateOf("") }
+    var coverUploading by remember { mutableStateOf(false) }
+    val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) scope.launch {
+            coverUploading = true
+            try {
+                val ref = FirebaseStorage.getInstance().reference.child("article-covers/${user.uid}/${UUID.randomUUID()}")
+                ref.putFile(uri).await()
+                cover = ref.downloadUrl.await().toString()
+                message = "تم رفع صورة الغلاف بنجاح."
+            } catch (e: Exception) { message = e.localizedMessage ?: "تعذر رفع الصورة." }
+            coverUploading = false
+        }
+    }
     var fontSize by remember { mutableIntStateOf(19) }
     var bold by remember { mutableStateOf(false) }
     var align by remember { mutableStateOf("right") }
@@ -179,7 +196,11 @@ fun ArticleWriterScreen(user: FirebaseUser) {
             OutlinedTextField(value = title, onValueChange = { title = it.take(120) }, label = { Text("عنوان المقال") },
                 modifier = Modifier.fillMaxWidth(), textStyle = MaterialTheme.typography.titleLarge)
             OutlinedTextField(value = subtitle, onValueChange = { subtitle = it.take(220) }, label = { Text("عنوان فرعي (اختياري)") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value = cover, onValueChange = { cover = it.take(1000) }, label = { Text("رابط صورة الغلاف HTTPS (اختياري)") }, modifier = Modifier.fillMaxWidth())
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = cover, onValueChange = { cover = it.take(1000) }, label = { Text("رابط صورة الغلاف (اختياري)") }, modifier = Modifier.weight(1f))
+                OutlinedButton(enabled = !coverUploading, onClick = { coverPicker.launch("image/*") }) { Text(if (coverUploading) "جارٍ الرفع…" else "اختيار صورة") }
+            }
+            if (cover.startsWith("https://")) AsyncImage(model = cover, contentDescription = "معاينة صورة الغلاف", modifier = Modifier.fillMaxWidth().heightIn(max = 190.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("لون الخط:")
                 listOf("#222222" to "أسود", "#6D28D9" to "بنفسجي", "#1565C0" to "أزرق", "#B23A48" to "أحمر", "#16805D" to "أخضر").forEach { (hex,label) ->
