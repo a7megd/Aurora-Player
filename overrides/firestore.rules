@@ -126,6 +126,13 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['body'])
         && request.resource.data.body is string && request.resource.data.body.size() <= 5000;
       allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+      match /comments/{commentId} {
+        allow read: if signedIn();
+        allow create: if signedIn() && request.resource.data.uid == request.auth.uid
+          && request.resource.data.body is string && request.resource.data.body.size() > 0
+          && request.resource.data.body.size() <= 5000;
+        allow update, delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+      }
     }
 
     match /chatRequests/{requestId} {
@@ -152,10 +159,22 @@ service cloud.firestore {
         allow read: if signedIn() && request.auth.uid in threadData().participants;
         allow create: if signedIn() && request.auth.uid in threadData().participants
           && request.resource.data.uid == request.auth.uid
-          && request.resource.data.body is string
-          && request.resource.data.body.size() > 0
-          && request.resource.data.body.size() <= 2000;
-        allow update, delete: if false;
+          && request.resource.data.type in ['text','image','audio']
+          && request.resource.data.get('body', '') is string
+          && request.resource.data.get('body', '').size() <= 5000
+          && request.resource.data.get('mediaUrl', '') is string
+          && request.resource.data.get('mediaUrl', '').size() <= 1200
+          && (request.resource.data.get('body', '').size() > 0 || request.resource.data.get('mediaUrl', '').size() > 0);
+        allow update, delete: if signedIn() && request.auth.uid == resource.data.uid;
+        match /reactions/{reactionUid} {
+          allow read: if signedIn() && request.auth.uid in threadData().participants;
+          allow create, update: if signedIn() && request.auth.uid in threadData().participants
+            && request.auth.uid == reactionUid
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.emoji is string
+            && request.resource.data.emoji.size() <= 8;
+          allow delete: if signedIn() && request.auth.uid == reactionUid;
+        }
       }
     }
 
