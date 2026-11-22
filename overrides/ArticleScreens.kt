@@ -135,7 +135,7 @@ fun ArticleHubDialog(user:FirebaseUser,onDismiss:()->Unit) {
 private data class FullWhisperArticle(
     val id: String, val title: String, val subtitle: String, val body: String,
     val cover: String, val uid: String, val author: String, val fontSize: Int,
-    val bold: Boolean, val align: String, val fontColor: String = "#222222", val audioUrl: String = ""
+    val bold: Boolean, val align: String, val fontColor: String = "#F4F1E8", val audioUrl: String = ""
 )
 
 private fun articleAlignment(value: String): TextAlign = when(value) {
@@ -183,7 +183,7 @@ fun ArticleWriterScreen(user: FirebaseUser) {
     var fontSize by remember { mutableIntStateOf(19) }
     var bold by remember { mutableStateOf(false) }
     var align by remember { mutableStateOf("right") }
-    var bodyColor by remember { mutableStateOf("#222222") }
+    var bodyColor by remember { mutableStateOf("#F4F1E8") }
     var editingId by remember { mutableStateOf<String?>(null) }
     var myArticles by remember { mutableStateOf<List<FullWhisperArticle>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
@@ -194,13 +194,13 @@ fun ArticleWriterScreen(user: FirebaseUser) {
                 d.getString("body").orEmpty(), d.getString("coverUrl").orEmpty(), user.uid,
                 d.getString("authorName") ?: user.displayName.orEmpty(),
                 (d.getLong("bodyFontSize") ?: 19L).toInt(), d.getBoolean("bodyBold") == true,
-                d.getString("bodyAlign") ?: "right", d.getString("bodyColor") ?: "#222222", d.getString("audioUrl").orEmpty())
+                d.getString("bodyAlign") ?: "right", d.getString("bodyColor") ?: "#F4F1E8", d.getString("audioUrl").orEmpty())
         }.sortedByDescending { it.id }
     }
     LaunchedEffect(user.uid) { try { reloadMine() } catch (e: Exception) { message = e.localizedMessage } }
 
     fun clearEditor() {
-        title = ""; subtitle = ""; body = ""; cover = ""; audioUrl = ""; fontSize = 19; bold = false; align = "right"; bodyColor = "#222222"; editingId = null
+        title = ""; subtitle = ""; body = ""; cover = ""; audioUrl = ""; fontSize = 19; bold = false; align = "right"; bodyColor = "#F4F1E8"; editingId = null
     }
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 12.dp),
@@ -238,12 +238,12 @@ fun ArticleWriterScreen(user: FirebaseUser) {
                     }
                 }
             }
-            Surface(Modifier.fillMaxWidth().heightIn(min = 340.dp), shape = MaterialTheme.shapes.large,
+            Surface(Modifier.fillMaxWidth().heightIn(min = 520.dp), shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)) {
                 Column(Modifier.fillMaxWidth().padding(14.dp)) {
                     Text("نص المقال", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     OutlinedTextField(value = body, onValueChange = { body = it.take(30000) },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 300.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 480.dp),
                         placeholder = { Text("ابدأ الكتابة هنا…") }, minLines = 12,
                         textStyle = TextStyle(fontSize = fontSize.sp, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
                             textAlign = articleAlignment(align), lineHeight = (fontSize + 10).sp,
