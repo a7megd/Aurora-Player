@@ -149,6 +149,7 @@ private fun articleAlignment(value: String): TextAlign = when(value) {
 fun ArticleWriterScreen(user: FirebaseUser) {
     val db = remember { FirebaseFirestore.getInstance() }
     val scope = rememberCoroutineScope()
+    var message by remember { mutableStateOf<String?>(null) }
     var title by remember { mutableStateOf("") }
     var subtitle by remember { mutableStateOf("") }
     var body by remember { mutableStateOf("") }
