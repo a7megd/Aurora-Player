@@ -157,6 +157,7 @@ fun ChatScreen(user: FirebaseUser) {
                             Column(Modifier.fillMaxWidth().padding(10.dp)) {
                                 Text(if(msg.uid==user.uid) "أنت" else msg.name,style=MaterialTheme.typography.labelSmall)
                                 Text(msg.body)
+                                TextButton(onClick = { scope.launch { try { db.collection("chatThreads").document(selected!!.first).collection("messages").document(msg.id).collection("reactions").document(user.uid).set(mapOf("uid" to user.uid, "emoji" to "❤️", "updatedAt" to FieldValue.serverTimestamp())).await() } catch (e: Exception) { error = e.localizedMessage } } }) { Text("❤️ تفاعل") }
                             }
                         }
                     }
