@@ -78,8 +78,15 @@ fun AppRoot() {
         auth.addAuthStateListener(listener)
         onDispose { auth.removeAuthStateListener(listener) }
     }
-    if (verifiedUser == null) AuthScreen(onAuthenticated = { verifiedUser = it })
-    else PlayerAppRoot(user = verifiedUser!!)
+    val mutedGold = Color(0xFFB49A65)
+    MaterialTheme(colorScheme = MaterialTheme.colorScheme.copy(
+        primary = mutedGold,
+        secondary = Color(0xFF927A4D),
+        tertiary = Color(0xFFC7AD76)
+    )) {
+        if (verifiedUser == null) AuthScreen(onAuthenticated = { verifiedUser = it })
+        else PlayerAppRoot(user = verifiedUser!!)
+    }
 }
 
 @Composable
