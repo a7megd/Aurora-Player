@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.Color
 import android.content.Intent
+import android.media.MediaPlayer
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FieldValue
@@ -133,7 +134,7 @@ fun ArticleHubDialog(user:FirebaseUser,onDismiss:()->Unit) {
 private data class FullWhisperArticle(
     val id: String, val title: String, val subtitle: String, val body: String,
     val cover: String, val uid: String, val author: String, val fontSize: Int,
-    val bold: Boolean, val align: String, val fontColor: String = "#222222"
+    val bold: Boolean, val align: String, val fontColor: String = "#222222", val audioUrl: String = ""
 )
 
 private fun articleAlignment(value: String): TextAlign = when(value) {
@@ -152,6 +153,20 @@ fun ArticleWriterScreen(user: FirebaseUser) {
     var body by remember { mutableStateOf("") }
     var cover by remember { mutableStateOf("") }
     var coverUploading by remember { mutableStateOf(false) }
+    var audioUrl by remember { mutableStateOf("") }
+    var audioUploading by remember { mutableStateOf(false) }
+    val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) scope.launch {
+            audioUploading = true
+            try {
+                val ref = FirebaseStorage.getInstance().reference.child("article-audio/${user.uid}/${UUID.randomUUID()}")
+                ref.putFile(uri).await()
+                audioUrl = ref.downloadUrl.await().toString()
+                message = "تم إرفاق الملف الصوتي بالمقال."
+            } catch (e: Exception) { message = e.localizedMessage ?: "تعذر رفع الملف الصوتي." }
+            audioUploading = false
+        }
+    }
     val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) scope.launch {
             coverUploading = true
@@ -179,13 +194,13 @@ fun ArticleWriterScreen(user: FirebaseUser) {
                 d.getString("body").orEmpty(), d.getString("coverUrl").orEmpty(), user.uid,
                 d.getString("authorName") ?: user.displayName.orEmpty(),
                 (d.getLong("bodyFontSize") ?: 19L).toInt(), d.getBoolean("bodyBold") == true,
-                d.getString("bodyAlign") ?: "right", d.getString("bodyColor") ?: "#222222")
+                d.getString("bodyAlign") ?: "right", d.getString("bodyColor") ?: "#222222", d.getString("audioUrl").orEmpty())
         }.sortedByDescending { it.id }
     }
     LaunchedEffect(user.uid) { try { reloadMine() } catch (e: Exception) { message = e.localizedMessage } }
 
     fun clearEditor() {
-        title = ""; subtitle = ""; body = ""; cover = ""; fontSize = 19; bold = false; align = "right"; bodyColor = "#222222"; editingId = null
+        title = ""; subtitle = ""; body = ""; cover = ""; audioUrl = ""; fontSize = 19; bold = false; align = "right"; bodyColor = "#222222"; editingId = null
     }
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 12.dp),
@@ -201,6 +216,9 @@ fun ArticleWriterScreen(user: FirebaseUser) {
                 OutlinedButton(enabled = !coverUploading, onClick = { coverPicker.launch("image/*") }) { Text(if (coverUploading) "جارٍ الرفع…" else "اختيار صورة") }
             }
             if (cover.startsWith("https://")) AsyncImage(model = cover, contentDescription = "معاينة صورة الغلاف", modifier = Modifier.fillMaxWidth().heightIn(max = 190.dp))
+            OutlinedButton(enabled = !audioUploading, onClick = { audioPicker.launch("audio/*") }, modifier = Modifier.fillMaxWidth()) {
+                Text(if (audioUploading) "جارٍ رفع الملف الصوتي…" else if (audioUrl.isBlank()) "إرفاق مقال صوتي" else "تم إرفاق المقال الصوتي ✓")
+            }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("لون الخط:")
                 listOf("#222222" to "أسود", "#6D28D9" to "بنفسجي", "#1565C0" to "أزرق", "#B23A48" to "أحمر", "#16805D" to "أخضر").forEach { (hex,label) ->
@@ -285,7 +303,7 @@ fun ArticleWriterScreen(user: FirebaseUser) {
                         }
                         TextButton(onClick = {
                             editingId = article.id; title = article.title; subtitle = article.subtitle; body = article.body
-                            cover = article.cover; fontSize = article.fontSize; bold = article.bold; align = article.align; bodyColor = article.fontColor
+                            cover = article.cover; fontSize = article.fontSize; bold = article.bold; align = article.align; bodyColor = article.fontColor; audioUrl = article.audioUrl
                         }) { Text("تعديل") }
                     }
                 }
@@ -353,6 +371,18 @@ fun ArticleReaderScreen(user: FirebaseUser) {
                     if (article.subtitle.isNotBlank()) Text(article.subtitle, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("بقلم ${article.author}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     Divider()
+                    if (article.audioUrl.isNotBlank()) {
+                        var playingAudio by remember(article.id) { mutableStateOf(false) }
+                        OutlinedButton(onClick = {
+                            try {
+                                val player = MediaPlayer()
+                                player.setDataSource(article.audioUrl)
+                                player.setOnPreparedListener { it.start(); playingAudio = true }
+                                player.setOnCompletionListener { playingAudio = false; it.release() }
+                                player.prepareAsync()
+                            } catch (_: Exception) { playingAudio = false }
+                        }, modifier = Modifier.fillMaxWidth()) { Text(if (playingAudio) "جاري تشغيل المقال الصوتي…" else "استمع إلى المقال") }
+                    }
                     Text(article.body, style = TextStyle(fontSize = article.fontSize.sp,
                         fontWeight = if (article.bold) FontWeight.Bold else FontWeight.Normal,
                         textAlign = articleAlignment(article.align), lineHeight = (article.fontSize + 12).sp,
