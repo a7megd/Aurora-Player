@@ -30,7 +30,6 @@ class MusicApp : Application() {
                 .setApplicationId(appId)
                 .setApiKey("AIzaSyAz0RwnP7ViiyRF2o4HRtSBiUf5nBFxZEo")
                 .setProjectId("whisper-player")
-                .setStorageBucket("whisper-player.firebasestorage.app")
                 .build()
             FirebaseApp.initializeApp(this, options)
         }
