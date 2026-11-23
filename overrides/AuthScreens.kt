@@ -35,7 +35,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.aurora.player.community.FirebaseCommunity
-import com.aurora.player.community.WhisperMediaRouter
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.UserProfileChangeRequest
@@ -212,8 +211,6 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
  var displayName by remember { mutableStateOf(user.displayName.orEmpty()) }
  var photoUrl by remember { mutableStateOf("") }
  var photoData by remember { mutableStateOf("") }
- var photoUploading by remember { mutableStateOf(false) }
- var photoMigrationInProgress by remember { mutableStateOf(false) }
  val context = LocalContext.current
  var bio by remember { mutableStateOf("") }
  var favorites by remember { mutableStateOf("") }
