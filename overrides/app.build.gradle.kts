@@ -5,6 +5,9 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+val cloudinaryCloudName = (project.findProperty("CLOUDINARY_CLOUD_NAME") as String?) ?: System.getenv("CLOUDINARY_CLOUD_NAME") ?: "CHANGE_ME"
+val cloudinaryUploadPreset = (project.findProperty("CLOUDINARY_UPLOAD_PRESET") as String?) ?: System.getenv("CLOUDINARY_UPLOAD_PRESET") ?: "CHANGE_ME"
+
 android {
     namespace = "com.aurora.player"
     compileSdk = 35
@@ -15,6 +18,8 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        buildConfigField("String", "CLOUDINARY_CLOUD_NAME", "\\\"$cloudinaryCloudName\\\"")
+        buildConfigField("String", "CLOUDINARY_UPLOAD_PRESET", "\\\"$cloudinaryUploadPreset\\\"")
     }
 
     buildTypes {
