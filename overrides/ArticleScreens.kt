@@ -252,7 +252,9 @@ fun ArticleWriterScreen(user: FirebaseUser) {
             cover = finalCover
         }
         if (finalAudio.startsWith("content://") || finalAudio.startsWith("file://")) {
-            finalAudio = CloudinaryMediaUploader.upload(context, Uri.parse(finalAudio), "Whisper-Player/Voice").secureUrl
+            val sourceUri = Uri.parse(finalAudio)
+            finalAudio = CloudinaryMediaUploader.upload(context, sourceUri, "Whisper-Player/Voice").secureUrl
+            if (sourceUri.scheme == "file") runCatching { sourceUri.path?.let { File(it).delete() } }
             audioUrl = finalAudio
         }
         require(finalCover.isBlank() || finalCover.startsWith("https://")) { "تعذر التحقق من صورة الغلاف." }
