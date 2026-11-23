@@ -129,7 +129,7 @@ service cloud.firestore {
         && request.resource.data.authorName is string && request.resource.data.authorName.size() <= 60
         && request.resource.data.kind in ['قصيدة','اقتباس','منشور']
         && request.resource.data.body is string && request.resource.data.body.size() > 0
-        && request.resource.data.body.size() <= 100000;
+        && request.resource.data.body.size() <= 900000;
       allow update: if signedIn() && resource.data.uid == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['body'])
         && request.resource.data.body is string && request.resource.data.body.size() <= 5000;
