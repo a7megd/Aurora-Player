@@ -58,53 +58,6 @@ fun ArticleHubDialog(user:FirebaseUser,onDismiss:()->Unit) {
     var cover by remember { mutableStateOf("") }
     var draft by remember { mutableStateOf(true) }
     var busy by remember { mutableStateOf(false) }
-    var articleRecorder by remember { mutableStateOf<MediaRecorder?>(null) }
-    var articleRecordingFile by remember { mutableStateOf<File?>(null) }
-    var articleRecording by remember { mutableStateOf(false) }
-    fun startArticleAudioRecording() {
-        try {
-            val file = File(context.cacheDir, "whisper-article-" + System.currentTimeMillis() + ".m4a")
-            val mediaRecorder = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(context)
-                else @Suppress("DEPRECATION") MediaRecorder()
-            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC)
-            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            mediaRecorder.setAudioEncodingBitRate(128000)
-            mediaRecorder.setAudioSamplingRate(44100)
-            mediaRecorder.setOutputFile(file.absolutePath)
-            mediaRecorder.prepare()
-            mediaRecorder.start()
-            articleRecorder = mediaRecorder
-            articleRecordingFile = file
-            articleRecording = true
-            message = "جارٍ تسجيل صوت المقال…"
-        } catch (e: Exception) { message = e.localizedMessage ?: "تعذر بدء تسجيل المقال." }
-    }
-    fun stopArticleAudioRecording() {
-        val active = articleRecorder
-        val file = articleRecordingFile
-        try {
-            active?.stop()
-            if (file != null && file.exists() && file.length() > 0L) {
-                audioUrl = Uri.fromFile(file).toString()
-                message = "اكتمل التسجيل؛ سيتم رفعه عند حفظ المقال."
-            } else message = "التسجيل فارغ؛ حاول مرة أخرى."
-        } catch (e: Exception) { message = e.localizedMessage ?: "تعذر إنهاء التسجيل." }
-        runCatching { active?.release() }
-        articleRecorder = null
-        articleRecordingFile = null
-        articleRecording = false
-    }
-    val audioPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) startArticleAudioRecording() else message = "اسمح باستخدام الميكروفون لتسجيل المقال."
-    }
-    DisposableEffect(Unit) {
-        onDispose {
-            runCatching { articleRecorder?.stop() }
-            runCatching { articleRecorder?.release() }
-            articleRecordingFile?.delete()
-        }
-    }
     val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
@@ -229,6 +182,53 @@ fun ArticleWriterScreen(user: FirebaseUser) {
     var editingId by remember { mutableStateOf<String?>(null) }
     var myArticles by remember { mutableStateOf<List<FullWhisperArticle>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
+    var articleRecorder by remember { mutableStateOf<MediaRecorder?>(null) }
+    var articleRecordingFile by remember { mutableStateOf<File?>(null) }
+    var articleRecording by remember { mutableStateOf(false) }
+    fun startArticleAudioRecording() {
+        try {
+            val file = File(context.cacheDir, "whisper-article-" + System.currentTimeMillis() + ".m4a")
+            val mediaRecorder = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(context)
+                else @Suppress("DEPRECATION") MediaRecorder()
+            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC)
+            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            mediaRecorder.setAudioEncodingBitRate(128000)
+            mediaRecorder.setAudioSamplingRate(44100)
+            mediaRecorder.setOutputFile(file.absolutePath)
+            mediaRecorder.prepare()
+            mediaRecorder.start()
+            articleRecorder = mediaRecorder
+            articleRecordingFile = file
+            articleRecording = true
+            message = "جارٍ تسجيل صوت المقال…"
+        } catch (e: Exception) { message = e.localizedMessage ?: "تعذر بدء تسجيل المقال." }
+    }
+    fun stopArticleAudioRecording() {
+        val active = articleRecorder
+        val file = articleRecordingFile
+        try {
+            active?.stop()
+            if (file != null && file.exists() && file.length() > 0L) {
+                audioUrl = Uri.fromFile(file).toString()
+                message = "اكتمل التسجيل؛ سيتم رفعه عند حفظ المقال."
+            } else message = "التسجيل فارغ؛ حاول مرة أخرى."
+        } catch (e: Exception) { message = e.localizedMessage ?: "تعذر إنهاء التسجيل." }
+        runCatching { active?.release() }
+        articleRecorder = null
+        articleRecordingFile = null
+        articleRecording = false
+    }
+    val audioPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) startArticleAudioRecording() else message = "اسمح باستخدام الميكروفون لتسجيل المقال."
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            runCatching { articleRecorder?.stop() }
+            runCatching { articleRecorder?.release() }
+            articleRecordingFile?.delete()
+        }
+    }
     val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
