@@ -572,6 +572,13 @@ private fun ArticleComments(articleId: String, user: FirebaseUser) {
             } catch (e: Exception) { error = e.localizedMessage ?: "تعذر بدء التسجيل الصوتي." }
         } else error = "اسمح باستخدام الميكروفون لإضافة تعليق صوتي."
     }
+    val commentAudioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            audioUrl = uri.toString()
+            error = null
+        }
+    }
 
     DisposableEffect(Unit) {
         onDispose { runCatching { recorder?.release() }; recordingFile?.delete() }
@@ -591,27 +598,51 @@ private fun ArticleComments(articleId: String, user: FirebaseUser) {
         }
         OutlinedTextField(draft, { draft = it.take(2000) }, modifier = Modifier.fillMaxWidth(),
             label = { Text("اكتب تعليقك") }, minLines = 2)
-        Text("التعليقات الصوتية غير متاحة حاليًا؛ يمكنك إضافة تعليق نصي.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(enabled = !busy && !recording, onClick = { commentAudioPicker.launch(arrayOf("audio/*")) }) { Text("اختيار صوت") }
+            OutlinedButton(enabled = !busy, onClick = {
+                if (recording) {
+                    try {
+                        recorder?.stop()
+                        audioUrl = recordingFile?.let { Uri.fromFile(it).toString() }.orEmpty()
+                        error = if (audioUrl.isBlank()) "التسجيل غير صالح." else "تم التسجيل؛ ارفع التعليق عند الإرسال."
+                    } catch (e: Exception) { error = e.localizedMessage ?: "تعذر إنهاء التسجيل." }
+                    runCatching { recorder?.release() }
+                    recorder = null
+                    recording = false
+                } else micPermission.launch(Manifest.permission.RECORD_AUDIO)
+            }) { Text(if (recording) "إيقاف التسجيل" else "تسجيل تعليق") }
+        }
+        if (audioUrl.isNotBlank()) Text("يوجد ملف صوتي جاهز للإرسال.", color = MaterialTheme.colorScheme.primary)
+        if (audioUploading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(enabled = !busy && !audioUploading && (draft.isNotBlank() || audioUrl.isNotBlank()), onClick = {
             val body = draft.trim()
             busy = true
             scope.launch {
                 try {
+                    var finalAudioUrl = audioUrl
+                    if (finalAudioUrl.startsWith("content://") || finalAudioUrl.startsWith("file://")) {
+                        audioUploading = true
+                        finalAudioUrl = CloudinaryMediaUploader.upload(context, Uri.parse(finalAudioUrl), "Whisper-Player/Voice").secureUrl
+                    }
                     db.collection("articles").document(articleId).collection("comments").add(mapOf(
                         "uid" to user.uid,
                         "authorName" to (user.displayName ?: "قارئ Anti-dopamine"),
                         "body" to body,
-                        "audioUrl" to audioUrl,
+                        "audioUrl" to finalAudioUrl,
                         "createdAt" to FieldValue.serverTimestamp()
                     )).await()
+                    recordingFile?.delete()
+                    recordingFile = null
                     draft = ""
                     audioUrl = ""
                     error = null
                     reload()
                 } catch (e: Exception) { error = e.localizedMessage ?: "تعذر نشر التعليق." }
+                audioUploading = false
                 busy = false
             }
-        }) { Text(if (busy) "جارٍ الإرسال…" else "إضافة التعليق") }
+        }) { Text(if (busy) "جارٍ الرفع والإرسال…" else "إضافة التعليق") }
     }
 }
