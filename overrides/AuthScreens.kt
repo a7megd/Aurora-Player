@@ -210,6 +210,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
  var photoUrl by remember { mutableStateOf("") }
  var photoData by remember { mutableStateOf("") }
  var photoUploading by remember { mutableStateOf(false) }
+ var photoMigrationInProgress by remember { mutableStateOf(false) }
  val context = LocalContext.current
  val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
   if (uri != null) scope.launch {
@@ -240,7 +241,21 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
    following=FirebaseCommunity.followingIds(user.uid).intersect(members.map{it.uid}.toSet())
    requested=FirebaseCommunity.outgoingFriendRequests(user.uid).filter{it.status=="pending" || it.status=="accepted"}.map{it.uid}.toSet()+FirebaseCommunity.friendIds(user.uid)
    ownFollowers=FirebaseCommunity.followerCount(user.uid); ownFollowing=FirebaseCommunity.followingCount(user.uid); ownFriends=FirebaseCommunity.friendCount(user.uid)
-   all.firstOrNull{it.uid==user.uid}?.let{displayName=it.displayName;photoUrl=it.photoUrl;photoData=it.photoData;bio=it.bio;favorites=it.favoriteSounds}
+   all.firstOrNull{it.uid==user.uid}?.let{member->
+    displayName=member.displayName;photoUrl=member.photoUrl;photoData=member.photoData;bio=member.bio;favorites=member.favoriteSounds
+    if(member.photoData.isNotBlank() && member.photoUrl.isBlank() && !photoMigrationInProgress) {
+     photoMigrationInProgress=true
+     scope.launch {
+      try {
+       val bytes=Base64.decode(member.photoData,Base64.DEFAULT)
+       val migratedUrl=WhisperStorage.uploadBytes(bytes,"Whisper-Player/ProfilePhotos/${user.uid}","image","image/jpeg")
+       FirebaseCommunity.updateProfile(user.uid,member.displayName,migratedUrl,member.bio,member.favoriteSounds,"")
+       photoUrl=migratedUrl;photoData=""
+      } catch(e:Exception) { errorText=e.localizedMessage ?: "تعذر نقل صورة الحساب القديمة إلى Firebase Storage." }
+      finally { photoMigrationInProgress=false }
+     }
+    }
+   }
   } catch(e:Exception){errorText=(e.localizedMessage ?: "تعذر تحميل المستخدمين.")+"\nتأكد من نشر قواعد Firestore المحدّثة ومن تسجيل الدخول بحساب موثّق."}
   loading=false
  } }
@@ -320,7 +335,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
    Button(enabled=!photoUploading,onClick={photoPicker.launch("image/*")}){Text(if(photoUploading) "جارٍ رفع الصورة…" else "اختيار صورة من الهاتف")}
    if(photoUrl.isNotBlank()) Text("تم رفع الصورة ✓")
   }
-  OutlinedTextField(photoUrl,{photoUrl=it.take(500)},label={Text("أو رابط صورة HTTPS")})
+  OutlinedTextField(photoUrl,{photoUrl=it.take(500);photoData=""},label={Text("أو رابط صورة HTTPS")})
   OutlinedTextField(bio,{bio=it.take(160)},label={Text("نبذة عنك")},minLines=2)
   OutlinedTextField(favorites,{favorites=it.take(500)},label={Text("أصواتك المفضلة")},minLines=2)
  }},confirmButton={TextButton(enabled=!saving && !photoUploading,onClick={saving=true;scope.launch{try{
