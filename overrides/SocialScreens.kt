@@ -202,32 +202,6 @@ fun ChatScreen(user: FirebaseUser) {
     var draft by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    var recorder by remember { mutableStateOf<MediaRecorder?>(null) }
-    var recordingFile by remember { mutableStateOf<File?>(null) }
-    var recording by remember { mutableStateOf(false) }
-    var uploading by remember { mutableStateOf(false) }
-
-    val imagePicker=rememberLauncherForActivityResult(ActivityResultContracts.GetContent()){uri->
-        val thread=selected?.first
-        if(uri!=null&&thread!=null) scope.launch {
-            uploading=true
-            try {
-                val type=context.contentResolver.getType(uri) ?: "image/jpeg"
-                require(type.startsWith("image/")){"الملف المختار ليس صورة."}
-                val url=uploadWhisperMedia(context,"Chat/${user.uid}/$thread",uri,type)
-                db.collection("chatThreads").document(thread).collection("messages").add(mapOf(
-                    "uid" to user.uid,"authorName" to (user.displayName ?: "عضو Whisper"),"type" to "image",
-                    "body" to "","mediaUrl" to url,"createdAt" to FieldValue.serverTimestamp())).await()
-                reloadChatMessages(db,thread){messages=it}
-            }catch(e:Exception){error=e.localizedMessage ?: "تعذر إرسال الصورة."}
-            uploading=false
-        }
-    }
-    val micPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){granted->
-        if(granted) startWhisperRecording(context,user.uid,selected?.first.orEmpty(),{r->recorder=r.first;recordingFile=r.second;recording=true},{error=it})
-        else error="يجب السماح باستخدام الميكروفون لتسجيل رسالة صوتية."
-    }
-
     suspend fun reloadThreads() {
         try {
             val rows=FirebaseCommunity.approvedChats(user.uid)
@@ -254,7 +228,7 @@ fun ChatScreen(user: FirebaseUser) {
             onDispose { reg.remove() }
         }
     }
-    DisposableEffect(Unit){onDispose{try{recorder?.release()}catch(_:Exception){};recordingFile?.delete()}}
+    
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         Column(Modifier.fillMaxSize().padding(12.dp),verticalArrangement=Arrangement.spacedBy(9.dp)) {
@@ -292,8 +266,7 @@ fun ChatScreen(user: FirebaseUser) {
                 Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(5.dp)){
                     OutlinedTextField(value=draft,onValueChange={draft=it},modifier=Modifier.weight(1f),
                         placeholder={Text("اكتب رسالة…")},maxLines=4)
-                    Text("إرسال الصور والرسائل الصوتية غير متاح في النسخة بدون فوترة.", color=MaterialTheme.colorScheme.onSurfaceVariant, style=MaterialTheme.typography.bodySmall)
-                    IconButton(enabled=!busy&&!uploading&&draft.isNotBlank(),onClick={
+                    IconButton(enabled=!busy&&draft.isNotBlank(),onClick={
                         val body=draft.trim();val thread=selected!!.first;busy=true
                         scope.launch{try{
                             db.collection("chatThreads").document(thread).collection("messages").add(mapOf(
@@ -304,30 +277,11 @@ fun ChatScreen(user: FirebaseUser) {
                         }catch(e:Exception){error=e.localizedMessage ?: "تعذر إرسال الرسالة."};busy=false}
                     }){Text("➤")}
                 }
-
+                Text("إرسال الصور والرسائل الصوتية غير متاح في النسخة بدون فوترة.", color=MaterialTheme.colorScheme.onSurfaceVariant, style=MaterialTheme.typography.bodySmall)
             }
             error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
         }
     }
-}
-
-private fun startWhisperRecording(
-    context:android.content.Context,uid:String,threadId:String,
-    onStarted:(Pair<MediaRecorder,File>)->Unit,onError:(String)->Unit
-) {
-    try {
-        require(threadId.isNotBlank()){"افتح محادثة أولًا."}
-        val file=File(context.cacheDir,"whisper-${System.currentTimeMillis()}.m4a")
-        val mediaRecorder=if(Build.VERSION.SDK_INT>=31) MediaRecorder(context) else @Suppress("DEPRECATION") MediaRecorder()
-        mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC)
-        mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-        mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-        mediaRecorder.setAudioEncodingBitRate(96000)
-        mediaRecorder.setAudioSamplingRate(44100)
-        mediaRecorder.setOutputFile(file.absolutePath)
-        mediaRecorder.prepare();mediaRecorder.start()
-        onStarted(mediaRecorder to file)
-    }catch(e:Exception){onError(e.localizedMessage ?: "تعذر بدء التسجيل.")}
 }
 
 private suspend fun reloadChatMessages(
