@@ -35,7 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.aurora.player.community.FirebaseCommunity
-import com.aurora.player.community.WhisperStorage
+import com.aurora.player.community.WhisperMediaRouter
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.UserProfileChangeRequest
@@ -221,7 +221,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
    try {
     val type = context.contentResolver.getType(uri) ?: "image/jpeg"
     require(type.startsWith("image/")) { "الملف المختار ليس صورة." }
-    photoUrl = WhisperStorage.uploadUri(context, uri, "Whisper-Player/ProfilePhotos/${user.uid}", "image", type)
+    photoUrl = WhisperMediaRouter.uploadImageUri(context, uri, "Whisper-Player/ProfilePhotos/${user.uid}", type)
     photoData = ""
     errorText = null
    } catch (e: Exception) { errorText = e.localizedMessage ?: "تعذر رفع صورة الملف الشخصي." }
@@ -251,7 +251,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
      scope.launch {
       try {
        val bytes=Base64.decode(member.photoData,Base64.DEFAULT)
-       val migratedUrl=WhisperStorage.uploadBytes(bytes,"Whisper-Player/ProfilePhotos/${user.uid}","image","image/jpeg")
+       val migratedUrl=WhisperMediaRouter.uploadImageBytes(bytes,"Whisper-Player/ProfilePhotos/${user.uid}","image/jpeg")
        FirebaseCommunity.updateProfile(user.uid,member.displayName,migratedUrl,member.bio,member.favoriteSounds,"")
        photoUrl=migratedUrl;photoData=""
       } catch(e:Exception) { errorText=e.localizedMessage ?: "تعذر نقل صورة الحساب القديمة إلى Firebase Storage." }
