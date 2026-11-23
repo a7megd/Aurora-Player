@@ -30,7 +30,7 @@ object WhisperCloudinary {
         contentType: String
     ): String = withContext(Dispatchers.IO) {
         requireConfigured()
-        val name = "whisper_${UUID.randomUUID()}"
+        val name = "whisper_${UUID.randomUUID()}" + extensionFor(contentType)
         val input = context.contentResolver.openInputStream(uri)
             ?: error("تعذر قراءة الملف المحدد.")
         input.use { uploadStream(it, name, folder, resourceType, contentType) }
@@ -45,7 +45,7 @@ object WhisperCloudinary {
         requireConfigured()
         require(bytes.isNotEmpty()) { "الملف المراد رفعه فارغ." }
         ByteArrayInputStream(bytes).use {
-            uploadStream(it, "whisper_${UUID.randomUUID()}", folder, resourceType, contentType)
+            uploadStream(it, "whisper_${UUID.randomUUID()}" + extensionFor(contentType), folder, resourceType, contentType)
         }
     }
 
@@ -58,8 +58,21 @@ object WhisperCloudinary {
         requireConfigured()
         require(file.exists() && file.length() > 0L) { "الملف الصوتي غير موجود أو فارغ." }
         FileInputStream(file).use {
-            uploadStream(it, "whisper_${UUID.randomUUID()}", folder, resourceType, contentType)
+            uploadStream(it, "whisper_${UUID.randomUUID()}" + extensionFor(contentType), folder, resourceType, contentType)
         }
+    }
+
+    private fun extensionFor(contentType: String): String = when (contentType.substringBefore(';').trim().lowercase()) {
+        "image/jpeg", "image/jpg" -> ".jpg"
+        "image/png" -> ".png"
+        "image/webp" -> ".webp"
+        "image/gif" -> ".gif"
+        "audio/mpeg" -> ".mp3"
+        "audio/mp4", "audio/x-m4a" -> ".m4a"
+        "audio/aac" -> ".aac"
+        "audio/wav", "audio/x-wav" -> ".wav"
+        "audio/ogg" -> ".ogg"
+        else -> ""
     }
 
     private fun requireConfigured() {
