@@ -215,19 +215,6 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
  var photoUploading by remember { mutableStateOf(false) }
  var photoMigrationInProgress by remember { mutableStateOf(false) }
  val context = LocalContext.current
- val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-  if (uri != null) scope.launch {
-   photoUploading = true
-   try {
-    val type = context.contentResolver.getType(uri) ?: "image/jpeg"
-    require(type.startsWith("image/")) { "الملف المختار ليس صورة." }
-    photoUrl = WhisperMediaRouter.uploadImageUri(context, uri, "Whisper-Player/ProfilePhotos/${user.uid}", type)
-    photoData = ""
-    errorText = null
-   } catch (e: Exception) { errorText = e.localizedMessage ?: "تعذر رفع صورة الملف الشخصي." }
-   finally { photoUploading = false }
-  }
- }
  var bio by remember { mutableStateOf("") }
  var favorites by remember { mutableStateOf("") }
  var selected by remember { mutableStateOf<com.aurora.player.community.CommunityMember?>(null) }
@@ -246,18 +233,6 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
    ownFollowers=FirebaseCommunity.followerCount(user.uid); ownFollowing=FirebaseCommunity.followingCount(user.uid); ownFriends=FirebaseCommunity.friendCount(user.uid)
    all.firstOrNull{it.uid==user.uid}?.let{member->
     displayName=member.displayName;photoUrl=member.photoUrl;photoData=member.photoData;bio=member.bio;favorites=member.favoriteSounds
-    if(member.photoData.isNotBlank() && member.photoUrl.isBlank() && !photoMigrationInProgress) {
-     photoMigrationInProgress=true
-     scope.launch {
-      try {
-       val bytes=Base64.decode(member.photoData,Base64.DEFAULT)
-       val migratedUrl=WhisperMediaRouter.uploadImageBytes(bytes,"Whisper-Player/ProfilePhotos/${user.uid}","image/jpeg")
-       FirebaseCommunity.updateProfile(user.uid,member.displayName,migratedUrl,member.bio,member.favoriteSounds,"")
-       photoUrl=migratedUrl;photoData=""
-      } catch(e:Exception) { errorText=e.localizedMessage ?: "تعذر نقل صورة الحساب القديمة إلى Firebase Storage." }
-      finally { photoMigrationInProgress=false }
-     }
-    }
    }
   } catch(e:Exception){errorText=(e.localizedMessage ?: "تعذر تحميل المستخدمين.")+"\nتأكد من نشر قواعد Firestore المحدّثة ومن تسجيل الدخول بحساب موثّق."}
   loading=false
@@ -335,8 +310,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
  if(editing) AlertDialog(onDismissRequest={if(!saving)editing=false},title={Text("تعديل الملف الشخصي")},text={Column(Modifier.fillMaxWidth().heightIn(max=520.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(9.dp)){
   OutlinedTextField(displayName,{displayName=it.take(30)},label={Text("اسم العرض")},singleLine=true)
   Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
-   Button(enabled=!photoUploading,onClick={photoPicker.launch("image/*")}){Text(if(photoUploading) "جارٍ رفع الصورة…" else "اختيار صورة من الهاتف")}
-   if(photoUrl.isNotBlank()) Text("تم رفع الصورة ✓")
+   Text("لا يمكن رفع صورة جديدة للحساب في النسخة التي لا تتطلب فوترة. يمكنك الاحتفاظ بصورتك الحالية أو استخدام رابط صورة خارجي.", color=MaterialTheme.colorScheme.onSurfaceVariant)
   }
   OutlinedTextField(photoUrl,{photoUrl=it.take(500);photoData=""},label={Text("أو رابط صورة HTTPS")})
   OutlinedTextField(bio,{bio=it.take(160)},label={Text("نبذة عنك")},minLines=2)
