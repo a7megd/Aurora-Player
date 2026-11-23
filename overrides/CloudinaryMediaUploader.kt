@@ -57,10 +57,13 @@ object CloudinaryMediaUploader {
         }
 
         val resolver = context.contentResolver
-        val mime = resolver.getType(uri) ?: "application/octet-stream"
         val displayName = queryDisplayName(context, uri)
+        val nameExtension = displayName.substringAfterLast('.', "").takeIf { it.matches(Regex("[A-Za-z0-9]{1,10}")) }
+        val mime = resolver.getType(uri)
+            ?: nameExtension?.let { MimeTypeMap.getSingleton().getMimeTypeFromExtension(it.lowercase()) }
+            ?: "application/octet-stream"
         val extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(mime)
-            ?: displayName.substringAfterLast('.', "").takeIf { it.matches(Regex("[A-Za-z0-9]{1,10}")) }
+            ?: nameExtension
             ?: "bin"
         val maxBytes = if (mime.startsWith("video/") || mime.startsWith("audio/")) VIDEO_AND_AUDIO_LIMIT else IMAGE_AND_RAW_LIMIT
         val temp = File(context.cacheDir, "whisper-upload-${UUID.randomUUID()}.$extension")
