@@ -12,6 +12,12 @@ service firebase.storage {
         && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
     }
+    match /article-audio/{uid}/{fileName} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == uid
+        && request.resource.size < 30 * 1024 * 1024
+        && request.resource.contentType.matches('audio/.*');
+    }
     match /community-media/{uid}/{fileName} {
       allow read: if signedIn();
       allow write: if signedIn() && request.auth.uid == uid
