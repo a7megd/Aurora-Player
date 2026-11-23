@@ -1,5 +1,6 @@
 package com.aurora.player.ui.navigation
 
+import android.graphics.BitmapFactory
 import android.util.Base64
 
 import androidx.activity.compose.rememberLauncherForActivityResult
