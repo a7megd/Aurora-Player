@@ -56,8 +56,7 @@ jobs:
               line = f'    <uses-permission android:name="{permission}" />'
               if line not in content:
                   pos = content.find(">", content.find("<manifest")) + 1
-                  content = content[:pos] + "
-" + line + content[pos:]
+                  content = content[:pos] + "\\n" + line + content[pos:]
           service = '''
               <service
                   android:name="com.aurora.player.community.WhisperMessagingService"
@@ -82,8 +81,7 @@ jobs:
               line = f'    <uses-permission android:name="{perm}" />'
               if perm not in s:
                   i = s.find('>', s.find('<manifest')) + 1
-                  s = s[:i] + '
-' + line + s[i:]
+                  s = s[:i] + "\\n" + line + s[i:]
           p.write_text(s)
           PY
       - uses: actions/setup-java@v4
