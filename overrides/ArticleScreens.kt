@@ -24,7 +24,7 @@ import androidx.compose.ui.graphics.Color
 import android.content.Intent
 import android.media.MediaPlayer
 import coil.compose.AsyncImage
-import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.FirebaseUser\nimport com.aurora.player.community.WhisperCloudinary
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -161,9 +161,9 @@ fun ArticleWriterScreen(user: FirebaseUser) {
         if (uri != null) scope.launch {
             audioUploading = true
             try {
-                val ref = FirebaseStorage.getInstance().reference.child("article-audio/${user.uid}/${UUID.randomUUID()}")
-                ref.putFile(uri).await()
-                audioUrl = ref.downloadUrl.await().toString()
+                val type = context.contentResolver.getType(uri) ?: "audio/mp4"
+                require(type.startsWith("audio/")) { "الملف المختار ليس ملفًا صوتيًا." }
+                audioUrl = WhisperCloudinary.uploadUri(context, uri, "Whisper-Player/Articles/${user.uid}/Audio", "video", type)
                 message = "تم إرفاق الملف الصوتي بالمقال."
             } catch (e: Exception) { message = e.localizedMessage ?: "تعذر رفع الملف الصوتي." }
             audioUploading = false
@@ -173,9 +173,9 @@ fun ArticleWriterScreen(user: FirebaseUser) {
         if (uri != null) scope.launch {
             coverUploading = true
             try {
-                val ref = FirebaseStorage.getInstance().reference.child("article-covers/${user.uid}/${UUID.randomUUID()}")
-                ref.putFile(uri).await()
-                cover = ref.downloadUrl.await().toString()
+                val type = context.contentResolver.getType(uri) ?: "image/jpeg"
+                require(type.startsWith("image/")) { "الملف المختار ليس صورة." }
+                cover = WhisperCloudinary.uploadUri(context, uri, "Whisper-Player/Covers/${user.uid}", "image", type)
                 message = "تم رفع صورة الغلاف بنجاح."
             } catch (e: Exception) { message = e.localizedMessage ?: "تعذر رفع الصورة." }
             coverUploading = false
