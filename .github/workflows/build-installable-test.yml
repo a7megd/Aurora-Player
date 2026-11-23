@@ -98,6 +98,14 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Validate Cloudinary upload configuration
+        env:
+          CLOUDINARY_CLOUD_NAME: ${{ vars.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_UPLOAD_PRESET: ${{ vars.CLOUDINARY_UPLOAD_PRESET }}
+        run: |
+          test -n "$CLOUDINARY_CLOUD_NAME" || { echo "Missing repository variable CLOUDINARY_CLOUD_NAME"; exit 1; }
+          test -n "$CLOUDINARY_UPLOAD_PRESET" || { echo "Missing repository variable CLOUDINARY_UPLOAD_PRESET"; exit 1; }
+
       - name: Build installable test APK
         env:
           CLOUDINARY_CLOUD_NAME: ${{ vars.CLOUDINARY_CLOUD_NAME }}
