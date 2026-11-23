@@ -5,6 +5,8 @@ import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.net.Uri
+import android.content.Intent
+import com.aurora.player.media.CloudinaryMediaUploader
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -207,6 +209,63 @@ fun ChatScreen(user: FirebaseUser) {
     var error by remember { mutableStateOf<String?>(null) }
     var reactionTarget by remember { mutableStateOf<WhisperChatMessage?>(null) }
     var reactionsByMessage by remember { mutableStateOf<Map<String, Map<String, Int>>>(emptyMap()) }
+    var attachmentUri by remember { mutableStateOf<Uri?>(null) }
+    var attachmentName by remember { mutableStateOf("") }
+    var recorder by remember { mutableStateOf<MediaRecorder?>(null) }
+    var recordingFile by remember { mutableStateOf<File?>(null) }
+    var recording by remember { mutableStateOf(false) }
+    var uploadProgress by remember { mutableFloatStateOf(0f) }
+    fun startVoiceRecording() {
+        try {
+            val file = File(context.cacheDir, "whisper-chat-" + System.currentTimeMillis() + ".m4a")
+            val mediaRecorder = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(context)
+                else @Suppress("DEPRECATION") MediaRecorder()
+            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC)
+            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            mediaRecorder.setAudioEncodingBitRate(96000)
+            mediaRecorder.setAudioSamplingRate(44100)
+            mediaRecorder.setOutputFile(file.absolutePath)
+            mediaRecorder.prepare()
+            mediaRecorder.start()
+            recorder = mediaRecorder
+            recordingFile = file
+            recording = true
+            error = null
+        } catch (e: Exception) { error = e.localizedMessage ?: "تعذر بدء التسجيل." }
+    }
+    fun stopVoiceRecording() {
+        val active = recorder
+        val file = recordingFile
+        try {
+            active?.stop()
+            if (file != null && file.exists() && file.length() > 0L) {
+                attachmentUri = Uri.fromFile(file)
+                attachmentName = "تسجيل صوتي.m4a"
+            } else error = "التسجيل فارغ؛ حاول مرة أخرى."
+        } catch (e: Exception) { error = e.localizedMessage ?: "تعذر إنهاء التسجيل." }
+        runCatching { active?.release() }
+        recorder = null
+        recordingFile = null
+        recording = false
+    }
+    val attachmentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            attachmentUri = uri
+            attachmentName = uri.lastPathSegment?.substringAfterLast('/') ?: "ملف مرفق"
+        }
+    }
+    val microphonePermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) startVoiceRecording() else error = "اسمح باستخدام الميكروفون لتسجيل رسالة صوتية."
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            runCatching { recorder?.stop() }
+            runCatching { recorder?.release() }
+            recordingFile?.delete()
+        }
+    }
     val quickReactions = listOf("❤️", "😂", "😮", "😢", "👍", "🙏")
     suspend fun reloadThreads() {
         try {
@@ -280,6 +339,10 @@ fun ChatScreen(user: FirebaseUser) {
                                         Text(if(msg.uid==user.uid)"أنت" else msg.name,style=MaterialTheme.typography.labelSmall)
                                         if(msg.type=="image"&&msg.mediaUrl.isNotBlank()) AsyncImage(model=msg.mediaUrl,contentDescription="صورة مرسلة",modifier=Modifier.fillMaxWidth().heightIn(max=280.dp))
                                         else if(msg.type=="audio"&&msg.mediaUrl.isNotBlank()) WhisperAudioBubble(msg.mediaUrl)
+                                        else if(msg.type=="file"&&msg.mediaUrl.isNotBlank()) {
+                                            Text(msg.body.ifBlank { "ملف مرفق" })
+                                            TextButton(onClick={runCatching { context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(msg.mediaUrl))) }.onFailure { error=it.localizedMessage ?: "تعذر فتح الملف." }}) { Text("فتح / تنزيل الملف") }
+                                        }
                                         else if(msg.body.isNotBlank()) Text(msg.body)
                                         Text("اضغط مطولًا للتفاعل",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
@@ -319,21 +382,52 @@ fun ChatScreen(user: FirebaseUser) {
                         }
                     }
                 }
+                if (attachmentUri != null) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically) {
+                        Text("مرفق: $attachmentName", Modifier.weight(1f), style=MaterialTheme.typography.bodySmall)
+                        TextButton(onClick={attachmentUri=null;attachmentName=""},enabled=!busy){Text("إزالة")}
+                    }
+                    if (busy) LinearProgressIndicator(progress={uploadProgress},modifier=Modifier.fillMaxWidth())
+                }
                 Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(5.dp)){
                     OutlinedTextField(value=draft,onValueChange={draft=it},modifier=Modifier.weight(1f),
                         placeholder={Text("اكتب رسالة…")},maxLines=4)
-                    IconButton(enabled=!busy&&draft.isNotBlank(),onClick={
-                        val body=draft.trim();val thread=selected!!.first;busy=true
+                    IconButton(enabled=!busy&&(draft.isNotBlank()||attachmentUri!=null),onClick={
+                        val body=draft.trim();val thread=selected!!.first;val selectedUri=attachmentUri;busy=true
                         scope.launch{try{
-                            db.collection("chatThreads").document(thread).collection("messages").add(mapOf(
-                                "uid" to user.uid,"authorName" to (user.displayName ?: "عضو Whisper"),
-                                "type" to "text","body" to body,"mediaUrl" to "",
-                                "createdAt" to FieldValue.serverTimestamp())).await()
-                            draft=""
+                            if(selectedUri==null) {
+                                db.collection("chatThreads").document(thread).collection("messages").add(mapOf(
+                                    "uid" to user.uid,"authorName" to (user.displayName ?: "عضو Whisper"),
+                                    "type" to "text","body" to body,"mediaUrl" to "",
+                                    "createdAt" to FieldValue.serverTimestamp())).await()
+                            } else {
+                                val uploaded=CloudinaryMediaUploader.upload(context,selectedUri,"Whisper-Player/Chat") { sent,total ->
+                                    uploadProgress=(sent.toFloat()/total.coerceAtLeast(1L)).coerceIn(0f,1f)
+                                }
+                                val kind=when {
+                                    uploaded.mimeType.startsWith("image/")->"image"
+                                    uploaded.mimeType.startsWith("audio/")->"audio"
+                                    else->"file"
+                                }
+                                db.collection("chatThreads").document(thread).collection("messages").add(mapOf(
+                                    "uid" to user.uid,"authorName" to (user.displayName ?: "عضو Whisper"),
+                                    "type" to kind,"body" to uploaded.originalName,"mediaUrl" to uploaded.secureUrl,
+                                    "mimeType" to uploaded.mimeType,"assetId" to uploaded.assetId,
+                                    "createdAt" to FieldValue.serverTimestamp())).await()
+                                attachmentUri=null;attachmentName=""
+                            }
+                            draft="";uploadProgress=0f
                         }catch(e:Exception){error=e.localizedMessage ?: "تعذر إرسال الرسالة."};busy=false}
                     }){Text("➤")}
                 }
-                Text("إرسال الصور والرسائل الصوتية غير متاح في النسخة بدون فوترة.", color=MaterialTheme.colorScheme.onSurfaceVariant, style=MaterialTheme.typography.bodySmall)
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically) {
+                    OutlinedButton(enabled=!busy&&!recording,onClick={attachmentPicker.launch(arrayOf("*/*"))}) { Text("إرفاق ملف") }
+                    OutlinedButton(enabled=!busy&&!recording,onClick={
+                        if(ContextCompat.checkSelfPermission(context,Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED) startVoiceRecording()
+                        else microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
+                    }) { Text("تسجيل صوت") }
+                    if(recording) Button(onClick={stopVoiceRecording}) { Text("إيقاف التسجيل") }
+                }
             }
             error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
         }
