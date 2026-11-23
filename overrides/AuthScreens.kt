@@ -1,9 +1,5 @@
 package com.aurora.player.ui.navigation
 
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.util.Base64
-import java.io.ByteArrayOutputStream
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -36,6 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.aurora.player.community.FirebaseCommunity
+import com.aurora.player.community.WhisperStorage
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.UserProfileChangeRequest
@@ -212,18 +209,20 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
  var displayName by remember { mutableStateOf(user.displayName.orEmpty()) }
  var photoUrl by remember { mutableStateOf("") }
  var photoData by remember { mutableStateOf("") }
+ var photoUploading by remember { mutableStateOf(false) }
  val context = LocalContext.current
  val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-  if (uri != null) try {
-   val source = context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) } ?: error("تعذر قراءة الصورة.")
-   val scale = minOf(1f, 320f / maxOf(source.width, source.height))
-   val resized = Bitmap.createScaledBitmap(source, (source.width * scale).toInt().coerceAtLeast(1), (source.height * scale).toInt().coerceAtLeast(1), true)
-   val bytes = ByteArrayOutputStream().use { out -> resized.compress(Bitmap.CompressFormat.JPEG, 68, out); out.toByteArray() }
-   photoData = Base64.encodeToString(bytes, Base64.NO_WRAP)
-   photoUrl = ""
-   if (resized !== source) resized.recycle()
-   if (source !== resized) source.recycle()
-  } catch (e: Exception) { errorText = e.localizedMessage ?: "تعذر تجهيز الصورة." }
+  if (uri != null) scope.launch {
+   photoUploading = true
+   try {
+    val type = context.contentResolver.getType(uri) ?: "image/jpeg"
+    require(type.startsWith("image/")) { "الملف المختار ليس صورة." }
+    photoUrl = WhisperStorage.uploadUri(context, uri, "Whisper-Player/ProfilePhotos/${user.uid}", "image", type)
+    photoData = ""
+    errorText = null
+   } catch (e: Exception) { errorText = e.localizedMessage ?: "تعذر رفع صورة الملف الشخصي." }
+   finally { photoUploading = false }
+  }
  }
  var bio by remember { mutableStateOf("") }
  var favorites by remember { mutableStateOf("") }
@@ -318,13 +317,13 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
  if(editing) AlertDialog(onDismissRequest={if(!saving)editing=false},title={Text("تعديل الملف الشخصي")},text={Column(Modifier.fillMaxWidth().heightIn(max=520.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(9.dp)){
   OutlinedTextField(displayName,{displayName=it.take(30)},label={Text("اسم العرض")},singleLine=true)
   Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
-   Button(onClick={photoPicker.launch("image/*")}){Text("اختيار صورة من الهاتف")}
-   if(photoData.isNotBlank()) Text("تم اختيار صورة")
+   Button(enabled=!photoUploading,onClick={photoPicker.launch("image/*")}){Text(if(photoUploading) "جارٍ رفع الصورة…" else "اختيار صورة من الهاتف")}
+   if(photoUrl.isNotBlank()) Text("تم رفع الصورة ✓")
   }
   OutlinedTextField(photoUrl,{photoUrl=it.take(500)},label={Text("أو رابط صورة HTTPS")})
   OutlinedTextField(bio,{bio=it.take(160)},label={Text("نبذة عنك")},minLines=2)
   OutlinedTextField(favorites,{favorites=it.take(500)},label={Text("أصواتك المفضلة")},minLines=2)
- }},confirmButton={TextButton(enabled=!saving,onClick={saving=true;scope.launch{try{
+ }},confirmButton={TextButton(enabled=!saving && !photoUploading,onClick={saving=true;scope.launch{try{
  FirebaseCommunity.updateProfile(user.uid,displayName,photoUrl,bio,favorites,photoData)
  context.getSharedPreferences("tayer_profile", android.content.Context.MODE_PRIVATE).edit()
   .putString("display_name",displayName.trim()).putString("photo_data",photoData).putString("photo_uri",photoUrl).apply()
