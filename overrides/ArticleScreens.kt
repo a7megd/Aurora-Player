@@ -626,6 +626,7 @@ private fun ArticleComments(articleId: String, user: FirebaseUser) {
                     if (finalAudioUrl.startsWith("content://") || finalAudioUrl.startsWith("file://")) {
                         audioUploading = true
                         finalAudioUrl = CloudinaryMediaUploader.upload(context, Uri.parse(finalAudioUrl), "Whisper-Player/Voice").secureUrl
+                        audioUrl = finalAudioUrl
                     }
                     db.collection("articles").document(articleId).collection("comments").add(mapOf(
                         "uid" to user.uid,
