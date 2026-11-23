@@ -8,6 +8,8 @@ import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -185,6 +187,7 @@ private fun WhisperAudioBubble(url:String) {
     }) { Text(when { preparing -> "جارٍ تحميل الصوت…"; playing -> "إيقاف الصوت"; else -> "▶ تشغيل رسالة صوتية" }) }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ChatScreen(user: FirebaseUser) {
     val db= remember { FirebaseFirestore.getInstance() }
@@ -202,6 +205,9 @@ fun ChatScreen(user: FirebaseUser) {
     var draft by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var reactionTarget by remember { mutableStateOf<WhisperChatMessage?>(null) }
+    var reactionsByMessage by remember { mutableStateOf<Map<String, Map<String, Int>>>(emptyMap()) }
+    val quickReactions = listOf("❤️", "😂", "😮", "😢", "👍", "🙏")
     suspend fun reloadThreads() {
         try {
             val rows=FirebaseCommunity.approvedChats(user.uid)
@@ -248,17 +254,67 @@ fun ChatScreen(user: FirebaseUser) {
             }else{
                 Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)){
                     messages.forEach{msg->
-                        Card(colors=CardDefaults.cardColors(containerColor=if(msg.uid==user.uid)MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)){
-                            Column(Modifier.fillMaxWidth().padding(10.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
-                                Text(if(msg.uid==user.uid)"أنت" else msg.name,style=MaterialTheme.typography.labelSmall)
-                                if(msg.type=="image"&&msg.mediaUrl.isNotBlank()) AsyncImage(model=msg.mediaUrl,contentDescription="صورة مرسلة",modifier=Modifier.fillMaxWidth().heightIn(max=280.dp))
-                                else if(msg.type=="audio"&&msg.mediaUrl.isNotBlank()) WhisperAudioBubble(msg.mediaUrl)
-                                else if(msg.body.isNotBlank()) Text(msg.body)
-                                TextButton(onClick={scope.launch{try{
-                                    db.collection("chatThreads").document(selected!!.first).collection("messages").document(msg.id)
-                                        .collection("reactions").document(user.uid).set(mapOf("uid" to user.uid,"emoji" to "❤️",
-                                            "updatedAt" to FieldValue.serverTimestamp())).await()
-                                }catch(e:Exception){error=e.localizedMessage}}}){Text("❤️ تفاعل")}
+                        val reactionCollection = db.collection("chatThreads").document(selected!!.first)
+                            .collection("messages").document(msg.id).collection("reactions")
+                        DisposableEffect(selected?.first, msg.id) {
+                            val registration = reactionCollection.addSnapshotListener { snapshot, exception ->
+                                if (exception == null) {
+                                    val counts = snapshot?.documents.orEmpty()
+                                        .mapNotNull { it.getString("emoji") }
+                                        .groupingBy { it }.eachCount()
+                                    reactionsByMessage = reactionsByMessage + (msg.id to counts)
+                                }
+                            }
+                            onDispose { registration.remove() }
+                        }
+                        Column(verticalArrangement=Arrangement.spacedBy(3.dp)) {
+                            Box {
+                                Card(
+                                    modifier=Modifier.combinedClickable(
+                                        onClick = { },
+                                        onLongClick = { reactionTarget = msg }
+                                    ),
+                                    colors=CardDefaults.cardColors(containerColor=if(msg.uid==user.uid)MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)
+                                ){
+                                    Column(Modifier.fillMaxWidth().padding(10.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
+                                        Text(if(msg.uid==user.uid)"أنت" else msg.name,style=MaterialTheme.typography.labelSmall)
+                                        if(msg.type=="image"&&msg.mediaUrl.isNotBlank()) AsyncImage(model=msg.mediaUrl,contentDescription="صورة مرسلة",modifier=Modifier.fillMaxWidth().heightIn(max=280.dp))
+                                        else if(msg.type=="audio"&&msg.mediaUrl.isNotBlank()) WhisperAudioBubble(msg.mediaUrl)
+                                        else if(msg.body.isNotBlank()) Text(msg.body)
+                                        Text("اضغط مطولًا للتفاعل",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                                DropdownMenu(
+                                    expanded = reactionTarget?.id == msg.id,
+                                    onDismissRequest = { reactionTarget = null }
+                                ) {
+                                    Row(Modifier.padding(horizontal=8.dp), horizontalArrangement=Arrangement.spacedBy(2.dp)) {
+                                        quickReactions.forEach { emoji ->
+                                            TextButton(onClick = {
+                                                scope.launch {
+                                                    try {
+                                                        reactionCollection.document(user.uid).set(mapOf(
+                                                            "uid" to user.uid,
+                                                            "emoji" to emoji,
+                                                            "updatedAt" to FieldValue.serverTimestamp()
+                                                        )).await()
+                                                    } catch(e:Exception) { error = e.localizedMessage ?: "تعذر حفظ التفاعل." }
+                                                }
+                                                reactionTarget = null
+                                            }) { Text(emoji, style=MaterialTheme.typography.titleLarge) }
+                                        }
+                                    }
+                                }
+                            }
+                            val counts = reactionsByMessage[msg.id].orEmpty()
+                            if(counts.isNotEmpty()) {
+                                Row(horizontalArrangement=Arrangement.spacedBy(6.dp), verticalAlignment=Alignment.CenterVertically) {
+                                    counts.forEach { (emoji, count) ->
+                                        Surface(shape=MaterialTheme.shapes.large, color=MaterialTheme.colorScheme.surfaceVariant) {
+                                            Text("$emoji $count", modifier=Modifier.padding(horizontal=8.dp, vertical=3.dp), style=MaterialTheme.typography.labelMedium)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
