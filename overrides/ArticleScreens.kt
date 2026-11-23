@@ -534,7 +534,7 @@ private fun ArticleAudioPlayer(url: String, label: String) {
                             setDataSource(url)
                             setOnPreparedListener { mp -> duration = mp.duration.coerceAtLeast(0); ready = true; mp.start(); playing = true }
                             setOnCompletionListener { mp -> playing = false; position = 0; runCatching { mp.seekTo(0) } }
-                            setOnErrorListener { _, _, _ -> playing = false; ready = false; true }
+                            setOnErrorListener { mp, _, _ -> playing = false; ready = false; player = null; runCatching { mp.release() }; true }
                             prepareAsync()
                         }
                     } catch (_: Exception) { playing = false; ready = false }
