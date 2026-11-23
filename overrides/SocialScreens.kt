@@ -25,7 +25,7 @@ import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseUser
 import com.aurora.player.community.FirebaseCommunity
 import com.aurora.player.community.WhisperMessagingService
-import com.aurora.player.community.WhisperStorage
+import com.aurora.player.community.WhisperMediaRouter
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -40,10 +40,10 @@ private data class WhisperComment(val id:String,val uid:String,val name:String,v
 private data class WhisperChatMessage(val id:String,val uid:String,val name:String,val body:String,val type:String,val mediaUrl:String)
 
 private suspend fun uploadWhisperMedia(context: android.content.Context, path:String, uri:Uri, contentType:String):String {
-    return WhisperStorage.uploadUri(context, uri, "Whisper-Player/$path", "image", contentType)
+    return WhisperMediaRouter.uploadImageUri(context, uri, "Whisper-Player/$path", contentType)
 }
 private suspend fun uploadWhisperFile(path:String,file:File,contentType:String):String {
-    return WhisperStorage.uploadFile(file, "Whisper-Player/$path", "video", contentType)
+    return WhisperMediaRouter.uploadAudioFile(file, "Whisper-Player/$path", contentType)
 }
 
 @Composable
