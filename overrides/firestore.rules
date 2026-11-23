@@ -167,7 +167,7 @@ service cloud.firestore {
         allow read: if signedIn() && request.auth.uid in threadData().participants;
         allow create: if signedIn() && request.auth.uid in threadData().participants
           && request.resource.data.uid == request.auth.uid
-          && request.resource.data.type in ['text','image','audio']
+          && request.resource.data.type in ['text','image','audio','file']
           && request.resource.data.get('body', '') is string
           && request.resource.data.get('body', '').size() <= 5000
           && request.resource.data.get('mediaUrl', '') is string
