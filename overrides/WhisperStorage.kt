@@ -25,6 +25,19 @@ object WhisperStorage {
             upload(storage.reference.child("$folder/$name"), uri, contentType)
         }
 
+    suspend fun uploadBytes(bytes: ByteArray, folder: String, resourceType: String, contentType: String): String =
+        withContext(Dispatchers.IO) {
+            validate(folder, resourceType, contentType)
+            require(bytes.isNotEmpty()) { "الصورة القديمة فارغة." }
+            val name = UUID.randomUUID().toString().replace("-", "") + extensionFor(contentType)
+            val reference = storage.reference.child("$folder/$name")
+            val metadata = StorageMetadata.Builder().setContentType(contentType).build()
+            reference.putBytes(bytes, metadata).await()
+            val url = reference.downloadUrl.await().toString()
+            require(url.startsWith("https://")) { "لم يُرجع Firebase Storage رابط HTTPS صالحًا." }
+            url
+        }
+
     suspend fun uploadFile(file: File, folder: String, resourceType: String, contentType: String): String =
         withContext(Dispatchers.IO) {
             validate(folder, resourceType, contentType)
