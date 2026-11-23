@@ -101,7 +101,7 @@ object WhisperCloudinary {
             }
             val secureUrl = JSONObject(response).optString("secure_url")
             require(secureUrl.startsWith("https://")) { "لم يُرجع Cloudinary رابطًا آمنًا للملف." }
-            secureUrl
+            return secureUrl
         } finally {
             connection.disconnect()
         }
