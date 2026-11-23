@@ -218,7 +218,7 @@ fun ChatScreen(user: FirebaseUser) {
         }
     }
     val micPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()){granted->
-        if(granted) startWhisperRecording(context,user.uid,selected?.first.orEmpty(),{recorder=it;recordingFile=it.second;recording=true},{error=it})
+        if(granted) startWhisperRecording(context,user.uid,selected?.first.orEmpty(),{r->recorder=r.first;recordingFile=r.second;recording=true},{error=it})
         else error="يجب السماح باستخدام الميكروفون لتسجيل رسالة صوتية."
     }
 
@@ -232,9 +232,11 @@ fun ChatScreen(user: FirebaseUser) {
         }catch(e:Exception){error=e.localizedMessage ?: "تعذر تحميل المحادثات."}
     }
     LaunchedEffect(user.uid){reloadThreads()}
-    LaunchedEffect(selected?.first) {
+    DisposableEffect(selected?.first) {
         val thread=selected?.first
-        if(thread!=null) {
+        if(thread==null) {
+            onDispose { }
+        } else {
             val reg=db.collection("chatThreads").document(thread).collection("messages")
                 .orderBy("createdAt",Query.Direction.ASCENDING).limit(150)
                 .addSnapshotListener { snap,e ->
@@ -243,7 +245,7 @@ fun ChatScreen(user: FirebaseUser) {
                         d.getString("authorName") ?: "عضو",d.getString("body").orEmpty(),
                         d.getString("type") ?: "text",d.getString("mediaUrl").orEmpty())}
                 }
-            awaitDispose { reg.remove() }
+            onDispose { reg.remove() }
         }
     }
     DisposableEffect(Unit){onDispose{try{recorder?.release()}catch(_:Exception){};recordingFile?.delete()}}
