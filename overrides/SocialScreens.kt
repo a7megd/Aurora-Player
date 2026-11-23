@@ -165,22 +165,32 @@ fun SocialPostsScreen(user: FirebaseUser) {
 @Composable
 private fun WhisperAudioBubble(url:String) {
     var playing by remember(url){mutableStateOf(false)}
+    var preparing by remember(url){mutableStateOf(false)}
     var player by remember(url){mutableStateOf<MediaPlayer?>(null)}
-    DisposableEffect(url) { onDispose { try{player?.release()}catch(_:Exception){};player=null } }
-    OutlinedButton(onClick={
-        if(playing){try{player?.pause()}catch(_:Exception){};playing=false}
-        else {
+    DisposableEffect(url) {
+        onDispose { runCatching { player?.release() }; player=null }
+    }
+    OutlinedButton(enabled=!preparing,onClick={
+        if(playing) {
+            runCatching { player?.pause() }
+            playing=false
+        } else {
+            runCatching { player?.release() }
             try {
-                player?.release()
+                preparing=true
                 player=MediaPlayer().apply {
                     setDataSource(url)
-                    setOnCompletionListener { playing=false }
+                    setOnPreparedListener { it.start(); preparing=false; playing=true }
+                    setOnCompletionListener { playing=false; runCatching { it.seekTo(0) } }
+                    setOnErrorListener { _, _, _ -> preparing=false; playing=false; true }
                     prepareAsync()
-                    setOnPreparedListener { it.start();playing=true }
                 }
-            } catch(_:Exception){playing=false}
+            } catch(e:Exception) {
+                preparing=false
+                playing=false
+            }
         }
-    }){Text(if(playing)"إيقاف الصوت" else "▶ تشغيل رسالة صوتية")}
+    }) { Text(when { preparing -> "جارٍ تحميل الصوت…"; playing -> "إيقاف الصوت"; else -> "▶ تشغيل رسالة صوتية" }) }
 }
 
 @Composable
