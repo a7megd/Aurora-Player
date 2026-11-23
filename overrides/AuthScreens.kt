@@ -1,6 +1,8 @@
 package com.aurora.player.ui.navigation
 
 import android.graphics.BitmapFactory
+import android.net.Uri
+import com.aurora.player.media.CloudinaryMediaUploader
 import android.util.Base64
 
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -208,6 +210,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
  var errorText by remember { mutableStateOf<String?>(null) }
  var editing by remember { mutableStateOf(false) }
  var saving by remember { mutableStateOf(false) }
+ var uploadProgress by remember { mutableFloatStateOf(0f) }
  var displayName by remember { mutableStateOf(user.displayName.orEmpty()) }
  var photoUrl by remember { mutableStateOf("") }
  var photoData by remember { mutableStateOf("") }
@@ -237,7 +240,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
    val all=FirebaseCommunity.communityMembers()
    members=all.filter{it.uid!=user.uid}
    all.firstOrNull{it.uid==user.uid}?.let{member->
-    displayName=member.displayName;photoUrl=member.photoUrl;photoData="";bio=member.bio;favorites=member.favoriteSounds
+    displayName=member.displayName;photoUrl=member.photoUrl;photoData="";if(member.photoUrl.isNotBlank()) localPhotoUri="";bio=member.bio;favorites=member.favoriteSounds
    }
    runCatching { FirebaseCommunity.ensureProfile(user) }
    val friendSet=runCatching { FirebaseCommunity.friendIds(user.uid) }.getOrDefault(emptySet())
@@ -334,14 +337,18 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
    OutlinedButton(onClick={photoPicker.launch(arrayOf("image/*"))},enabled=!saving) { Text("اختيار صورة من المعرض") }
    if(localPhotoUri.isNotBlank()) TextButton(onClick={localPhotoUri="";photoUrl=""},enabled=!saving) { Text("إزالة الصورة") }
   }
-  Text("الصورة المختارة تُحفظ على هذا الجهاز فقط؛ مشاركة الصورة مع بقية الأعضاء تحتاج رابط صورة عام.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-  OutlinedTextField(photoUrl,{photoUrl=it.take(500);photoData="";if(it.isNotBlank())localPhotoUri=""},label={Text("أو رابط صورة HTTPS")})
+  Text("سيتم رفع الصورة المختارة لتظهر لجميع أعضاء Whisper.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+  if(saving && localPhotoUri.startsWith("content://")) { LinearProgressIndicator(progress={uploadProgress},modifier=Modifier.fillMaxWidth()); Text("رفع الصورة: ${(uploadProgress*100).toInt()}%") }
   OutlinedTextField(bio,{bio=it.take(160)},label={Text("نبذة عنك")},minLines=2)
   OutlinedTextField(favorites,{favorites=it.take(500)},label={Text("أصواتك المفضلة")},minLines=2)
  }},confirmButton={TextButton(enabled=!saving,onClick={saving=true;scope.launch{try{
+ if(localPhotoUri.startsWith("content://")) {
+  val uploaded=CloudinaryMediaUploader.upload(context,Uri.parse(localPhotoUri),"Whisper-Player/Covers") { sent,total -> uploadProgress=(sent.toFloat()/total.coerceAtLeast(1L)).coerceIn(0f,1f) }
+  photoUrl=uploaded.secureUrl;localPhotoUri="";uploadProgress=1f
+ }
  FirebaseCommunity.updateProfile(user.uid,displayName,photoUrl,bio,favorites,photoData)
  context.getSharedPreferences("tayer_profile", android.content.Context.MODE_PRIVATE).edit()
-  .putString("display_name",displayName.trim()).putString("photo_data","").putString("photo_uri",photoUrl).putString("local_photo_uri",localPhotoUri).apply()
+  .putString("display_name",displayName.trim()).putString("photo_data","").putString("photo_uri",photoUrl).putString("local_photo_uri","").apply()
  editing=false
 }catch(e:Exception){errorText=e.localizedMessage ?: "تعذر حفظ الملف."};saving=false;refresh()}}){Text(if(saving)"جارٍ الحفظ…" else "حفظ")}},dismissButton={TextButton(enabled=!saving,onClick={editing=false}){Text("إلغاء")}})
  LaunchedEffect(selected?.uid) {
