@@ -5,13 +5,17 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+val cloudinaryUploadPreset = providers.gradleProperty("cloudinaryUploadPreset")
+    .orElse(providers.environmentVariable("CLOUDINARY_UPLOAD_PRESET"))
+    .getOrElse("")
+
 android {
     namespace = "com.aurora.player"
     compileSdk = 35
 
     defaultConfig {
         buildConfigField("String", "CLOUDINARY_CLOUD_NAME", "\"vlmbhhfq\"")
-        buildConfigField("String", "CLOUDINARY_UPLOAD_PRESET", "\"${providers.gradleProperty("cloudinaryUploadPreset").orElse(providers.environmentVariable("CLOUDINARY_UPLOAD_PRESET")).getOrElse("")}\"")
+        buildConfigField("String", "CLOUDINARY_UPLOAD_PRESET", "\"$cloudinaryUploadPreset\"")
         applicationId = "com.aurora.player"
         minSdk = 26
         targetSdk = 35
