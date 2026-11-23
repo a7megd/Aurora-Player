@@ -1,3 +1,4 @@
+# Cloudinary-enabled build: reads CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET from repository variables.
 name: Whisper Player installable test APK
 
 on:
