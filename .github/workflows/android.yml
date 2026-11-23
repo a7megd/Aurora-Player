@@ -104,7 +104,10 @@ jobs:
         run: gradle -p AuroraPlayer testDebugUnitTest
 
       - name: Build Debug APK
-        run: gradle -p AuroraPlayer assembleDebug
+        env:
+          CLOUDINARY_CLOUD_NAME: ${{ vars.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_UPLOAD_PRESET: ${{ vars.CLOUDINARY_UPLOAD_PRESET }}
+        run: gradle -p AuroraPlayer assembleDebug -PCLOUDINARY_CLOUD_NAME="$CLOUDINARY_CLOUD_NAME" -PCLOUDINARY_UPLOAD_PRESET="$CLOUDINARY_UPLOAD_PRESET"
 
 
       - name: Package expanded source for engineering audit
