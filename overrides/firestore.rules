@@ -36,8 +36,7 @@ service cloud.firestore {
           && request.resource.data.get('displayName', '') is string
           && request.resource.data.get('displayName', '').size() >= 2
           && request.resource.data.get('displayName', '').size() <= 30
-          && request.resource.data.get('photoData', '') is string
-          && request.resource.data.get('photoData', '').size() <= 180000
+          && request.resource.data.get('photoData', '') == ''
           && request.resource.data.get('photoUrl', '') is string
           && request.resource.data.get('photoUrl', '').size() <= 500
           && (request.resource.data.get('photoUrl', '') == '' || request.resource.data.get('photoUrl', '').matches('https://.*'))
@@ -173,6 +172,7 @@ service cloud.firestore {
           && request.resource.data.get('body', '').size() <= 5000
           && request.resource.data.get('mediaUrl', '') is string
           && request.resource.data.get('mediaUrl', '').size() <= 1200
+          && (request.resource.data.get('mediaUrl', '') == '' || request.resource.data.get('mediaUrl', '').matches('https://.*'))
           && (request.resource.data.get('body', '').size() > 0 || request.resource.data.get('mediaUrl', '').size() > 0);
         allow update, delete: if signedIn() && request.auth.uid == resource.data.uid;
         match /reactions/{reactionUid} {
@@ -195,7 +195,15 @@ service cloud.firestore {
         && request.resource.data.subtitle is string && request.resource.data.subtitle.size() <= 220
         && request.resource.data.body is string && request.resource.data.body.size() >= 1 && request.resource.data.body.size() <= 30000
         && request.resource.data.coverUrl is string && request.resource.data.coverUrl.size() <= 1000
-        && (request.resource.data.coverUrl == '' || request.resource.data.coverUrl.matches('https://.*'))
+        && (
+          (request.resource.data.status == 'draft'
+            && (request.resource.data.coverUrl == ''
+              || request.resource.data.coverUrl.matches('https://.*')
+              || request.resource.data.coverUrl.matches('content://.*')))
+          || (request.resource.data.status == 'published'
+            && (request.resource.data.coverUrl == ''
+              || request.resource.data.coverUrl.matches('https://.*')))
+        )
         && request.resource.data.status in ['draft','published']
         && request.resource.data.get('bodyColor', '#222222') is string
         && request.resource.data.get('bodyColor', '#222222').size() <= 7
