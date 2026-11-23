@@ -722,7 +722,7 @@ fun WhisperSettingsScreen(repository: SettingsRepository, controller: MediaContr
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
-                    OutlinedButton(onClick = { profilePhotoPicker.launch(arrayOf("image/*")) }) { Text("رفع صورة شخصية") }
+                    OutlinedButton(onClick = { profilePhotoPicker.launch(arrayOf("image/*")) }) { Text("اختيار صورة شخصية على هذا الجهاز") }
                     if (profilePhoto != null) TextButton(onClick = {
                         profilePhoto = null
                         profilePrefs.edit().remove("photo_uri").apply()
