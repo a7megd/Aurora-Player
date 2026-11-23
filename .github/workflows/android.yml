@@ -62,6 +62,7 @@ jobs:
           install -D overrides/ArticleScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/ArticleScreens.kt
           install -D overrides/FirebaseCommunity.kt AuroraPlayer/app/src/main/java/com/aurora/player/community/FirebaseCommunity.kt
           install -D overrides/WhisperMessagingService.kt AuroraPlayer/app/src/main/java/com/aurora/player/community/WhisperMessagingService.kt
+          install -D overrides/WhisperCloudinary.kt AuroraPlayer/app/src/main/java/com/aurora/player/community/WhisperCloudinary.kt
           install -D overrides/MusicApp.kt AuroraPlayer/app/src/main/java/com/aurora/player/MusicApp.kt
           install -D overrides/firestore.rules AuroraPlayer/firestore.rules
           install -D overrides/storage.rules AuroraPlayer/storage.rules
