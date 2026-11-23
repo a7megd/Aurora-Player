@@ -63,6 +63,7 @@ jobs:
           install -D overrides/AuthScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/AuthScreens.kt
           install -D overrides/ArticleScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/ArticleScreens.kt
           install -D overrides/CloudinaryMediaUploader.kt AuroraPlayer/app/src/main/java/com/aurora/player/media/CloudinaryMediaUploader.kt
+          install -D overrides/CloudinaryMediaUploader.kt AuroraPlayer/app/src/main/java/com/aurora/player/media/CloudinaryMediaUploader.kt
           install -D overrides/FirebaseCommunity.kt AuroraPlayer/app/src/main/java/com/aurora/player/community/FirebaseCommunity.kt
           install -D overrides/WhisperMessagingService.kt AuroraPlayer/app/src/main/java/com/aurora/player/community/WhisperMessagingService.kt
           install -D overrides/MusicApp.kt AuroraPlayer/app/src/main/java/com/aurora/player/MusicApp.kt
