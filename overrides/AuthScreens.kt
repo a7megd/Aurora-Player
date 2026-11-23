@@ -312,7 +312,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
   OutlinedTextField(photoUrl,{photoUrl=it.take(500);photoData=""},label={Text("أو رابط صورة HTTPS")})
   OutlinedTextField(bio,{bio=it.take(160)},label={Text("نبذة عنك")},minLines=2)
   OutlinedTextField(favorites,{favorites=it.take(500)},label={Text("أصواتك المفضلة")},minLines=2)
- }},confirmButton={TextButton(enabled=!saving && !photoUploading,onClick={saving=true;scope.launch{try{
+ }},confirmButton={TextButton(enabled=!saving,onClick={saving=true;scope.launch{try{
  FirebaseCommunity.updateProfile(user.uid,displayName,photoUrl,bio,favorites,photoData)
  context.getSharedPreferences("tayer_profile", android.content.Context.MODE_PRIVATE).edit()
   .putString("display_name",displayName.trim()).putString("photo_data",photoData).putString("photo_uri",photoUrl).apply()
