@@ -56,6 +56,12 @@ fun ArticleHubDialog(user:FirebaseUser,onDismiss:()->Unit) {
     var cover by remember { mutableStateOf("") }
     var draft by remember { mutableStateOf(true) }
     var busy by remember { mutableStateOf(false) }
+    val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            cover = uri.toString()
+        }
+    }
 
     suspend fun reload() {
         loading=true
@@ -101,8 +107,12 @@ fun ArticleHubDialog(user:FirebaseUser,onDismiss:()->Unit) {
         Column(Modifier.fillMaxWidth().heightIn(max=560.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(title,{title=it.take(120)},label={Text("عنوان المقال")},modifier=Modifier.fillMaxWidth())
             OutlinedTextField(subtitle,{subtitle=it.take(220)},label={Text("عنوان فرعي")},modifier=Modifier.fillMaxWidth())
-            OutlinedTextField(cover,{cover=it.take(1000)},label={Text("رابط صورة الغلاف المباشر")},modifier=Modifier.fillMaxWidth())
-            if(cover.startsWith("https://")) AsyncImage(model=cover,contentDescription="معاينة الغلاف",modifier=Modifier.fillMaxWidth().heightIn(max=180.dp))
+            OutlinedTextField(cover,{cover=it.take(1000)},label={Text("رابط صورة الغلاف (اختياري)")},modifier=Modifier.fillMaxWidth())
+            Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick={ coverPicker.launch(arrayOf("image/*")) }) { Text("اختيار صورة من الهاتف") }
+                if (cover.startsWith("content://")) TextButton(onClick={cover=""}) { Text("إزالة الصورة") }
+            }
+            if(cover.startsWith("https://") || cover.startsWith("content://")) AsyncImage(model=cover,contentDescription="معاينة الغلاف",modifier=Modifier.fillMaxWidth().heightIn(max=180.dp))
             OutlinedTextField(body,{body=it.take(30000)},label={Text("نص المقال")},minLines=8,modifier=Modifier.fillMaxWidth())
             Row { Checkbox(draft,{draft=it}); Text("حفظ كمسودة (أزل العلامة للنشر)") }
         }
@@ -111,7 +121,7 @@ fun ArticleHubDialog(user:FirebaseUser,onDismiss:()->Unit) {
         try {
             require(title.trim().length>=3) { "العنوان يجب أن يكون 3 أحرف على الأقل." }
             require(body.isNotBlank()) { "اكتب نص المقال." }
-            require(cover.isBlank() || cover.startsWith("https://")) { "رابط الغلاف يجب أن يبدأ بـ HTTPS." }
+            require(cover.isBlank() || cover.startsWith("https://") || cover.startsWith("content://")) { "استخدم رابط HTTPS أو اختر صورة من الهاتف." }
             val data=hashMapOf<String,Any>("title" to title.trim(),"subtitle" to subtitle.trim(),"body" to body.trim(),"coverUrl" to cover.trim(),"authorUid" to user.uid,"authorName" to (user.displayName ?: "كاتب Whisper"),"status" to if(draft) "draft" else "published","updatedAt" to FieldValue.serverTimestamp())
             if(selected==null) { data["createdAt"]=FieldValue.serverTimestamp(); if(!draft) data["publishedAt"]=FieldValue.serverTimestamp(); db.collection("articles").add(data).await() }
             else { if(!draft && selected!!.status!="published") data["publishedAt"]=FieldValue.serverTimestamp(); db.collection("articles").document(selected!!.id).update(data).await() }
@@ -169,6 +179,13 @@ fun ArticleWriterScreen(user: FirebaseUser) {
     var editingId by remember { mutableStateOf<String?>(null) }
     var myArticles by remember { mutableStateOf<List<FullWhisperArticle>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
+    val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            cover = uri.toString()
+            message = "تم اختيار صورة الغلاف. تظل الصورة محلية على هذا الجهاز."
+        }
+    }
 
     suspend fun reloadMine() {
         myArticles = db.collection("articles").whereEqualTo("authorUid", user.uid).get().await().documents.map { d ->
@@ -193,11 +210,15 @@ fun ArticleWriterScreen(user: FirebaseUser) {
             OutlinedTextField(value = title, onValueChange = { title = it.take(120) }, label = { Text("عنوان المقال") },
                 modifier = Modifier.fillMaxWidth(), textStyle = MaterialTheme.typography.titleLarge)
             OutlinedTextField(value = subtitle, onValueChange = { subtitle = it.take(220) }, label = { Text("عنوان فرعي (اختياري)") }, modifier = Modifier.fillMaxWidth())
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = cover, onValueChange = { cover = it.take(1000) }, label = { Text("رابط صورة الغلاف (اختياري)") }, modifier = Modifier.weight(1f))
-                Text("رفع صور الأغلفة غير متاح بدون خدمة تخزين تتطلب فوترة.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            OutlinedTextField(value = cover, onValueChange = { cover = it.take(1000) }, label = { Text("رابط صورة الغلاف (اختياري)") }, modifier = Modifier.fillMaxWidth())
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(onClick = { coverPicker.launch(arrayOf("image/*")) }) { Text("اختيار صورة من الهاتف") }
+                if (cover.startsWith("content://")) TextButton(onClick = { cover = "" }) { Text("إزالة الصورة") }
             }
-            if (cover.startsWith("https://")) AsyncImage(model = cover, contentDescription = "معاينة صورة الغلاف", modifier = Modifier.fillMaxWidth().heightIn(max = 190.dp))
+            if (cover.startsWith("https://") || cover.startsWith("content://")) {
+                AsyncImage(model = cover, contentDescription = "معاينة صورة الغلاف", modifier = Modifier.fillMaxWidth().heightIn(max = 190.dp))
+            }
+            Text("الصور المختارة من الهاتف تظل على هذا الجهاز ولا تُرفع أو تتزامن مع القراء الآخرين. لمشاركة الغلاف بين الأجهزة يلزم رابط صورة عام مباشر.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             Text("إرفاق ملف صوتي جديد غير متاح في النسخة المجانية بدون فوترة. ستظل الروابط الصوتية القديمة قابلة للتشغيل إذا كانت متاحة.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("لون الخط:")
@@ -237,7 +258,7 @@ fun ArticleWriterScreen(user: FirebaseUser) {
                         try {
                             require(title.trim().length >= 3) { "اكتب عنوانًا من 3 أحرف على الأقل." }
                             require(body.isNotBlank()) { "اكتب نص المقال أولًا." }
-                            require(cover.isBlank() || cover.startsWith("https://")) { "رابط الغلاف يجب أن يبدأ بـ HTTPS." }
+                            require(cover.isBlank() || cover.startsWith("https://") || cover.startsWith("content://")) { "استخدم رابط HTTPS أو اختر صورة من الهاتف." }
                             val data = hashMapOf<String, Any>("title" to title.trim(), "subtitle" to subtitle.trim(),
                                 "body" to body.trim(), "coverUrl" to cover.trim(), "authorUid" to user.uid,
                                 "authorName" to (user.displayName ?: "كاتب Whisper"), "status" to "draft",
@@ -256,7 +277,7 @@ fun ArticleWriterScreen(user: FirebaseUser) {
                         try {
                             require(title.trim().length >= 3) { "اكتب عنوانًا من 3 أحرف على الأقل." }
                             require(body.isNotBlank()) { "اكتب نص المقال أولًا." }
-                            require(cover.isBlank() || cover.startsWith("https://")) { "رابط الغلاف يجب أن يبدأ بـ HTTPS." }
+                            require(cover.isBlank() || cover.startsWith("https://") || cover.startsWith("content://")) { "استخدم رابط HTTPS أو اختر صورة من الهاتف." }
                             val data = hashMapOf<String, Any>("title" to title.trim(), "subtitle" to subtitle.trim(),
                                 "body" to body.trim(), "coverUrl" to cover.trim(), "authorUid" to user.uid,
                                 "authorName" to (user.displayName ?: "كاتب Whisper"), "status" to "published",
