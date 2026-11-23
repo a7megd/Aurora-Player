@@ -1,4 +1,3 @@
-# Cloudinary-enabled build: reads CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET from repository variables.
 name: Whisper Player installable test APK
 
 on:
@@ -24,7 +23,7 @@ jobs:
           install -D overrides/ArticleScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/ArticleScreens.kt
           install -D overrides/FirebaseCommunity.kt AuroraPlayer/app/src/main/java/com/aurora/player/community/FirebaseCommunity.kt
           install -D overrides/WhisperMessagingService.kt AuroraPlayer/app/src/main/java/com/aurora/player/community/WhisperMessagingService.kt
-          install -D overrides/WhisperCloudinary.kt AuroraPlayer/app/src/main/java/com/aurora/player/community/WhisperCloudinary.kt
+          install -D overrides/WhisperStorage.kt AuroraPlayer/app/src/main/java/com/aurora/player/community/WhisperStorage.kt
           install -D overrides/MusicApp.kt AuroraPlayer/app/src/main/java/com/aurora/player/MusicApp.kt
           install -D overrides/firestore.rules AuroraPlayer/firestore.rules
           install -D overrides/storage.rules AuroraPlayer/storage.rules
@@ -98,10 +97,7 @@ jobs:
         with:
           gradle-version: '8.9'
       - name: Build installable test APK
-        env:
-          CLOUDINARY_CLOUD_NAME: ${{ vars.CLOUDINARY_CLOUD_NAME }}
-          CLOUDINARY_UPLOAD_PRESET: ${{ vars.CLOUDINARY_UPLOAD_PRESET }}
-        run: gradle -p AuroraPlayer assembleDebug -PCLOUDINARY_CLOUD_NAME="$CLOUDINARY_CLOUD_NAME" -PCLOUDINARY_UPLOAD_PRESET="$CLOUDINARY_UPLOAD_PRESET"
+        run: gradle -p AuroraPlayer assembleDebug
       - uses: actions/upload-artifact@v4
         with:
           name: Whisper-Player-Bluetooth-Test-APK
