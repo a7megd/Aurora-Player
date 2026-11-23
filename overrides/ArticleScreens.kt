@@ -124,9 +124,7 @@ fun ArticleHubDialog(user:FirebaseUser,onDismiss:()->Unit) {
                 Text("بقلم ${a.author}",style=MaterialTheme.typography.labelSmall)
                 Text(a.body,style=MaterialTheme.typography.bodyLarge)
                 OutlinedButton(onClick={
-                    val send=Intent(Intent.ACTION_SEND).apply { type="text/plain"; putExtra(Intent.EXTRA_TEXT,a.title+"
-
-"+a.body.take(500)) }
+                    val send=Intent(Intent.ACTION_SEND).apply { type="text/plain"; putExtra(Intent.EXTRA_TEXT,a.title+"\n"+a.body.take(500)) }
                     context.startActivity(Intent.createChooser(send,"مشاركة المقال"))
                 }) { Text("مشاركة") }
             }
@@ -393,9 +391,7 @@ fun ArticleReaderScreen(user: FirebaseUser) {
                         textAlign = articleAlignment(article.align), lineHeight = (article.fontSize + 12).sp,
                         color = runCatching { Color(android.graphics.Color.parseColor(article.fontColor)) }.getOrDefault(MaterialTheme.colorScheme.onSurface)))
                     OutlinedButton(onClick = {
-                        val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, article.title + "
-
-" + article.body) }
+                        val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, article.title + "\n" + article.body) }
                         context.startActivity(Intent.createChooser(send, "مشاركة المقال"))
                     }) { Text("مشاركة المقال") }
                     ArticleComments(article.id, user)
