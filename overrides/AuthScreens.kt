@@ -1,5 +1,7 @@
 package com.aurora.player.ui.navigation
 
+import android.util.Base64
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
