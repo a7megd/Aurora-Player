@@ -156,7 +156,6 @@ fun ArticleHubDialog(user:FirebaseUser,onDismiss:()->Unit) {
         Column(Modifier.fillMaxWidth().heightIn(max=560.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(title,{title=it.take(120)},label={Text("عنوان المقال")},modifier=Modifier.fillMaxWidth())
             OutlinedTextField(subtitle,{subtitle=it.take(220)},label={Text("عنوان فرعي")},modifier=Modifier.fillMaxWidth())
-            OutlinedTextField(cover,{cover=it.take(1000)},label={Text("رابط صورة الغلاف (اختياري)")},modifier=Modifier.fillMaxWidth())
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick={ coverPicker.launch(arrayOf("image/*")) }) { Text("اختيار صورة من الهاتف") }
                 if (cover.startsWith("content://")) TextButton(onClick={cover=""}) { Text("إزالة الصورة") }
@@ -171,6 +170,8 @@ fun ArticleHubDialog(user:FirebaseUser,onDismiss:()->Unit) {
             require(title.trim().length>=3) { "العنوان يجب أن يكون 3 أحرف على الأقل." }
             require(body.isNotBlank()) { "اكتب نص المقال." }
             require(cover.isBlank() || cover.startsWith("https://") || cover.startsWith("content://")) { "استخدم رابط HTTPS أو اختر صورة من الهاتف." }
+            if (cover.startsWith("content://")) cover = CloudinaryMediaUploader.upload(context, Uri.parse(cover), "Whisper-Player/Articles").secureUrl
+            require(cover.isBlank() || cover.startsWith("https://")) { "تعذر التحقق من صورة الغلاف." }
             val data=hashMapOf<String,Any>("title" to title.trim(),"subtitle" to subtitle.trim(),"body" to body.trim(),"coverUrl" to cover.trim(),"authorUid" to user.uid,"authorName" to (user.displayName ?: "كاتب Whisper"),"status" to if(draft) "draft" else "published","updatedAt" to FieldValue.serverTimestamp())
             if(selected==null) { data["createdAt"]=FieldValue.serverTimestamp(); if(!draft) data["publishedAt"]=FieldValue.serverTimestamp(); db.collection("articles").add(data).await() }
             else { if(!draft && selected!!.status!="published") data["publishedAt"]=FieldValue.serverTimestamp(); db.collection("articles").document(selected!!.id).update(data).await() }
