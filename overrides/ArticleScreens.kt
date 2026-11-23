@@ -455,16 +455,13 @@ fun ArticleReaderScreen(user: FirebaseUser) {
                     Text("بقلم ${article.author}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     Divider()
                     if (article.audioUrl.isNotBlank()) {
-                        var playingAudio by remember(article.id) { mutableStateOf(false) }
-                        OutlinedButton(onClick = {
-                            try {
-                                val player = MediaPlayer()
-                                player.setDataSource(article.audioUrl)
-                                player.setOnPreparedListener { it.start(); playingAudio = true }
-                                player.setOnCompletionListener { playingAudio = false; it.release() }
-                                player.prepareAsync()
-                            } catch (_: Exception) { playingAudio = false }
-                        }, modifier = Modifier.fillMaxWidth()) { Text(if (playingAudio) "جاري تشغيل المقال الصوتي…" else "استمع إلى المقال") }
+                        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("بودكاست المقال", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text("استمع براحتك، أوقف التشغيل أو أكمل من نفس الموضع.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                ArticleAudioPlayer(article.audioUrl, "تشغيل المقال الصوتي")
+                            }
+                        }
                     }
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
@@ -501,32 +498,59 @@ fun ArticleReaderScreen(user: FirebaseUser) {
 }
 
 
-private data class ArticleComment(val author: String, val body: String, val audioUrl: String)
+private data class ArticleComment(val id: String, val uid: String, val author: String, val body: String, val audioUrl: String)
 
 @Composable
-private fun ArticleAudioComment(url: String) {
-    var playing by remember(url) { mutableStateOf(false) }
+private fun ArticleAudioPlayer(url: String, label: String) {
     var player by remember(url) { mutableStateOf<MediaPlayer?>(null) }
+    var playing by remember(url) { mutableStateOf(false) }
+    var ready by remember(url) { mutableStateOf(false) }
+    var position by remember(url) { mutableIntStateOf(0) }
+    var duration by remember(url) { mutableIntStateOf(0) }
+    var seeking by remember(url) { mutableStateOf(false) }
     DisposableEffect(url) {
-        onDispose { runCatching { player?.release() }; player = null }
+        onDispose { runCatching { player?.stop() }; runCatching { player?.release() }; player = null }
     }
-    OutlinedButton(onClick = {
-        if (playing && player != null) {
-            runCatching { player?.pause() }
-            playing = false
-        } else {
-            runCatching { player?.release() }
-            try {
-                player = MediaPlayer().apply {
-                    setDataSource(url)
-                    setOnPreparedListener { it.start(); playing = true }
-                    setOnCompletionListener { playing = false; it.seekTo(0) }
-                    setOnErrorListener { _, _, _ -> playing = false; true }
-                    prepareAsync()
-                }
-            } catch (_: Exception) { playing = false }
+    LaunchedEffect(playing, ready, seeking) {
+        while (playing && ready && !seeking) {
+            position = runCatching { player?.currentPosition ?: 0 }.getOrDefault(0)
+            kotlinx.coroutines.delay(300)
         }
-    }) { Text(if (playing) "إيقاف التعليق الصوتي" else "▶ تشغيل التعليق الصوتي") }
+    }
+    fun timeLabel(ms: Int): String {
+        val total = (ms.coerceAtLeast(0) / 1000)
+        return "%d:%02d".format(total / 60, total % 60)
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(enabled = ready || player == null, onClick = {
+                if (ready && player != null) {
+                    if (playing) { runCatching { player?.pause() }; playing = false }
+                    else { runCatching { player?.start() }; playing = true }
+                } else {
+                    try {
+                        player?.release()
+                        player = MediaPlayer().apply {
+                            setDataSource(url)
+                            setOnPreparedListener { mp -> duration = mp.duration.coerceAtLeast(0); ready = true; mp.start(); playing = true }
+                            setOnCompletionListener { mp -> playing = false; position = 0; runCatching { mp.seekTo(0) } }
+                            setOnErrorListener { _, _, _ -> playing = false; ready = false; true }
+                            prepareAsync()
+                        }
+                    } catch (_: Exception) { playing = false; ready = false }
+                }
+            }) { Text(if (!ready && player != null) "جارٍ التحميل…" else if (playing) "إيقاف مؤقت" else if (ready) "متابعة" else "▶ استمع") }
+            Text(label, style = MaterialTheme.typography.bodyMedium)
+        }
+        if (ready && duration > 0) {
+            Slider(value = position.coerceIn(0, duration).toFloat(), onValueChange = { position = it.toInt(); seeking = true },
+                onValueChangeFinished = { runCatching { player?.seekTo(position) }; seeking = false }, valueRange = 0f..duration.toFloat())
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(timeLabel(position), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(timeLabel(duration), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
 }
 
 @Composable
@@ -543,13 +567,15 @@ private fun ArticleComments(articleId: String, user: FirebaseUser) {
     var recording by remember { mutableStateOf(false) }
     var audioUploading by remember { mutableStateOf(false) }
     var audioUrl by remember { mutableStateOf("") }
+    var editingCommentId by remember { mutableStateOf<String?>(null) }
+    var deletingComment by remember { mutableStateOf<ArticleComment?>(null) }
 
     suspend fun reload() {
         try {
             comments = db.collection("articles").document(articleId).collection("comments")
                 .orderBy("createdAt", Query.Direction.ASCENDING).limit(100).get().await().documents.map { d ->
-                    ArticleComment(d.getString("authorName") ?: "قارئ", d.getString("body").orEmpty(),
-                        d.getString("audioUrl").orEmpty())
+                    ArticleComment(d.id, d.getString("uid").orEmpty(), d.getString("authorName") ?: "قارئ",
+                        d.getString("body").orEmpty(), d.getString("audioUrl").orEmpty())
                 }
         } catch (e: Exception) { error = e.localizedMessage ?: "تعذر تحميل التعليقات." }
     }
@@ -595,12 +621,18 @@ private fun ArticleComments(articleId: String, user: FirebaseUser) {
                 Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(item.author, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     if (item.body.isNotBlank()) Text(item.body)
-                    if (item.audioUrl.isNotBlank()) ArticleAudioComment(item.audioUrl)
+                    if (item.audioUrl.isNotBlank()) ArticleAudioPlayer(item.audioUrl, "تعليق صوتي")
+                    if (item.uid == user.uid) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = { editingCommentId = item.id; draft = item.body; audioUrl = item.audioUrl }) { Text("تعديل") }
+                            TextButton(onClick = { deletingComment = item }) { Text("حذف", color = MaterialTheme.colorScheme.error) }
+                        }
+                    }
                 }
             }
         }
         OutlinedTextField(draft, { draft = it.take(2000) }, modifier = Modifier.fillMaxWidth(),
-            label = { Text("اكتب تعليقك") }, minLines = 2)
+            label = { Text(if (editingCommentId == null) "اكتب تعليقك" else "تعديل تعليقك") }, minLines = 2)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(enabled = !busy && !recording, onClick = { commentAudioPicker.launch(arrayOf("audio/*")) }) { Text("اختيار صوت") }
             OutlinedButton(enabled = !busy, onClick = {
@@ -619,34 +651,46 @@ private fun ArticleComments(articleId: String, user: FirebaseUser) {
         if (audioUrl.isNotBlank()) Text("يوجد ملف صوتي جاهز للإرسال.", color = MaterialTheme.colorScheme.primary)
         if (audioUploading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        Button(enabled = !busy && !audioUploading && (draft.isNotBlank() || audioUrl.isNotBlank()), onClick = {
-            val body = draft.trim()
-            busy = true
-            scope.launch {
-                try {
-                    var finalAudioUrl = audioUrl
-                    if (finalAudioUrl.startsWith("content://") || finalAudioUrl.startsWith("file://")) {
-                        audioUploading = true
-                        finalAudioUrl = CloudinaryMediaUploader.upload(context, Uri.parse(finalAudioUrl), "Whisper-Player/Voice").secureUrl
-                        audioUrl = finalAudioUrl
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Button(enabled = !busy && !audioUploading && (draft.isNotBlank() || audioUrl.isNotBlank()), onClick = {
+                val body = draft.trim()
+                busy = true
+                scope.launch {
+                    try {
+                        var finalAudioUrl = audioUrl
+                        if (finalAudioUrl.startsWith("content://") || finalAudioUrl.startsWith("file://")) {
+                            audioUploading = true
+                            finalAudioUrl = CloudinaryMediaUploader.upload(context, Uri.parse(finalAudioUrl), "Whisper-Player/Voice").secureUrl
+                            audioUrl = finalAudioUrl
+                        }
+                        val commentsRef = db.collection("articles").document(articleId).collection("comments")
+                        if (editingCommentId != null) {
+                            commentsRef.document(editingCommentId!!).update(mapOf("body" to body, "audioUrl" to finalAudioUrl, "updatedAt" to FieldValue.serverTimestamp())).await()
+                        } else {
+                            commentsRef.add(mapOf("uid" to user.uid, "authorName" to (user.displayName ?: "قارئ Whisper"),
+                                "body" to body, "audioUrl" to finalAudioUrl, "createdAt" to FieldValue.serverTimestamp())).await()
+                        }
+                        recordingFile?.delete(); recordingFile = null
+                        draft = ""; audioUrl = ""; editingCommentId = null; error = null
+                        reload()
+                    } catch (e: Exception) { error = e.localizedMessage ?: "تعذر حفظ التعليق." }
+                    audioUploading = false; busy = false
+                }
+            }) { Text(if (busy) "جارٍ الحفظ…" else if (editingCommentId != null) "حفظ التعديل" else "إضافة التعليق") }
+            if (editingCommentId != null) TextButton(enabled = !busy, onClick = { editingCommentId = null; draft = ""; audioUrl = "" }) { Text("إلغاء") }
+        }
+        deletingComment?.let { target ->
+            AlertDialog(onDismissRequest = { deletingComment = null }, title = { Text("حذف التعليق؟") },
+                text = { Text("لن يمكن استعادة هذا التعليق بعد حذفه.") },
+                confirmButton = { TextButton(enabled = !busy, onClick = {
+                    busy = true
+                    scope.launch {
+                        try { db.collection("articles").document(articleId).collection("comments").document(target.id).delete().await(); error = null; reload() }
+                        catch (e: Exception) { error = e.localizedMessage ?: "تعذر حذف التعليق." }
+                        busy = false; deletingComment = null
                     }
-                    db.collection("articles").document(articleId).collection("comments").add(mapOf(
-                        "uid" to user.uid,
-                        "authorName" to (user.displayName ?: "قارئ Anti-dopamine"),
-                        "body" to body,
-                        "audioUrl" to finalAudioUrl,
-                        "createdAt" to FieldValue.serverTimestamp()
-                    )).await()
-                    recordingFile?.delete()
-                    recordingFile = null
-                    draft = ""
-                    audioUrl = ""
-                    error = null
-                    reload()
-                } catch (e: Exception) { error = e.localizedMessage ?: "تعذر نشر التعليق." }
-                audioUploading = false
-                busy = false
-            }
-        }) { Text(if (busy) "جارٍ الرفع والإرسال…" else "إضافة التعليق") }
+                }) { Text("حذف", color = MaterialTheme.colorScheme.error) } },
+                dismissButton = { TextButton(onClick = { deletingComment = null }) { Text("إلغاء") } })
+        }
     }
 }
