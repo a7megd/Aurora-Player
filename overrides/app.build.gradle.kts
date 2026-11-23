@@ -18,8 +18,8 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
-        buildConfigField("String", "CLOUDINARY_CLOUD_NAME", "\"\${project.findProperty("CLOUDINARY_CLOUD_NAME") ?: "CHANGE_ME"}\"")
-        buildConfigField("String", "CLOUDINARY_UPLOAD_PRESET", "\"\${project.findProperty("CLOUDINARY_UPLOAD_PRESET") ?: "CHANGE_ME"}\"")
+        buildConfigField("String", "CLOUDINARY_CLOUD_NAME", "\"$cloudinaryCloudName\"")
+        buildConfigField("String", "CLOUDINARY_UPLOAD_PRESET", "\"$cloudinaryUploadPreset\"")
     }
 
     buildTypes {
