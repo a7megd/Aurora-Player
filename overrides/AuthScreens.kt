@@ -220,17 +220,23 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
  fun refresh(){ scope.launch {
   loading=true; errorText=null
   try {
-   FirebaseCommunity.ensureProfile(user)
+   // Load the public directory first; optional social counters must not hide the user list.
    val all=FirebaseCommunity.communityMembers()
-   val friendSet=FirebaseCommunity.friendIds(user.uid)
-   myFriends=all.filter{it.uid in friendSet}.sortedBy{it.displayName.lowercase()}
    members=all.filter{it.uid!=user.uid}
-   following=FirebaseCommunity.followingIds(user.uid).intersect(members.map{it.uid}.toSet())
-   requested=FirebaseCommunity.outgoingFriendRequests(user.uid).filter{it.status=="pending" || it.status=="accepted"}.map{it.uid}.toSet()+FirebaseCommunity.friendIds(user.uid)
-   ownFollowers=FirebaseCommunity.followerCount(user.uid); ownFollowing=FirebaseCommunity.followingCount(user.uid); ownFriends=FirebaseCommunity.friendCount(user.uid)
    all.firstOrNull{it.uid==user.uid}?.let{member->
-    displayName=member.displayName;photoUrl=member.photoUrl;photoData=member.photoData;bio=member.bio;favorites=member.favoriteSounds
+    displayName=member.displayName;photoUrl=member.photoUrl;photoData="";bio=member.bio;favorites=member.favoriteSounds
    }
+   runCatching { FirebaseCommunity.ensureProfile(user) }
+   val friendSet=runCatching { FirebaseCommunity.friendIds(user.uid) }.getOrDefault(emptySet())
+   myFriends=all.filter{it.uid in friendSet}.sortedBy{it.displayName.lowercase()}
+   following=runCatching { FirebaseCommunity.followingIds(user.uid) }.getOrDefault(emptySet())
+    .intersect(members.map{it.uid}.toSet())
+   requested=runCatching {
+    FirebaseCommunity.outgoingFriendRequests(user.uid).filter{it.status=="pending" || it.status=="accepted"}.map{it.uid}.toSet()+friendSet
+   }.getOrDefault(friendSet)
+   ownFollowers=runCatching { FirebaseCommunity.followerCount(user.uid) }.getOrDefault(0)
+   ownFollowing=runCatching { FirebaseCommunity.followingCount(user.uid) }.getOrDefault(following.size)
+   ownFriends=runCatching { FirebaseCommunity.friendCount(user.uid) }.getOrDefault(friendSet.size)
   } catch(e:Exception){errorText=(e.localizedMessage ?: "تعذر تحميل المستخدمين.")+"\nتأكد من نشر قواعد Firestore المحدّثة ومن تسجيل الدخول بحساب موثّق."}
   loading=false
  } }
