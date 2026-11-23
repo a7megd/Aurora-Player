@@ -132,7 +132,7 @@ fun SocialPostsScreen(user: FirebaseUser) {
                             if(post.uid==user.uid) TextButton(onClick={scope.launch{
                                 try{db.collection("communityPosts").document(post.id).delete().await();reload()}
                                 catch(e:Exception){message=e.localizedMessage}
-                            }){Text("حذف",color=MaterialTheme.colorScheme.error)}
+                            }}){Text("حذف",color=MaterialTheme.colorScheme.error)}
                         }
                         if(expandedComments==post.id) {
                             HorizontalDivider()
