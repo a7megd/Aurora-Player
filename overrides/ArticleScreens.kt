@@ -222,12 +222,10 @@ fun ArticleWriterScreen(user: FirebaseUser) {
             OutlinedTextField(value = subtitle, onValueChange = { subtitle = it.take(220) }, label = { Text("عنوان فرعي (اختياري)") }, modifier = Modifier.fillMaxWidth())
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(value = cover, onValueChange = { cover = it.take(1000) }, label = { Text("رابط صورة الغلاف (اختياري)") }, modifier = Modifier.weight(1f))
-                OutlinedButton(enabled = !coverUploading, onClick = { coverPicker.launch("image/*") }) { Text(if (coverUploading) "جارٍ الرفع…" else "اختيار صورة") }
+                Text("رفع صور الأغلفة غير متاح بدون خدمة تخزين تتطلب فوترة.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
             if (cover.startsWith("https://")) AsyncImage(model = cover, contentDescription = "معاينة صورة الغلاف", modifier = Modifier.fillMaxWidth().heightIn(max = 190.dp))
-            OutlinedButton(enabled = !audioUploading, onClick = { audioPicker.launch("audio/*") }, modifier = Modifier.fillMaxWidth()) {
-                Text(if (audioUploading) "جارٍ رفع الملف الصوتي…" else if (audioUrl.isBlank()) "إرفاق مقال صوتي" else "تم إرفاق المقال الصوتي ✓")
-            }
+            Text("إرفاق ملف صوتي جديد غير متاح في النسخة المجانية بدون فوترة. ستظل الروابط الصوتية القديمة قابلة للتشغيل إذا كانت متاحة.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("لون الخط:")
                 listOf("#222222" to "أسود", "#6D28D9" to "بنفسجي", "#1565C0" to "أزرق", "#B23A48" to "أحمر", "#16805D" to "أخضر").forEach { (hex,label) ->
@@ -520,50 +518,7 @@ private fun ArticleComments(articleId: String, user: FirebaseUser) {
         }
         OutlinedTextField(draft, { draft = it.take(2000) }, modifier = Modifier.fillMaxWidth(),
             label = { Text("اكتب تعليقك") }, minLines = 2)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(enabled = !busy && !audioUploading, onClick = {
-                if (recording) {
-                    try {
-                        recorder?.stop()
-                        recorder?.release()
-                        recorder = null
-                        recording = false
-                        val file = recordingFile
-                        recordingFile = null
-                        if (file != null && file.exists() && file.length() > 0L) {
-                            scope.launch {
-                                audioUploading = true
-                                try {
-                                    audioUrl = WhisperMediaRouter.uploadAudioFile(file,
-                                        "Whisper-Player/ArticleComments/" + articleId + "/" + user.uid, "audio/mp4")
-                                    error = null
-                                } catch (e: Exception) {
-                                    error = e.localizedMessage ?: "تعذر رفع التعليق الصوتي."
-                                } finally { file.delete(); audioUploading = false }
-                            }
-                        } else error = "التسجيل قصير جدًا أو لم يُحفظ."
-                    } catch (e: Exception) {
-                        error = e.localizedMessage ?: "تعذر إنهاء التسجيل."
-                        recording = false
-                        runCatching { recorder?.release() }
-                        recorder = null
-                        recordingFile?.delete()
-                        recordingFile = null
-                    }
-                } else {
-                    micPermission.launch(Manifest.permission.RECORD_AUDIO)
-                }
-            }) {
-                Text(when {
-                    audioUploading -> "جارٍ رفع الصوت…"
-                    recording -> "■ إيقاف التسجيل"
-                    audioUrl.isNotBlank() -> "إعادة تسجيل التعليق"
-                    else -> "🎙 تسجيل تعليق صوتي"
-                })
-            }
-            if (audioUrl.isNotBlank()) TextButton(onClick = { audioUrl = "" }) { Text("إلغاء الصوت") }
-        }
-        if (recording) Text("جارٍ تسجيل التعليق… اضغط إيقاف عند الانتهاء.", color = MaterialTheme.colorScheme.primary)
+        Text("التعليقات الصوتية غير متاحة حاليًا؛ يمكنك إضافة تعليق نصي.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Button(enabled = !busy && !audioUploading && (draft.isNotBlank() || audioUrl.isNotBlank()), onClick = {
             val body = draft.trim()
