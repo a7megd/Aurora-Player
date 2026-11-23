@@ -14,7 +14,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "0.1.0"\n        buildConfigField("String", "CLOUDINARY_CLOUD_NAME", "\"\${project.findProperty("CLOUDINARY_CLOUD_NAME") ?: "CHANGE_ME"}\"")\n        buildConfigField("String", "CLOUDINARY_UPLOAD_PRESET", "\"\${project.findProperty("CLOUDINARY_UPLOAD_PRESET") ?: "CHANGE_ME"}\"")
     }
 
     buildTypes {
@@ -34,7 +34,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 }
 
