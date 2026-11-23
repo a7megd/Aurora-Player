@@ -36,6 +36,8 @@ jobs:
               "android.permission.MODIFY_AUDIO_SETTINGS",
               "android.permission.RECORD_AUDIO",
               "android.permission.POST_NOTIFICATIONS",
+              "android.permission.INTERNET",
+              "android.permission.ACCESS_NETWORK_STATE",
           ]:
               line = f'    <uses-permission android:name="{permission}" />'
               if line not in content:
@@ -51,7 +53,7 @@ jobs:
               </service>
           '''
           if "WhisperMessagingService" not in content:
-              content = content.replace("</application>", service + "\\n</application>")
+              content = content.replace("</application>", service + "\n</application>")
           manifest.write_text(content)
           PY
 
