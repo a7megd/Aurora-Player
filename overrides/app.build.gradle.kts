@@ -5,9 +5,6 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
-val cloudinaryCloudName = (project.findProperty("CLOUDINARY_CLOUD_NAME") as String?) ?: System.getenv("CLOUDINARY_CLOUD_NAME") ?: "CHANGE_ME"
-val cloudinaryUploadPreset = (project.findProperty("CLOUDINARY_UPLOAD_PRESET") as String?) ?: System.getenv("CLOUDINARY_UPLOAD_PRESET") ?: "CHANGE_ME"
-
 android {
     namespace = "com.aurora.player"
     compileSdk = 35
@@ -18,8 +15,6 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
-        buildConfigField("String", "CLOUDINARY_CLOUD_NAME", "\"$cloudinaryCloudName\"")
-        buildConfigField("String", "CLOUDINARY_UPLOAD_PRESET", "\"$cloudinaryUploadPreset\"")
     }
 
     buildTypes {
@@ -69,7 +64,6 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-messaging")
-    implementation("com.google.firebase:firebase-storage")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)
