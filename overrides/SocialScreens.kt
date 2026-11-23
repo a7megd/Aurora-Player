@@ -24,7 +24,7 @@ import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseUser
 import com.aurora.player.community.FirebaseCommunity
-import com.aurora.player.community.WhisperMessagingService
+import com.aurora.player.community.WhisperMessagingService\nimport com.aurora.player.community.WhisperCloudinary
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -38,15 +38,11 @@ private data class WhisperSocialPost(val id:String,val uid:String,val name:Strin
 private data class WhisperComment(val id:String,val uid:String,val name:String,val body:String)
 private data class WhisperChatMessage(val id:String,val uid:String,val name:String,val body:String,val type:String,val mediaUrl:String)
 
-private suspend fun uploadWhisperMedia(path:String, uri:Uri, contentType:String):String {
-    val ref=FirebaseStorage.getInstance().reference.child("$path/${UUID.randomUUID()}")
-    ref.putFile(uri, com.google.firebase.storage.StorageMetadata.Builder().setContentType(contentType).build()).await()
-    return ref.downloadUrl.await().toString()
+private suspend fun uploadWhisperMedia(context: android.content.Context, path:String, uri:Uri, contentType:String):String {
+    return WhisperCloudinary.uploadUri(context, uri, "Whisper-Player/$path", "image", contentType)
 }
 private suspend fun uploadWhisperFile(path:String,file:File,contentType:String):String {
-    val ref=FirebaseStorage.getInstance().reference.child("$path/${UUID.randomUUID()}")
-    ref.putFile(Uri.fromFile(file),com.google.firebase.storage.StorageMetadata.Builder().setContentType(contentType).build()).await()
-    return ref.downloadUrl.await().toString()
+    return WhisperCloudinary.uploadFile(file, "Whisper-Player/$path", "video", contentType)
 }
 
 @Composable
@@ -215,7 +211,7 @@ fun ChatScreen(user: FirebaseUser) {
             try {
                 val type=context.contentResolver.getType(uri) ?: "image/jpeg"
                 require(type.startsWith("image/")){"الملف المختار ليس صورة."}
-                val url=uploadWhisperMedia("chat-media/$thread/${user.uid}",uri,type)
+                val url=uploadWhisperMedia(context,"Chat/${user.uid}/$thread",uri,type)
                 db.collection("chatThreads").document(thread).collection("messages").add(mapOf(
                     "uid" to user.uid,"authorName" to (user.displayName ?: "عضو Whisper"),"type" to "image",
                     "body" to "","mediaUrl" to url,"createdAt" to FieldValue.serverTimestamp())).await()
@@ -303,7 +299,7 @@ fun ChatScreen(user: FirebaseUser) {
                                 if(f!=null&&f.exists()) scope.launch{
                                     uploading=true
                                     try{
-                                        val url=uploadWhisperFile("chat-media/$thread/${user.uid}",f,"audio/mp4")
+                                        val url=uploadWhisperFile("Voice/${user.uid}/$thread",f,"audio/mp4")
                                         db.collection("chatThreads").document(thread).collection("messages").add(mapOf(
                                             "uid" to user.uid,"authorName" to (user.displayName ?: "عضو Whisper"),
                                             "type" to "audio","body" to "","mediaUrl" to url,
