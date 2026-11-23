@@ -224,9 +224,12 @@ service cloud.firestore {
           && request.resource.data.uid == request.auth.uid
           && request.resource.data.authorName is string
           && request.resource.data.authorName.size() <= 60
-          && request.resource.data.body is string
-          && request.resource.data.body.size() > 0
-          && request.resource.data.body.size() <= 2000;
+          && request.resource.data.get('body', '') is string
+          && request.resource.data.get('body', '').size() <= 2000
+          && request.resource.data.get('audioUrl', '') is string
+          && request.resource.data.get('audioUrl', '').size() <= 1200
+          && (request.resource.data.get('audioUrl', '') == '' || request.resource.data.get('audioUrl', '').matches('https://.*'))
+          && (request.resource.data.get('body', '').size() > 0 || request.resource.data.get('audioUrl', '').size() > 0);
         allow update, delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
       }
     }
