@@ -414,6 +414,7 @@ fun ChatScreen(user: FirebaseUser) {
                                     "type" to kind,"body" to uploaded.originalName,"mediaUrl" to uploaded.secureUrl,
                                     "mimeType" to uploaded.mimeType,"assetId" to uploaded.assetId,
                                     "createdAt" to FieldValue.serverTimestamp())).await()
+                                if (selectedUri.scheme == "file") runCatching { selectedUri.path?.let { File(it).delete() } }
                                 attachmentUri=null;attachmentName=""
                             }
                             draft="";uploadProgress=0f
