@@ -132,7 +132,7 @@ service cloud.firestore {
         && request.resource.data.body.size() <= 900000;
       allow update: if signedIn() && resource.data.uid == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['body'])
-        && request.resource.data.body is string && request.resource.data.body.size() <= 5000;
+        && request.resource.data.body is string && request.resource.data.body.size() <= 900000;
       allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
       match /comments/{commentId} {
         allow read: if signedIn();
