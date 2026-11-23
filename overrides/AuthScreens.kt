@@ -315,7 +315,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
  }},confirmButton={TextButton(enabled=!saving,onClick={saving=true;scope.launch{try{
  FirebaseCommunity.updateProfile(user.uid,displayName,photoUrl,bio,favorites,photoData)
  context.getSharedPreferences("tayer_profile", android.content.Context.MODE_PRIVATE).edit()
-  .putString("display_name",displayName.trim()).putString("photo_data",photoData).putString("photo_uri",photoUrl).apply()
+  .putString("display_name",displayName.trim()).putString("photo_data","").putString("photo_uri",photoUrl).apply()
  editing=false
 }catch(e:Exception){errorText=e.localizedMessage ?: "تعذر حفظ الملف."};saving=false;refresh()}}){Text(if(saving)"جارٍ الحفظ…" else "حفظ")}},dismissButton={TextButton(enabled=!saving,onClick={editing=false}){Text("إلغاء")}})
  LaunchedEffect(selected?.uid) {
