@@ -24,15 +24,16 @@ import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseUser
 import com.aurora.player.community.FirebaseCommunity
-import com.aurora.player.community.WhisperMessagingService\nimport com.aurora.player.community.WhisperCloudinary
+import com.aurora.player.community.WhisperMessagingService
+import com.aurora.player.community.WhisperCloudinary
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
-import com.google.firebase.storage.FirebaseStorage
+
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.io.File
-import java.util.UUID
+
 
 private data class WhisperSocialPost(val id:String,val uid:String,val name:String,val kind:String,val body:String)
 private data class WhisperComment(val id:String,val uid:String,val name:String,val body:String)
