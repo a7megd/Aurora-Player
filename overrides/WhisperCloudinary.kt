@@ -1,5 +1,6 @@
 package com.aurora.player.community
 
+import com.aurora.player.BuildConfig
 import android.content.Context
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
@@ -76,19 +77,29 @@ object WhisperCloudinary {
         try {
             connection.outputStream.use { output ->
                 fun field(name: String, value: String) {
-                    output.write("--$boundary\r\n".toByteArray())
-                    output.write("Content-Disposition: form-data; name=\"$name\"\r\n\r\n".toByteArray())
+                    output.write("--$boundary\r
+".toByteArray())
+                    output.write("Content-Disposition: form-data; name=\"$name\"\r
+\r
+".toByteArray())
                     output.write(value.toByteArray(Charsets.UTF_8))
-                    output.write("\r\n".toByteArray())
+                    output.write("\r
+".toByteArray())
                 }
                 field("upload_preset", UPLOAD_PRESET)
                 field("folder", folder)
                 field("public_id", publicId)
-                output.write("--$boundary\r\n".toByteArray())
-                output.write("Content-Disposition: form-data; name=\"file\"; filename=\"$publicId\"\r\n".toByteArray())
-                output.write("Content-Type: $contentType\r\n\r\n".toByteArray())
+                output.write("--$boundary\r
+".toByteArray())
+                output.write("Content-Disposition: form-data; name=\"file\"; filename=\"$publicId\"\r
+".toByteArray())
+                output.write("Content-Type: $contentType\r
+\r
+".toByteArray())
                 input.copyTo(output)
-                output.write("\r\n--$boundary--\r\n".toByteArray())
+                output.write("\r
+--$boundary--\r
+".toByteArray())
                 output.flush()
             }
             val code = connection.responseCode
