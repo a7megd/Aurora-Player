@@ -65,7 +65,7 @@ jobs:
               </service>
           '''
           if "WhisperMessagingService" not in content:
-              content = content.replace("</application>", service + "\\n</application>")
+              content = content.replace("</application>", service + "\n</application>")
           manifest.write_text(content)
           PY
       - name: Enable Firebase network access
