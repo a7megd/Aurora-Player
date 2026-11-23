@@ -23,6 +23,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.Color
 import android.content.Intent
 import android.media.MediaPlayer
+import android.Manifest
+import android.content.pm.PackageManager
+import android.media.MediaRecorder
+import android.os.Build
+import androidx.core.content.ContextCompat
+import java.io.File
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseUser
 import com.aurora.player.community.WhisperCloudinary
@@ -333,7 +339,7 @@ fun ArticleReaderScreen(user: FirebaseUser) {
                 FullWhisperArticle(d.id, d.getString("title").orEmpty(), d.getString("subtitle").orEmpty(),
                     d.getString("body").orEmpty(), d.getString("coverUrl").orEmpty(), uid,
                     d.getString("authorName") ?: "كاتب Whisper", (d.getLong("bodyFontSize") ?: 19L).toInt(),
-                    d.getBoolean("bodyBold") == true, d.getString("bodyAlign") ?: "right", d.getString("bodyColor") ?: "#222222")
+                    d.getBoolean("bodyBold") == true, d.getString("bodyAlign") ?: "right", d.getString("bodyColor") ?: "auto", d.getString("audioUrl").orEmpty())
             }.sortedByDescending { it.id }
         } catch (e: Exception) { error = e.localizedMessage ?: "تعذر تحميل المقالات." }
         loading = false
@@ -386,10 +392,29 @@ fun ArticleReaderScreen(user: FirebaseUser) {
                             } catch (_: Exception) { playingAudio = false }
                         }, modifier = Modifier.fillMaxWidth()) { Text(if (playingAudio) "جاري تشغيل المقال الصوتي…" else "استمع إلى المقال") }
                     }
-                    Text(article.body, style = TextStyle(fontSize = article.fontSize.sp,
-                        fontWeight = if (article.bold) FontWeight.Bold else FontWeight.Normal,
-                        textAlign = articleAlignment(article.align), lineHeight = (article.fontSize + 12).sp,
-                        color = runCatching { Color(android.graphics.Color.parseColor(article.fontColor)) }.getOrDefault(MaterialTheme.colorScheme.onSurface)))
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.large,
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f)
+                    ) {
+                        Text(
+                            article.body,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 20.dp),
+                            style = TextStyle(
+                                fontSize = article.fontSize.coerceIn(16, 32).sp,
+                                fontWeight = if (article.bold) FontWeight.Bold else FontWeight.Normal,
+                                textAlign = articleAlignment(article.align),
+                                lineHeight = (article.fontSize.coerceIn(16, 32) + 13).sp,
+                                letterSpacing = 0.15.sp,
+                                color = if (article.fontColor.equals("auto", true) ||
+                                    article.fontColor.equals("#222222", true) ||
+                                    article.fontColor.equals("#F4F1E8", true))
+                                    MaterialTheme.colorScheme.onSurface
+                                else runCatching { Color(android.graphics.Color.parseColor(article.fontColor)) }
+                                    .getOrDefault(MaterialTheme.colorScheme.onSurface)
+                            )
+                        )
+                    }
                     OutlinedButton(onClick = {
                         val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, article.title + "\n" + article.body) }
                         context.startActivity(Intent.createChooser(send, "مشاركة المقال"))
@@ -402,44 +427,163 @@ fun ArticleReaderScreen(user: FirebaseUser) {
 }
 
 
+private data class ArticleComment(val author: String, val body: String, val audioUrl: String)
+
+@Composable
+private fun ArticleAudioComment(url: String) {
+    var playing by remember(url) { mutableStateOf(false) }
+    var player by remember(url) { mutableStateOf<MediaPlayer?>(null) }
+    DisposableEffect(url) {
+        onDispose { runCatching { player?.release() }; player = null }
+    }
+    OutlinedButton(onClick = {
+        if (playing && player != null) {
+            runCatching { player?.pause() }
+            playing = false
+        } else {
+            runCatching { player?.release() }
+            try {
+                player = MediaPlayer().apply {
+                    setDataSource(url)
+                    setOnPreparedListener { it.start(); playing = true }
+                    setOnCompletionListener { playing = false; it.seekTo(0) }
+                    setOnErrorListener { _, _, _ -> playing = false; true }
+                    prepareAsync()
+                }
+            } catch (_: Exception) { playing = false }
+        }
+    }) { Text(if (playing) "إيقاف التعليق الصوتي" else "▶ تشغيل التعليق الصوتي") }
+}
+
 @Composable
 private fun ArticleComments(articleId: String, user: FirebaseUser) {
     val db = remember { FirebaseFirestore.getInstance() }
     val scope = rememberCoroutineScope()
-    var comments by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    val context = LocalContext.current
+    var comments by remember { mutableStateOf<List<ArticleComment>>(emptyList()) }
     var draft by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var recorder by remember { mutableStateOf<MediaRecorder?>(null) }
+    var recordingFile by remember { mutableStateOf<File?>(null) }
+    var recording by remember { mutableStateOf(false) }
+    var audioUploading by remember { mutableStateOf(false) }
+    var audioUrl by remember { mutableStateOf("") }
+
     suspend fun reload() {
         try {
-            comments = db.collection("articles").document(articleId).collection("comments").orderBy("createdAt", Query.Direction.ASCENDING).limit(100).get().await().documents.map { d ->
-                (d.getString("authorName") ?: "قارئ") to d.getString("body").orEmpty()
-            }
+            comments = db.collection("articles").document(articleId).collection("comments")
+                .orderBy("createdAt", Query.Direction.ASCENDING).limit(100).get().await().documents.map { d ->
+                    ArticleComment(d.getString("authorName") ?: "قارئ", d.getString("body").orEmpty(),
+                        d.getString("audioUrl").orEmpty())
+                }
         } catch (e: Exception) { error = e.localizedMessage ?: "تعذر تحميل التعليقات." }
     }
+
+    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            try {
+                val file = File(context.cacheDir, "article-comment-" + System.currentTimeMillis() + ".m4a")
+                val mediaRecorder = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(context)
+                    else @Suppress("DEPRECATION") MediaRecorder()
+                mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC)
+                mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                mediaRecorder.setAudioEncodingBitRate(96000)
+                mediaRecorder.setAudioSamplingRate(44100)
+                mediaRecorder.setOutputFile(file.absolutePath)
+                mediaRecorder.prepare()
+                mediaRecorder.start()
+                recorder = mediaRecorder
+                recordingFile = file
+                recording = true
+                error = null
+            } catch (e: Exception) { error = e.localizedMessage ?: "تعذر بدء التسجيل الصوتي." }
+        } else error = "اسمح باستخدام الميكروفون لإضافة تعليق صوتي."
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { runCatching { recorder?.release() }; recordingFile?.delete() }
+    }
     LaunchedEffect(articleId) { reload() }
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("التعليقات (" + comments.size + ")", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         comments.forEach { item ->
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(item.first, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                    Text(item.second)
+                    Text(item.author, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    if (item.body.isNotBlank()) Text(item.body)
+                    if (item.audioUrl.isNotBlank()) ArticleAudioComment(item.audioUrl)
                 }
             }
         }
-        OutlinedTextField(draft, { draft = it.take(2000) }, modifier = Modifier.fillMaxWidth(), label = { Text("اكتب تعليقك") }, minLines = 2)
+        OutlinedTextField(draft, { draft = it.take(2000) }, modifier = Modifier.fillMaxWidth(),
+            label = { Text("اكتب تعليقك") }, minLines = 2)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(enabled = !busy && !audioUploading, onClick = {
+                if (recording) {
+                    try {
+                        recorder?.stop()
+                        recorder?.release()
+                        recorder = null
+                        recording = false
+                        val file = recordingFile
+                        recordingFile = null
+                        if (file != null && file.exists() && file.length() > 0L) {
+                            scope.launch {
+                                audioUploading = true
+                                try {
+                                    audioUrl = WhisperCloudinary.uploadFile(file,
+                                        "Whisper-Player/ArticleComments/" + articleId + "/" + user.uid, "video", "audio/mp4")
+                                    error = null
+                                } catch (e: Exception) {
+                                    error = e.localizedMessage ?: "تعذر رفع التعليق الصوتي."
+                                } finally { file.delete(); audioUploading = false }
+                            }
+                        } else error = "التسجيل قصير جدًا أو لم يُحفظ."
+                    } catch (e: Exception) {
+                        error = e.localizedMessage ?: "تعذر إنهاء التسجيل."
+                        recording = false
+                        runCatching { recorder?.release() }
+                        recorder = null
+                        recordingFile?.delete()
+                        recordingFile = null
+                    }
+                } else {
+                    micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                }
+            }) {
+                Text(when {
+                    audioUploading -> "جارٍ رفع الصوت…"
+                    recording -> "■ إيقاف التسجيل"
+                    audioUrl.isNotBlank() -> "إعادة تسجيل التعليق"
+                    else -> "🎙 تسجيل تعليق صوتي"
+                })
+            }
+            if (audioUrl.isNotBlank()) TextButton(onClick = { audioUrl = "" }) { Text("إلغاء الصوت") }
+        }
+        if (recording) Text("جارٍ تسجيل التعليق… اضغط إيقاف عند الانتهاء.", color = MaterialTheme.colorScheme.primary)
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        Button(enabled = !busy && draft.isNotBlank(), onClick = {
+        Button(enabled = !busy && !audioUploading && (draft.isNotBlank() || audioUrl.isNotBlank()), onClick = {
             val body = draft.trim()
             busy = true
             scope.launch {
                 try {
-                    db.collection("articles").document(articleId).collection("comments").add(mapOf("uid" to user.uid, "authorName" to (user.displayName ?: "قارئ Whisper"), "body" to body, "createdAt" to FieldValue.serverTimestamp())).await()
-                    draft = ""; error = null; reload()
+                    db.collection("articles").document(articleId).collection("comments").add(mapOf(
+                        "uid" to user.uid,
+                        "authorName" to (user.displayName ?: "قارئ Anti-dopamine"),
+                        "body" to body,
+                        "audioUrl" to audioUrl,
+                        "createdAt" to FieldValue.serverTimestamp()
+                    )).await()
+                    draft = ""
+                    audioUrl = ""
+                    error = null
+                    reload()
                 } catch (e: Exception) { error = e.localizedMessage ?: "تعذر نشر التعليق." }
                 busy = false
             }
-        }) { Text(if (busy) "جارٍ الإرسال…" else "إضافة تعليق") }
+        }) { Text(if (busy) "جارٍ الإرسال…" else "إضافة التعليق") }
     }
 }
