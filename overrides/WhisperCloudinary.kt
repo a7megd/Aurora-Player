@@ -14,8 +14,8 @@ import java.util.UUID
 
 /** Unsigned Cloudinary uploader using fixed-length multipart requests. */
 object WhisperCloudinary {
-    private const val CLOUD_NAME = BuildConfig.CLOUDINARY_CLOUD_NAME.trim()
-    private const val UPLOAD_PRESET = BuildConfig.CLOUDINARY_UPLOAD_PRESET.trim()
+    private val CLOUD_NAME = BuildConfig.CLOUDINARY_CLOUD_NAME.trim()
+    private val UPLOAD_PRESET = BuildConfig.CLOUDINARY_UPLOAD_PRESET.trim()
 
     suspend fun uploadUri(context: Context, uri: Uri, folder: String, resourceType: String, contentType: String): String =
         withContext(Dispatchers.IO) {
@@ -95,7 +95,7 @@ object WhisperCloudinary {
             }
             val secureUrl = JSONObject(response).optString("secure_url")
             require(secureUrl.startsWith("https://")) { "اكتمل رد Cloudinary دون رابط HTTPS صالح." }
-            secureUrl
+            return secureUrl
         } finally { connection.disconnect() }
     }
 }
