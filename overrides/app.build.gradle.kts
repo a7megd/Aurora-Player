@@ -9,7 +9,7 @@ android {
     namespace = "com.aurora.player"
     compileSdk = 35
 
-    defaultConfig {
+    defaultConfig {\n        buildConfigField("String", "CLOUDINARY_CLOUD_NAME", "\"vlmbhhfq\"")\n        buildConfigField("String", "CLOUDINARY_UPLOAD_PRESET", "\"${providers.gradleProperty("cloudinaryUploadPreset").orElse(providers.environmentVariable("CLOUDINARY_UPLOAD_PRESET")).getOrElse("")}\"")
         applicationId = "com.aurora.player"
         minSdk = 26
         targetSdk = 35
