@@ -26,18 +26,33 @@ jobs:
       - name: Extract Aurora project
         run: unzip -o AuroraPlayer-stage3-continuation.zip -d .
 
-      - name: Enable Android audio effects permission
+      - name: Enable recording and push notification permissions
         run: |
           python3 - <<'PY'
           from pathlib import Path
           manifest = Path("AuroraPlayer/app/src/main/AndroidManifest.xml")
           content = manifest.read_text()
-          permission = '    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />'
-          if permission not in content:
-              content = content.replace("<manifest", "<manifest", 1)
-              pos = content.find(">", content.find("<manifest")) + 1
-              content = content[:pos] + "\\n" + permission + content[pos:]
-              manifest.write_text(content)
+          for permission in [
+              "android.permission.MODIFY_AUDIO_SETTINGS",
+              "android.permission.RECORD_AUDIO",
+              "android.permission.POST_NOTIFICATIONS",
+          ]:
+              line = f'    <uses-permission android:name="{permission}" />'
+              if line not in content:
+                  pos = content.find(">", content.find("<manifest")) + 1
+                  content = content[:pos] + "\\n" + line + content[pos:]
+          service = '''
+              <service
+                  android:name="com.aurora.player.community.WhisperMessagingService"
+                  android:exported="false">
+                  <intent-filter>
+                      <action android:name="com.google.firebase.MESSAGING_EVENT" />
+                  </intent-filter>
+              </service>
+          '''
+          if "WhisperMessagingService" not in content:
+              content = content.replace("</application>", service + "\\n</application>")
+          manifest.write_text(content)
           PY
 
       - name: Apply maintained source overrides
@@ -46,8 +61,10 @@ jobs:
           install -D overrides/AuthScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/AuthScreens.kt
           install -D overrides/ArticleScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/ArticleScreens.kt
           install -D overrides/FirebaseCommunity.kt AuroraPlayer/app/src/main/java/com/aurora/player/community/FirebaseCommunity.kt
+          install -D overrides/WhisperMessagingService.kt AuroraPlayer/app/src/main/java/com/aurora/player/community/WhisperMessagingService.kt
           install -D overrides/MusicApp.kt AuroraPlayer/app/src/main/java/com/aurora/player/MusicApp.kt
           install -D overrides/firestore.rules AuroraPlayer/firestore.rules
+          install -D overrides/storage.rules AuroraPlayer/storage.rules
           install -D overrides/NowPlayingScreen.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/NowPlayingScreen.kt
           install -D overrides/WhisperScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/WhisperScreens.kt
           install -D overrides/Routes.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/Routes.kt
