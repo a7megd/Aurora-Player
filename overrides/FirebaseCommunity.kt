@@ -72,7 +72,7 @@ object FirebaseCommunity {
                     ?: user.email?.substringBefore('@')?.take(24) ?: "Whisper User"
             }
             if (!snapshot.contains("photoUrl")) updates["photoUrl"] = ""
-            if (!snapshot.contains("photoData")) updates["photoData"] = ""
+            if (snapshot.getString("photoData").orEmpty().isNotEmpty()) updates["photoData"] = ""
             if (!snapshot.contains("bio")) updates["bio"] = ""
             if (!snapshot.contains("favoriteSounds")) updates["favoriteSounds"] = ""
             if (!snapshot.contains("totalListeningMs")) updates["totalListeningMs"] = 0L
@@ -93,7 +93,7 @@ object FirebaseCommunity {
             mapOf(
                 "displayName" to displayName.trim(),
                 "photoUrl" to photoUrl.trim(),
-                "photoData" to photoData,
+                "photoData" to "",
                 "bio" to bio.trim(),
                 "favoriteSounds" to favoriteSounds.trim()
             )
