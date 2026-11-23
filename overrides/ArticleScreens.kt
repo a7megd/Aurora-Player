@@ -58,6 +58,53 @@ fun ArticleHubDialog(user:FirebaseUser,onDismiss:()->Unit) {
     var cover by remember { mutableStateOf("") }
     var draft by remember { mutableStateOf(true) }
     var busy by remember { mutableStateOf(false) }
+    var articleRecorder by remember { mutableStateOf<MediaRecorder?>(null) }
+    var articleRecordingFile by remember { mutableStateOf<File?>(null) }
+    var articleRecording by remember { mutableStateOf(false) }
+    fun startArticleAudioRecording() {
+        try {
+            val file = File(context.cacheDir, "whisper-article-" + System.currentTimeMillis() + ".m4a")
+            val mediaRecorder = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(context)
+                else @Suppress("DEPRECATION") MediaRecorder()
+            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC)
+            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            mediaRecorder.setAudioEncodingBitRate(128000)
+            mediaRecorder.setAudioSamplingRate(44100)
+            mediaRecorder.setOutputFile(file.absolutePath)
+            mediaRecorder.prepare()
+            mediaRecorder.start()
+            articleRecorder = mediaRecorder
+            articleRecordingFile = file
+            articleRecording = true
+            message = "جارٍ تسجيل صوت المقال…"
+        } catch (e: Exception) { message = e.localizedMessage ?: "تعذر بدء تسجيل المقال." }
+    }
+    fun stopArticleAudioRecording() {
+        val active = articleRecorder
+        val file = articleRecordingFile
+        try {
+            active?.stop()
+            if (file != null && file.exists() && file.length() > 0L) {
+                audioUrl = Uri.fromFile(file).toString()
+                message = "اكتمل التسجيل؛ سيتم رفعه عند حفظ المقال."
+            } else message = "التسجيل فارغ؛ حاول مرة أخرى."
+        } catch (e: Exception) { message = e.localizedMessage ?: "تعذر إنهاء التسجيل." }
+        runCatching { active?.release() }
+        articleRecorder = null
+        articleRecordingFile = null
+        articleRecording = false
+    }
+    val audioPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) startArticleAudioRecording() else message = "اسمح باستخدام الميكروفون لتسجيل المقال."
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            runCatching { articleRecorder?.stop() }
+            runCatching { articleRecorder?.release() }
+            articleRecordingFile?.delete()
+        }
+    }
     val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
@@ -203,7 +250,7 @@ fun ArticleWriterScreen(user: FirebaseUser) {
             finalCover = CloudinaryMediaUploader.upload(context, Uri.parse(finalCover), "Whisper-Player/Articles").secureUrl
             cover = finalCover
         }
-        if (finalAudio.startsWith("content://")) {
+        if (finalAudio.startsWith("content://") || finalAudio.startsWith("file://")) {
             finalAudio = CloudinaryMediaUploader.upload(context, Uri.parse(finalAudio), "Whisper-Player/Voice").secureUrl
             audioUrl = finalAudio
         }
@@ -243,8 +290,13 @@ fun ArticleWriterScreen(user: FirebaseUser) {
                 AsyncImage(model = cover, contentDescription = "معاينة صورة الغلاف", modifier = Modifier.fillMaxWidth().heightIn(max = 190.dp))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(onClick = { audioPicker.launch(arrayOf("audio/*")) }) { Text("اختيار صوت للمقال") }
-                if (audioUrl.isNotBlank()) TextButton(onClick = { audioUrl = "" }) { Text("إزالة الصوت") }
+                OutlinedButton(enabled = !articleRecording && !busy, onClick = { audioPicker.launch(arrayOf("audio/*")) }) { Text("اختيار صوت") }
+                OutlinedButton(enabled = !busy, onClick = {
+                    if (articleRecording) stopArticleAudioRecording()
+                    else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) startArticleAudioRecording()
+                    else audioPermission.launch(Manifest.permission.RECORD_AUDIO)
+                }) { Text(if (articleRecording) "إيقاف التسجيل" else "تسجيل المقال") }
+                if (audioUrl.isNotBlank()) TextButton(onClick = { audioUrl = ""; articleRecordingFile?.delete() }) { Text("إزالة الصوت") }
             }
             Text(if (audioUrl.isBlank()) "يمكنك إرفاق ملف صوتي من جهازك ليصبح متاحًا للقراء." else "تم اختيار ملف صوتي للمقال.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
