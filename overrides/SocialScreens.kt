@@ -215,6 +215,11 @@ fun ChatScreen(user: FirebaseUser) {
     var recordingFile by remember { mutableStateOf<File?>(null) }
     var recording by remember { mutableStateOf(false) }
     var uploadProgress by remember { mutableFloatStateOf(0f) }
+    var pendingMediaUrl by remember { mutableStateOf("") }
+    var pendingMediaType by remember { mutableStateOf("") }
+    var pendingMediaName by remember { mutableStateOf("") }
+    var pendingMediaMime by remember { mutableStateOf("") }
+    var pendingMediaAssetId by remember { mutableStateOf("") }
     fun startVoiceRecording() {
         try {
             val file = File(context.cacheDir, "whisper-chat-" + System.currentTimeMillis() + ".m4a")
@@ -242,6 +247,7 @@ fun ChatScreen(user: FirebaseUser) {
             if (file != null && file.exists() && file.length() > 0L) {
                 attachmentUri = Uri.fromFile(file)
                 attachmentName = "تسجيل صوتي.m4a"
+                pendingMediaUrl = ""; pendingMediaType = ""; pendingMediaName = ""; pendingMediaMime = ""; pendingMediaAssetId = ""
             } else error = "التسجيل فارغ؛ حاول مرة أخرى."
         } catch (e: Exception) { error = e.localizedMessage ?: "تعذر إنهاء التسجيل." }
         runCatching { active?.release() }
@@ -254,6 +260,7 @@ fun ChatScreen(user: FirebaseUser) {
             runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
             attachmentUri = uri
             attachmentName = uri.lastPathSegment?.substringAfterLast('/') ?: "ملف مرفق"
+            pendingMediaUrl = ""; pendingMediaType = ""; pendingMediaName = ""; pendingMediaMime = ""; pendingMediaAssetId = ""
         }
     }
     val microphonePermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -385,7 +392,7 @@ fun ChatScreen(user: FirebaseUser) {
                 if (attachmentUri != null) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically) {
                         Text("مرفق: $attachmentName", Modifier.weight(1f), style=MaterialTheme.typography.bodySmall)
-                        TextButton(onClick={attachmentUri=null;attachmentName=""},enabled=!busy){Text("إزالة")}
+                        TextButton(onClick={attachmentUri=null;attachmentName="";pendingMediaUrl="";pendingMediaType="";pendingMediaName="";pendingMediaMime="";pendingMediaAssetId=""},enabled=!busy){Text("إزالة")}
                     }
                     if (busy) LinearProgressIndicator(progress={uploadProgress},modifier=Modifier.fillMaxWidth())
                 }
@@ -401,21 +408,28 @@ fun ChatScreen(user: FirebaseUser) {
                                     "type" to "text","body" to body,"mediaUrl" to "",
                                     "createdAt" to FieldValue.serverTimestamp())).await()
                             } else {
-                                val uploaded=CloudinaryMediaUploader.upload(context,selectedUri,"Whisper-Player/Chat") { sent,total ->
-                                    uploadProgress=(sent.toFloat()/total.coerceAtLeast(1L)).coerceIn(0f,1f)
-                                }
-                                val kind=when {
-                                    uploaded.mimeType.startsWith("image/")->"image"
-                                    uploaded.mimeType.startsWith("audio/")->"audio"
-                                    else->"file"
+                                if (pendingMediaUrl.isBlank()) {
+                                    val uploaded=CloudinaryMediaUploader.upload(context,selectedUri,"Whisper-Player/Chat") { sent,total ->
+                                        uploadProgress=(sent.toFloat()/total.coerceAtLeast(1L)).coerceIn(0f,1f)
+                                    }
+                                    pendingMediaUrl=uploaded.secureUrl
+                                    pendingMediaType=when {
+                                        uploaded.mimeType.startsWith("image/")->"image"
+                                        uploaded.mimeType.startsWith("audio/")->"audio"
+                                        else->"file"
+                                    }
+                                    pendingMediaName=uploaded.originalName
+                                    pendingMediaMime=uploaded.mimeType
+                                    pendingMediaAssetId=uploaded.assetId
                                 }
                                 db.collection("chatThreads").document(thread).collection("messages").add(mapOf(
                                     "uid" to user.uid,"authorName" to (user.displayName ?: "عضو Whisper"),
-                                    "type" to kind,"body" to uploaded.originalName,"mediaUrl" to uploaded.secureUrl,
-                                    "mimeType" to uploaded.mimeType,"assetId" to uploaded.assetId,
+                                    "type" to pendingMediaType,"body" to pendingMediaName,"mediaUrl" to pendingMediaUrl,
+                                    "mimeType" to pendingMediaMime,"assetId" to pendingMediaAssetId,
                                     "createdAt" to FieldValue.serverTimestamp())).await()
                                 if (selectedUri.scheme == "file") runCatching { selectedUri.path?.let { File(it).delete() } }
                                 attachmentUri=null;attachmentName=""
+                                pendingMediaUrl="";pendingMediaType="";pendingMediaName="";pendingMediaMime="";pendingMediaAssetId=""
                             }
                             draft="";uploadProgress=0f
                         }catch(e:Exception){error=e.localizedMessage ?: "تعذر إرسال الرسالة."};busy=false}
