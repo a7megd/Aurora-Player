@@ -204,7 +204,7 @@ service cloud.firestore {
         && (request.resource.data.get('audioUrl', '') == '' || request.resource.data.get('audioUrl', '').matches('https://.*'));
       allow update: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin())
         && request.resource.data.authorUid == resource.data.authorUid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','subtitle','body','coverUrl','authorName','status','updatedAt','publishedAt','bodyFontSize','bodyBold','bodyAlign','bodyColor'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','subtitle','body','coverUrl','authorName','status','updatedAt','publishedAt','bodyFontSize','bodyBold','bodyAlign','bodyColor','audioUrl'])
         && request.resource.data.title is string && request.resource.data.title.size() >= 3 && request.resource.data.title.size() <= 120
         && request.resource.data.subtitle is string && request.resource.data.subtitle.size() <= 220
         && request.resource.data.body is string && request.resource.data.body.size() <= 30000
@@ -212,7 +212,10 @@ service cloud.firestore {
         && (request.resource.data.coverUrl == '' || request.resource.data.coverUrl.matches('https://.*'))
         && request.resource.data.status in ['draft','published']
         && request.resource.data.get('bodyColor', '#222222') is string
-        && request.resource.data.get('bodyColor', '#222222').size() <= 7;
+        && request.resource.data.get('bodyColor', '#222222').size() <= 7
+        && request.resource.data.get('audioUrl', '') is string
+        && request.resource.data.get('audioUrl', '').size() <= 1200
+        && (request.resource.data.get('audioUrl', '') == '' || request.resource.data.get('audioUrl', '').matches('https://.*'));
       allow delete: if signedIn() && (resource.data.authorUid == request.auth.uid || isAdmin());
       match /comments/{commentId} {
         allow read: if signedIn() && get(/databases/$(database)/documents/articles/$(articleId)).data.status == 'published';
