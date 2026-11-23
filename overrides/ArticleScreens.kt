@@ -7,8 +7,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import com.google.firebase.storage.FirebaseStorage
-import java.util.UUID
+
+
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -24,7 +24,8 @@ import androidx.compose.ui.graphics.Color
 import android.content.Intent
 import android.media.MediaPlayer
 import coil.compose.AsyncImage
-import com.google.firebase.auth.FirebaseUser\nimport com.aurora.player.community.WhisperCloudinary
+import com.google.firebase.auth.FirebaseUser
+import com.aurora.player.community.WhisperCloudinary
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -123,7 +124,9 @@ fun ArticleHubDialog(user:FirebaseUser,onDismiss:()->Unit) {
                 Text("بقلم ${a.author}",style=MaterialTheme.typography.labelSmall)
                 Text(a.body,style=MaterialTheme.typography.bodyLarge)
                 OutlinedButton(onClick={
-                    val send=Intent(Intent.ACTION_SEND).apply { type="text/plain"; putExtra(Intent.EXTRA_TEXT,a.title+"\n\n"+a.body.take(500)) }
+                    val send=Intent(Intent.ACTION_SEND).apply { type="text/plain"; putExtra(Intent.EXTRA_TEXT,a.title+"
+
+"+a.body.take(500)) }
                     context.startActivity(Intent.createChooser(send,"مشاركة المقال"))
                 }) { Text("مشاركة") }
             }
@@ -147,6 +150,7 @@ private fun articleAlignment(value: String): TextAlign = when(value) {
 
 @Composable
 fun ArticleWriterScreen(user: FirebaseUser) {
+    val context = LocalContext.current
     val db = remember { FirebaseFirestore.getInstance() }
     val scope = rememberCoroutineScope()
     var message by remember { mutableStateOf<String?>(null) }
@@ -389,7 +393,9 @@ fun ArticleReaderScreen(user: FirebaseUser) {
                         textAlign = articleAlignment(article.align), lineHeight = (article.fontSize + 12).sp,
                         color = runCatching { Color(android.graphics.Color.parseColor(article.fontColor)) }.getOrDefault(MaterialTheme.colorScheme.onSurface)))
                     OutlinedButton(onClick = {
-                        val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, article.title + "\n\n" + article.body) }
+                        val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, article.title + "
+
+" + article.body) }
                         context.startActivity(Intent.createChooser(send, "مشاركة المقال"))
                     }) { Text("مشاركة المقال") }
                     ArticleComments(article.id, user)
