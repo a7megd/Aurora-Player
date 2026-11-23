@@ -212,6 +212,19 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
  var photoUrl by remember { mutableStateOf("") }
  var photoData by remember { mutableStateOf("") }
  val context = LocalContext.current
+ var localPhotoUri by remember {
+  mutableStateOf(context.getSharedPreferences("tayer_profile", android.content.Context.MODE_PRIVATE).getString("local_photo_uri", "").orEmpty())
+ }
+ val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+  if (uri != null) {
+   runCatching {
+    context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+   }
+   localPhotoUri = uri.toString()
+   photoUrl = ""
+   photoData = ""
+  }
+ }
  var bio by remember { mutableStateOf("") }
  var favorites by remember { mutableStateOf("") }
  var selected by remember { mutableStateOf<com.aurora.player.community.CommunityMember?>(null) }
@@ -260,7 +273,7 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
    Card(colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceVariant)){
     Column(Modifier.fillMaxWidth().padding(15.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
      Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
-      if(photoData.isNotBlank() || photoUrl.isNotBlank()) AsyncImage(model=profilePhotoModel(photoData,photoUrl),contentDescription="صورتك الشخصية",modifier=Modifier.size(62.dp).clip(CircleShape))
+      if(localPhotoUri.isNotBlank() || photoData.isNotBlank() || photoUrl.isNotBlank()) AsyncImage(model=localPhotoUri.takeIf { it.isNotBlank() } ?: profilePhotoModel(photoData,photoUrl),contentDescription="صورتك الشخصية",modifier=Modifier.size(62.dp).clip(CircleShape))
       else Surface(modifier=Modifier.size(62.dp),shape=CircleShape,color=MaterialTheme.colorScheme.primaryContainer){Box(contentAlignment=Alignment.Center){Icon(Icons.Rounded.Person,null,modifier=Modifier.size(32.dp))}}
       Column(Modifier.weight(1f)){Text(displayName.ifBlank{"عضو Whisper"},style=MaterialTheme.typography.titleLarge);Text("ملفك الشخصي",style=MaterialTheme.typography.bodySmall)}
       TextButton(onClick={editing=true}){Text("تعديل")}
@@ -312,16 +325,23 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
  }
  if(editing) AlertDialog(onDismissRequest={if(!saving)editing=false},title={Text("تعديل الملف الشخصي")},text={Column(Modifier.fillMaxWidth().heightIn(max=520.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(9.dp)){
   OutlinedTextField(displayName,{displayName=it.take(30)},label={Text("اسم العرض")},singleLine=true)
-  Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)){
-   Text("لا يمكن رفع صورة جديدة للحساب في النسخة التي لا تتطلب فوترة. يمكنك الاحتفاظ بصورتك الحالية أو استخدام رابط صورة خارجي.", color=MaterialTheme.colorScheme.onSurfaceVariant)
+  Text("صورة الملف الشخصي",fontWeight=FontWeight.SemiBold)
+  if(localPhotoUri.isNotBlank() || photoUrl.isNotBlank()) {
+   AsyncImage(model=localPhotoUri.takeIf { it.isNotBlank() } ?: profilePhotoModel(photoData,photoUrl),
+    contentDescription="معاينة صورة الملف الشخصي",modifier=Modifier.size(88.dp).clip(CircleShape))
   }
-  OutlinedTextField(photoUrl,{photoUrl=it.take(500);photoData=""},label={Text("أو رابط صورة HTTPS")})
+  Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically) {
+   OutlinedButton(onClick={photoPicker.launch(arrayOf("image/*"))},enabled=!saving) { Text("اختيار صورة من المعرض") }
+   if(localPhotoUri.isNotBlank()) TextButton(onClick={localPhotoUri="";photoUrl=""},enabled=!saving) { Text("إزالة الصورة") }
+  }
+  Text("الصورة المختارة تُحفظ على هذا الجهاز فقط؛ مشاركة الصورة مع بقية الأعضاء تحتاج رابط صورة عام.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+  OutlinedTextField(photoUrl,{photoUrl=it.take(500);photoData="";if(it.isNotBlank())localPhotoUri=""},label={Text("أو رابط صورة HTTPS")})
   OutlinedTextField(bio,{bio=it.take(160)},label={Text("نبذة عنك")},minLines=2)
   OutlinedTextField(favorites,{favorites=it.take(500)},label={Text("أصواتك المفضلة")},minLines=2)
  }},confirmButton={TextButton(enabled=!saving,onClick={saving=true;scope.launch{try{
  FirebaseCommunity.updateProfile(user.uid,displayName,photoUrl,bio,favorites,photoData)
  context.getSharedPreferences("tayer_profile", android.content.Context.MODE_PRIVATE).edit()
-  .putString("display_name",displayName.trim()).putString("photo_data","").putString("photo_uri",photoUrl).apply()
+  .putString("display_name",displayName.trim()).putString("photo_data","").putString("photo_uri",photoUrl).putString("local_photo_uri",localPhotoUri).apply()
  editing=false
 }catch(e:Exception){errorText=e.localizedMessage ?: "تعذر حفظ الملف."};saving=false;refresh()}}){Text(if(saving)"جارٍ الحفظ…" else "حفظ")}},dismissButton={TextButton(enabled=!saving,onClick={editing=false}){Text("إلغاء")}})
  LaunchedEffect(selected?.uid) {
