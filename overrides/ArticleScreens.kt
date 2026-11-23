@@ -162,33 +162,7 @@ fun ArticleWriterScreen(user: FirebaseUser) {
     var subtitle by remember { mutableStateOf("") }
     var body by remember { mutableStateOf("") }
     var cover by remember { mutableStateOf("") }
-    var coverUploading by remember { mutableStateOf(false) }
     var audioUrl by remember { mutableStateOf("") }
-    var audioUploading by remember { mutableStateOf(false) }
-    val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) scope.launch {
-            audioUploading = true
-            try {
-                val type = context.contentResolver.getType(uri) ?: "audio/mp4"
-                require(type.startsWith("audio/")) { "الملف المختار ليس ملفًا صوتيًا." }
-                audioUrl = WhisperMediaRouter.uploadAudioUri(context, uri, "Whisper-Player/Articles/${user.uid}/Audio", type)
-                message = "تم إرفاق الملف الصوتي بالمقال."
-            } catch (e: Exception) { message = e.localizedMessage ?: "تعذر رفع الملف الصوتي." }
-            audioUploading = false
-        }
-    }
-    val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) scope.launch {
-            coverUploading = true
-            try {
-                val type = context.contentResolver.getType(uri) ?: "image/jpeg"
-                require(type.startsWith("image/")) { "الملف المختار ليس صورة." }
-                cover = WhisperMediaRouter.uploadImageUri(context, uri, "Whisper-Player/Covers/${user.uid}", type)
-                message = "تم رفع صورة الغلاف بنجاح."
-            } catch (e: Exception) { message = e.localizedMessage ?: "تعذر رفع الصورة." }
-            coverUploading = false
-        }
-    }
     var fontSize by remember { mutableIntStateOf(19) }
     var bold by remember { mutableStateOf(false) }
     var align by remember { mutableStateOf("right") }
