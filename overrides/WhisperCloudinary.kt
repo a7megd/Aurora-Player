@@ -1,8 +1,8 @@
 package com.aurora.player.community
 
-import com.aurora.player.BuildConfig
 import android.content.Context
 import android.net.Uri
+import com.aurora.player.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -77,36 +77,26 @@ object WhisperCloudinary {
         try {
             connection.outputStream.use { output ->
                 fun field(name: String, value: String) {
-                    output.write("--$boundary\r
-".toByteArray())
-                    output.write("Content-Disposition: form-data; name=\"$name\"\r
-\r
-".toByteArray())
+                    output.write("--$boundary\r\n".toByteArray())
+                    output.write("Content-Disposition: form-data; name=\"$name\"\r\n\r\n".toByteArray())
                     output.write(value.toByteArray(Charsets.UTF_8))
-                    output.write("\r
-".toByteArray())
+                    output.write("\r\n".toByteArray())
                 }
                 field("upload_preset", UPLOAD_PRESET)
                 field("folder", folder)
                 field("public_id", publicId)
-                output.write("--$boundary\r
-".toByteArray())
-                output.write("Content-Disposition: form-data; name=\"file\"; filename=\"$publicId\"\r
-".toByteArray())
-                output.write("Content-Type: $contentType\r
-\r
-".toByteArray())
+                output.write("--$boundary\r\n".toByteArray())
+                output.write("Content-Disposition: form-data; name=\"file\"; filename=\"$publicId\"\r\n".toByteArray())
+                output.write("Content-Type: $contentType\r\n\r\n".toByteArray())
                 input.copyTo(output)
-                output.write("\r
---$boundary--\r
-".toByteArray())
+                output.write("\r\n--$boundary--\r\n".toByteArray())
                 output.flush()
             }
             val code = connection.responseCode
             val stream = if (code in 200..299) connection.inputStream else connection.errorStream
             val response = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
             if (code !in 200..299) {
-                val detail = runCatching { JSONObject(response).optString("error") }.getOrNull()
+                val detail = runCatching { JSONObject(response).optJSONObject("error")?.optString("message") }.getOrNull()
                 error("فشل رفع الملف إلى Cloudinary ($code): ${detail ?: response.take(300)}")
             }
             val secureUrl = JSONObject(response).optString("secure_url")
