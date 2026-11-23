@@ -29,6 +29,8 @@ import android.media.MediaRecorder
 import android.os.Build
 import androidx.core.content.ContextCompat
 import java.io.File
+import android.net.Uri
+import com.aurora.player.media.CloudinaryMediaUploader
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FieldValue
@@ -183,8 +185,31 @@ fun ArticleWriterScreen(user: FirebaseUser) {
         if (uri != null) {
             runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
             cover = uri.toString()
-            message = "تم اختيار صورة الغلاف. تظل الصورة محلية على هذا الجهاز."
+            message = "تم اختيار صورة الغلاف؛ سيتم رفعها عند حفظ المقال."
         }
+    }
+    val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            audioUrl = uri.toString()
+            message = "تم اختيار الملف الصوتي؛ سيتم رفعه عند حفظ المقال."
+        }
+    }
+
+    suspend fun uploadPendingArticleMedia(): Pair<String, String> {
+        var finalCover = cover.trim()
+        var finalAudio = audioUrl.trim()
+        if (finalCover.startsWith("content://")) {
+            finalCover = CloudinaryMediaUploader.upload(context, Uri.parse(finalCover), "Whisper-Player/Articles").secureUrl
+            cover = finalCover
+        }
+        if (finalAudio.startsWith("content://")) {
+            finalAudio = CloudinaryMediaUploader.upload(context, Uri.parse(finalAudio), "Whisper-Player/Voice").secureUrl
+            audioUrl = finalAudio
+        }
+        require(finalCover.isBlank() || finalCover.startsWith("https://")) { "تعذر التحقق من صورة الغلاف." }
+        require(finalAudio.isBlank() || finalAudio.startsWith("https://")) { "تعذر التحقق من الملف الصوتي." }
+        return finalCover to finalAudio
     }
 
     suspend fun reloadMine() {
@@ -210,7 +235,6 @@ fun ArticleWriterScreen(user: FirebaseUser) {
             OutlinedTextField(value = title, onValueChange = { title = it.take(120) }, label = { Text("عنوان المقال") },
                 modifier = Modifier.fillMaxWidth(), textStyle = MaterialTheme.typography.titleLarge)
             OutlinedTextField(value = subtitle, onValueChange = { subtitle = it.take(220) }, label = { Text("عنوان فرعي (اختياري)") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(value = cover, onValueChange = { cover = it.take(1000) }, label = { Text("رابط صورة الغلاف (اختياري)") }, modifier = Modifier.fillMaxWidth())
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 OutlinedButton(onClick = { coverPicker.launch(arrayOf("image/*")) }) { Text("اختيار صورة من الهاتف") }
                 if (cover.startsWith("content://")) TextButton(onClick = { cover = "" }) { Text("إزالة الصورة") }
@@ -218,8 +242,11 @@ fun ArticleWriterScreen(user: FirebaseUser) {
             if (cover.startsWith("https://") || cover.startsWith("content://")) {
                 AsyncImage(model = cover, contentDescription = "معاينة صورة الغلاف", modifier = Modifier.fillMaxWidth().heightIn(max = 190.dp))
             }
-            Text("الصور المختارة من الهاتف تظل على هذا الجهاز ولا تُرفع أو تتزامن مع القراء الآخرين. لمشاركة الغلاف بين الأجهزة يلزم رابط صورة عام مباشر.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-            Text("إرفاق ملف صوتي جديد غير متاح في النسخة المجانية بدون فوترة. ستظل الروابط الصوتية القديمة قابلة للتشغيل إذا كانت متاحة.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(onClick = { audioPicker.launch(arrayOf("audio/*")) }) { Text("اختيار صوت للمقال") }
+                if (audioUrl.isNotBlank()) TextButton(onClick = { audioUrl = "" }) { Text("إزالة الصوت") }
+            }
+            Text(if (audioUrl.isBlank()) "يمكنك إرفاق ملف صوتي من جهازك ليصبح متاحًا للقراء." else "تم اختيار ملف صوتي للمقال.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("لون الخط:")
                 listOf("#222222" to "أسود", "#6D28D9" to "بنفسجي", "#1565C0" to "أزرق", "#B23A48" to "أحمر", "#16805D" to "أخضر").forEach { (hex,label) ->
@@ -258,11 +285,11 @@ fun ArticleWriterScreen(user: FirebaseUser) {
                         try {
                             require(title.trim().length >= 3) { "اكتب عنوانًا من 3 أحرف على الأقل." }
                             require(body.isNotBlank()) { "اكتب نص المقال أولًا." }
-                            require(cover.isBlank() || cover.startsWith("https://") || cover.startsWith("content://")) { "استخدم رابط HTTPS أو اختر صورة من الهاتف." }
+                            val (uploadedCover, uploadedAudio) = uploadPendingArticleMedia()
                             val data = hashMapOf<String, Any>("title" to title.trim(), "subtitle" to subtitle.trim(),
-                                "body" to body.trim(), "coverUrl" to cover.trim(), "authorUid" to user.uid,
+                                "body" to body.trim(), "coverUrl" to uploadedCover, "authorUid" to user.uid,
                                 "authorName" to (user.displayName ?: "كاتب Whisper"), "status" to "draft",
-                                "bodyFontSize" to fontSize.toLong(), "bodyBold" to bold, "bodyAlign" to align, "bodyColor" to bodyColor, "audioUrl" to audioUrl,
+                                "bodyFontSize" to fontSize.toLong(), "bodyBold" to bold, "bodyAlign" to align, "bodyColor" to bodyColor, "audioUrl" to uploadedAudio,
                                 "updatedAt" to FieldValue.serverTimestamp())
                             if (editingId == null) { data["createdAt"] = FieldValue.serverTimestamp(); db.collection("articles").add(data).await() }
                             else db.collection("articles").document(editingId!!).update(data - "authorUid").await()
@@ -277,11 +304,11 @@ fun ArticleWriterScreen(user: FirebaseUser) {
                         try {
                             require(title.trim().length >= 3) { "اكتب عنوانًا من 3 أحرف على الأقل." }
                             require(body.isNotBlank()) { "اكتب نص المقال أولًا." }
-                            require(cover.isBlank() || cover.startsWith("https://") || cover.startsWith("content://")) { "استخدم رابط HTTPS أو اختر صورة من الهاتف." }
+                            val (uploadedCover, uploadedAudio) = uploadPendingArticleMedia()
                             val data = hashMapOf<String, Any>("title" to title.trim(), "subtitle" to subtitle.trim(),
-                                "body" to body.trim(), "coverUrl" to cover.trim(), "authorUid" to user.uid,
+                                "body" to body.trim(), "coverUrl" to uploadedCover, "authorUid" to user.uid,
                                 "authorName" to (user.displayName ?: "كاتب Whisper"), "status" to "published",
-                                "bodyFontSize" to fontSize.toLong(), "bodyBold" to bold, "bodyAlign" to align, "bodyColor" to bodyColor, "audioUrl" to audioUrl,
+                                "bodyFontSize" to fontSize.toLong(), "bodyBold" to bold, "bodyAlign" to align, "bodyColor" to bodyColor, "audioUrl" to uploadedAudio,
                                 "updatedAt" to FieldValue.serverTimestamp(), "publishedAt" to FieldValue.serverTimestamp())
                             if (editingId == null) { data["createdAt"] = FieldValue.serverTimestamp(); db.collection("articles").add(data).await() }
                             else db.collection("articles").document(editingId!!).update(data - "authorUid").await()
