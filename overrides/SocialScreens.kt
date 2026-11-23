@@ -24,6 +24,7 @@ import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseUser
 import com.aurora.player.community.FirebaseCommunity
+import com.aurora.player.community.WhisperMessagingService
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -190,6 +191,12 @@ fun ChatScreen(user: FirebaseUser) {
     val db= remember { FirebaseFirestore.getInstance() }
     val scope= rememberCoroutineScope()
     val context= LocalContext.current
+    val notificationPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    LaunchedEffect(user.uid) {
+        WhisperMessagingService.syncToken(context,user.uid)
+        if(Build.VERSION.SDK_INT>=33 && ContextCompat.checkSelfPermission(context,Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
     var threads by remember { mutableStateOf<List<Pair<String,String>>>(emptyList()) }
     var selected by remember { mutableStateOf<Pair<String,String>?>(null) }
     var messages by remember { mutableStateOf<List<WhisperChatMessage>>(emptyList()) }
