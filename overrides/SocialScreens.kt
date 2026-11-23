@@ -300,31 +300,7 @@ fun ChatScreen(user: FirebaseUser) {
                 Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(5.dp)){
                     OutlinedTextField(value=draft,onValueChange={draft=it},modifier=Modifier.weight(1f),
                         placeholder={Text("اكتب رسالة…")},maxLines=4)
-                    IconButton(enabled=!uploading,onClick={imagePicker.launch("image/*")}){Text("＋")}
-                    IconButton(enabled=!uploading,onClick={
-                        if(recording){
-                            try{
-                                recorder?.stop();recorder?.release();recorder=null;recording=false
-                                val f=recordingFile
-                                val thread=selected!!.first
-                                if(f!=null&&f.exists()) scope.launch{
-                                    uploading=true
-                                    try{
-                                        val url=uploadWhisperFile("Voice/${user.uid}/$thread",f,"audio/mp4")
-                                        db.collection("chatThreads").document(thread).collection("messages").add(mapOf(
-                                            "uid" to user.uid,"authorName" to (user.displayName ?: "عضو Whisper"),
-                                            "type" to "audio","body" to "","mediaUrl" to url,
-                                            "createdAt" to FieldValue.serverTimestamp())).await()
-                                    }catch(e:Exception){error=e.localizedMessage ?: "تعذر إرسال التسجيل."}
-                                    f.delete();recordingFile=null;uploading=false
-                                }
-                            }catch(e:Exception){error=e.localizedMessage ?: "تعذر إنهاء التسجيل.";recording=false}
-                        }else{
-                            if(ContextCompat.checkSelfPermission(context,Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED)
-                                startWhisperRecording(context,user.uid,selected!!.first,{r->recorder=r.first;recordingFile=r.second;recording=true},{error=it})
-                            else micPermission.launch(Manifest.permission.RECORD_AUDIO)
-                        }
-                    }){Text(if(recording)"■" else "🎙")}
+                    Text("إرسال الصور والرسائل الصوتية غير متاح في النسخة بدون فوترة.", color=MaterialTheme.colorScheme.onSurfaceVariant, style=MaterialTheme.typography.bodySmall)
                     IconButton(enabled=!busy&&!uploading&&draft.isNotBlank(),onClick={
                         val body=draft.trim();val thread=selected!!.first;busy=true
                         scope.launch{try{
@@ -336,8 +312,7 @@ fun ChatScreen(user: FirebaseUser) {
                         }catch(e:Exception){error=e.localizedMessage ?: "تعذر إرسال الرسالة."};busy=false}
                     }){Text("➤")}
                 }
-                if(recording) Text("جارٍ تسجيل رسالة صوتية… اضغط ■ للإيقاف والإرسال.",color=MaterialTheme.colorScheme.primary)
-                if(uploading) LinearProgressIndicator(Modifier.fillMaxWidth())
+
             }
             error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
         }
