@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -193,6 +194,7 @@ private fun profilePhotoModel(photoData: String, photoUrl: String): Any? {
 fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (String) -> Unit) {
  val scope=rememberCoroutineScope()
  var members by remember { mutableStateOf<List<com.aurora.player.community.CommunityMember>>(emptyList()) }
+ var myFriends by remember { mutableStateOf<List<com.aurora.player.community.CommunityMember>>(emptyList()) }
  var following by remember { mutableStateOf<Set<String>>(emptySet()) }
  var requested by remember { mutableStateOf<Set<String>>(emptySet()) }
  var ownFollowers by remember { mutableIntStateOf(0) }
@@ -233,6 +235,8 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
   try {
    FirebaseCommunity.ensureProfile(user)
    val all=FirebaseCommunity.communityMembers()
+   val friendSet=FirebaseCommunity.friendIds(user.uid)
+   myFriends=all.filter{it.uid in friendSet}.sortedBy{it.displayName.lowercase()}
    members=all.filter{it.uid!=user.uid}
    following=FirebaseCommunity.followingIds(user.uid).intersect(members.map{it.uid}.toSet())
    requested=FirebaseCommunity.outgoingFriendRequests(user.uid).filter{it.status=="pending" || it.status=="accepted"}.map{it.uid}.toSet()+FirebaseCommunity.friendIds(user.uid)
@@ -269,6 +273,22 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
      Text("متابعون $ownFollowers   •   تتابع $ownFollowing   •   أصدقاء $ownFriends",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
      if(bio.isNotBlank()) Text(bio)
      if(favorites.isNotBlank()) Text("الأصوات المفضلة: $favorites",style=MaterialTheme.typography.bodySmall)
+     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
+      Text("الأصدقاء",style=MaterialTheme.typography.titleSmall,fontWeight=FontWeight.SemiBold)
+      Text("${myFriends.size}",style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.primary)
+     }
+     if(myFriends.isEmpty()) Text("لم تضف أصدقاء بعد.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+     else Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+      myFriends.forEach { friend ->
+       Surface(onClick={selected=friend},shape=RoundedCornerShape(14.dp),color=MaterialTheme.colorScheme.surface,modifier=Modifier.width(88.dp)) {
+        Column(Modifier.padding(8.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(4.dp)) {
+         if(friend.photoData.isNotBlank() || friend.photoUrl.isNotBlank()) AsyncImage(model=profilePhotoModel(friend.photoData,friend.photoUrl),contentDescription=null,modifier=Modifier.size(38.dp).clip(CircleShape))
+         else Surface(modifier=Modifier.size(38.dp),shape=CircleShape,color=MaterialTheme.colorScheme.primaryContainer){Box(contentAlignment=Alignment.Center){Icon(Icons.Rounded.Person,null)}}
+         Text(friend.displayName,maxLines=1,style=MaterialTheme.typography.labelSmall)
+        }
+       }
+      }
+     }
     }
    }
    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){Text("مستخدمو Whisper",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.SemiBold);TextButton(onClick={refresh()},enabled=!loading){Text("تحديث")}}
@@ -280,8 +300,8 @@ fun CommunityScreen(user: FirebaseUser, onSignOut: () -> Unit, onNavigate: (Stri
      Card(colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surfaceVariant)){
       Column(Modifier.fillMaxWidth().padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
        Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)){
-        if(m.photoData.isNotBlank() || m.photoUrl.isNotBlank()) AsyncImage(model=profilePhotoModel(m.photoData,m.photoUrl),contentDescription=null,modifier=Modifier.size(48.dp).clip(CircleShape))
-        else Surface(modifier=Modifier.size(48.dp),shape=CircleShape,color=MaterialTheme.colorScheme.primaryContainer){Box(contentAlignment=Alignment.Center){Icon(Icons.Rounded.Person,null)}}
+        if(m.photoData.isNotBlank() || m.photoUrl.isNotBlank()) AsyncImage(model=profilePhotoModel(m.photoData,m.photoUrl),contentDescription=null,modifier=Modifier.size(40.dp).clip(CircleShape))
+        else Surface(modifier=Modifier.size(40.dp),shape=CircleShape,color=MaterialTheme.colorScheme.primaryContainer){Box(contentAlignment=Alignment.Center){Icon(Icons.Rounded.Person,null)}}
         Column(Modifier.weight(1f)){Text(m.displayName,fontWeight=FontWeight.SemiBold);Text(m.bio.ifBlank{"عضو في مجتمع Whisper"},maxLines=2,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
         TextButton(onClick={selected=m}){Text("الملف")}
        }
