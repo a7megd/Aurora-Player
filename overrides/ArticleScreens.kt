@@ -31,7 +31,6 @@ import androidx.core.content.ContextCompat
 import java.io.File
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseUser
-import com.aurora.player.community.WhisperMediaRouter
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
