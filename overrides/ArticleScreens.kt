@@ -31,7 +31,7 @@ import androidx.core.content.ContextCompat
 import java.io.File
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseUser
-import com.aurora.player.community.WhisperCloudinary
+import com.aurora.player.community.WhisperStorage
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -171,7 +171,7 @@ fun ArticleWriterScreen(user: FirebaseUser) {
             try {
                 val type = context.contentResolver.getType(uri) ?: "audio/mp4"
                 require(type.startsWith("audio/")) { "الملف المختار ليس ملفًا صوتيًا." }
-                audioUrl = WhisperCloudinary.uploadUri(context, uri, "Whisper-Player/Articles/${user.uid}/Audio", "video", type)
+                audioUrl = WhisperStorage.uploadUri(context, uri, "Whisper-Player/Articles/${user.uid}/Audio", "video", type)
                 message = "تم إرفاق الملف الصوتي بالمقال."
             } catch (e: Exception) { message = e.localizedMessage ?: "تعذر رفع الملف الصوتي." }
             audioUploading = false
@@ -183,7 +183,7 @@ fun ArticleWriterScreen(user: FirebaseUser) {
             try {
                 val type = context.contentResolver.getType(uri) ?: "image/jpeg"
                 require(type.startsWith("image/")) { "الملف المختار ليس صورة." }
-                cover = WhisperCloudinary.uploadUri(context, uri, "Whisper-Player/Covers/${user.uid}", "image", type)
+                cover = WhisperStorage.uploadUri(context, uri, "Whisper-Player/Covers/${user.uid}", "image", type)
                 message = "تم رفع صورة الغلاف بنجاح."
             } catch (e: Exception) { message = e.localizedMessage ?: "تعذر رفع الصورة." }
             coverUploading = false
@@ -534,7 +534,7 @@ private fun ArticleComments(articleId: String, user: FirebaseUser) {
                             scope.launch {
                                 audioUploading = true
                                 try {
-                                    audioUrl = WhisperCloudinary.uploadFile(file,
+                                    audioUrl = WhisperStorage.uploadFile(file,
                                         "Whisper-Player/ArticleComments/" + articleId + "/" + user.uid, "video", "audio/mp4")
                                     error = null
                                 } catch (e: Exception) {
