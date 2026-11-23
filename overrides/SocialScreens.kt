@@ -441,7 +441,7 @@ fun ChatScreen(user: FirebaseUser) {
                         if(ContextCompat.checkSelfPermission(context,Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED) startVoiceRecording()
                         else microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
                     }) { Text("تسجيل صوت") }
-                    if(recording) Button(onClick={stopVoiceRecording}) { Text("إيقاف التسجيل") }
+                    if(recording) Button(onClick={stopVoiceRecording()}) { Text("إيقاف التسجيل") }
                 }
             }
             error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
