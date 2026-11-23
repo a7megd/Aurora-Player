@@ -40,7 +40,7 @@ jobs:
               line = f'    <uses-permission android:name="{permission}" />'
               if line not in content:
                   pos = content.find(">", content.find("<manifest")) + 1
-                  content = content[:pos] + "\\n" + line + content[pos:]
+                  content = content[:pos] + "\n" + line + content[pos:]
           service = '''
               <service
                   android:name="com.aurora.player.community.WhisperMessagingService"
