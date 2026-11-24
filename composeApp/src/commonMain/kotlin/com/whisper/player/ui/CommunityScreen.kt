@@ -89,7 +89,7 @@ fun CommunityScreen(
                             runCatching {
                                 service.publishPost(
                                     CommunityPost(
-                                        id = "post-${currentUserId}-${body.hashCode()}",
+                                        id = "post-${currentUserId}-${kotlin.random.Random.nextLong()}",
                                         authorUid = currentUserId,
                                         authorName = currentUserName,
                                         kind = CommunityPostKind.POST,
@@ -137,7 +137,7 @@ fun CommunityScreen(
                                 val now = 0L
                                 service.saveArticle(
                                     CommunityArticle(
-                                        id = "article-${currentUserId}-$now",
+                                        id = "article-${currentUserId}-${kotlin.random.Random.nextLong()}",
                                         authorUid = currentUserId,
                                         authorName = currentUserName,
                                         title = title,
@@ -153,6 +153,7 @@ fun CommunityScreen(
                         }
                     },
                     onDelete = { id -> scope.launch { runCatching { service.deleteArticle(id) }.onFailure { onError(it.message ?: "تعذر حذف المقال") } } },
+                    onPublish = { id -> scope.launch { runCatching { service.publishArticle(id) }.onFailure { onError(it.message ?: "تعذر نشر المقال") } } },
                     currentUserId = currentUserId,
                 )
             }
@@ -273,6 +274,7 @@ private fun ArticlesTab(
     onBody: (String) -> Unit,
     onSave: () -> Unit,
     onDelete: (String) -> Unit,
+    onPublish: (String) -> Unit,
     currentUserId: String,
 ) {
     Column(Modifier.fillMaxSize()) {
@@ -289,7 +291,7 @@ private fun ArticlesTab(
                         if (article.authorUid == currentUserId) {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 if (article.status == ArticleStatus.DRAFT) {
-                                    Button(onClick = { /* publish requires an author-validated service adapter */ }) { Text("مسودة") }
+                                    Button(onClick = { onPublish(article.id) }) { Text("نشر المقال") }
                                 }
                                 OutlinedButton(onClick = { onDelete(article.id) }) { Text("حذف") }
                             }
