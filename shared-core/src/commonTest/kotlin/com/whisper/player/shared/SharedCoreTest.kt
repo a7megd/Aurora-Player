@@ -56,7 +56,7 @@ class SharedCoreTest {
         val lines = LrcParser.parse("[00:01.2][00:02.34]hello\n[01:03.456]world")
         assertEquals(listOf(1200L, 2340L, 63456L), lines.map { it.timeMs })
         assertEquals(listOf("hello", "hello", "world"), lines.map { it.text })
-        assertEquals(1, LrcParser.currentIndex(lines, 1500))
+        assertEquals(0, LrcParser.currentIndex(lines, 1500))
         assertEquals(2, LrcParser.currentIndex(lines, 70000))
     }
 }
