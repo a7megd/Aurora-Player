@@ -73,7 +73,7 @@ jobs:
           install -D overrides/Routes.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/Routes.kt
           install -D overrides/MediaStoreScanner.kt AuroraPlayer/app/src/main/java/com/aurora/player/data/media/MediaStoreScanner.kt
           install -D overrides/LibraryRepository.kt AuroraPlayer/app/src/main/java/com/aurora/player/data/repository/LibraryRepository.kt
-          install -D overrides/MediaToolsScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/MediaToolsScreens.kt
+          install -D overrides/MediaToolsScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/MediaToolsScreens.kt\n          install -D overrides/WhisperMediaConverter.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/WhisperMediaConverter.kt
           install -D overrides/SocialScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/SocialScreens.kt
           install -D overrides/PlaybackService.kt AuroraPlayer/app/src/main/java/com/aurora/player/playback/PlaybackService.kt
           install -D overrides/PlaybackConnection.kt AuroraPlayer/app/src/main/java/com/aurora/player/playback/PlaybackConnection.kt
@@ -84,7 +84,7 @@ jobs:
           install -D overrides/ic_whisper_mark.xml AuroraPlayer/app/src/main/res/drawable/ic_whisper_mark.xml
           install -D overrides/ic_launcher.xml AuroraPlayer/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
           install -D overrides/whisper_icon_colors.xml AuroraPlayer/app/src/main/res/values/whisper_icon_colors.xml
-          python3 overrides/apply_media_features.py
+          python3 overrides/apply_media_features.py\n          python3 overrides/apply_share_intents.py
 
       - name: Set up Java
         uses: actions/setup-java@v4
