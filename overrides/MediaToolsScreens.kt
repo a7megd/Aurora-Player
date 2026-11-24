@@ -242,7 +242,7 @@ fun WhisperDownloadsScreen() {
     LaunchedEffect(Unit) { while (true) { rows = refresh(); delay(900) } }
     LaunchedEffect(link, autoStart) {
         val candidate = link.trim()
-        if (autoStart && candidate != lastAuto && (candidate.startsWith("http://") || candidate.startsWith("https://")) && Uri.parse(candidate).host != null) {
+        if (autoStart && youtubeUri == null && candidate != lastAuto && (candidate.startsWith("http://") || candidate.startsWith("https://")) && Uri.parse(candidate).host != null) {
             lastAuto = candidate
             delay(500)
             if (link.trim() == candidate) startDownload(candidate)
