@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.whisper.player.shared.platform.CommunityService
 
 private data class AppDestination(val title: String, val symbol: String)
 
@@ -36,6 +37,7 @@ private val destinations = listOf(
     AppDestination("المكتبة", "▤"),
     AppDestination("قوائم التشغيل", "≡"),
     AppDestination("بحث", "⌕"),
+    AppDestination("المجتمع", "♡"),
     AppDestination("الإعدادات", "⚙"),
 )
 
@@ -47,7 +49,11 @@ private val destinations = listOf(
  * migrated incrementally after their platform dependencies have been moved behind interfaces.
  */
 @Composable
-fun WhisperPlayerApp() {
+fun WhisperPlayerApp(
+    communityService: CommunityService? = null,
+    currentUserId: String? = null,
+    currentUserName: String = "",
+) {
     var selected by remember { mutableIntStateOf(0) }
     MaterialTheme(colorScheme = darkColorScheme()) {
         Scaffold(
@@ -85,6 +91,7 @@ fun WhisperPlayerApp() {
                     1 -> FeatureList("مكتبتك الصوتية", "الأغاني", "الفنانون", "الألبومات", "المجلدات")
                     2 -> FeatureList("قوائم التشغيل", "قائمة التشغيل الحالية", "إنشاء قائمة", "المفضلة")
                     3 -> FeatureList("ابحث في الصوت", "الأغاني", "الفنانون", "الألبومات")
+                    4 -> CommunityScreen(communityService, currentUserId, currentUserName)
                     else -> FeatureList("تخصيص Whisper", "المظهر والألوان", "ترتيب الأصوات", "إعدادات التشغيل", "إعدادات الصوت")
                 }
             }
