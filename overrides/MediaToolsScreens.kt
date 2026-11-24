@@ -2,6 +2,7 @@ package com.aurora.player.ui.navigation
 
 import android.app.DownloadManager
 import android.content.ContentValues
+import android.content.Intent
 import android.content.Context
 import android.net.Uri
 import android.os.Build
@@ -182,6 +183,13 @@ fun WhisperDownloadsScreen() {
     var rows by remember { mutableStateOf<List<DownloadRow>>(emptyList()) }
     var notice by remember { mutableStateOf<String?>(null) }
     var lastAuto by remember { mutableStateOf("") }
+    val youtubeUri = remember(link) {
+        runCatching {
+            val parsed = Uri.parse(link.trim())
+            val host = parsed.host?.lowercase(Locale.ROOT).orEmpty()
+            parsed.takeIf { it.scheme in listOf("http", "https") && (host == "youtube.com" || host.endsWith(".youtube.com") || host == "youtu.be" || host.endsWith(".youtu.be")) }
+        }.getOrNull()
+    }
 
     fun startDownload(raw: String) {
         val uri = runCatching { Uri.parse(raw.trim()) }.getOrNull()
@@ -276,6 +284,19 @@ fun WhisperDownloadsScreen() {
                 }
                 Button(onClick = { lastAuto = link.trim(); startDownload(link) }, modifier = Modifier.fillMaxWidth(), enabled = link.isNotBlank()) {
                     Icon(Icons.Rounded.Download, null); Spacer(Modifier.width(8.dp)); Text("بدء التنزيل")
+                }
+                if (youtubeUri != null) {
+                    OutlinedButton(onClick = {
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, youtubeUri).setPackage("com.google.android.youtube"))
+                        }.onFailure {
+                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, youtubeUri)) }
+                                .onFailure { notice = "تعذر فتح رابط يوتيوب." }
+                        }
+                    }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Rounded.OpenInNew, null); Spacer(Modifier.width(8.dp)); Text("فتح الفيديو في تطبيق YouTube")
+                    }
+                    Text("للتنزيل دون اتصال استخدم خيار التنزيل داخل YouTube إذا كان متاحًا للفيديو وحسابك. لا يحوّل هذا الخيار الفيديو إلى ملف صوتي مستقل.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Text("يدعم روابط ملفات الصوت المباشرة المسموح بتنزيلها، ولا يستخرج الصوت من يوتيوب أو يتجاوز قيود المنصات.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
