@@ -130,6 +130,49 @@ class SharedCoreTest {
     }
 
     @Test
+    fun friendRequestsCanOnlyBeAnsweredOnce() {
+        val request = FriendRequest("req", "alice", "bob", "Alice", createdAtEpochMillis = 10)
+        assertEquals(FriendRequestStatus.ACCEPTED, request.respond(true).status)
+        assertEquals(FriendRequestStatus.REJECTED, request.respond(false).status)
+        assertFailsWith<IllegalArgumentException> { request.respond(true).respond(false) }
+        assertFailsWith<IllegalArgumentException> { FriendRequest("self", "same", "same", "Self") }
+    }
+
+    @Test
+    fun communityPostsAndCommentsEnforceAuthorOwnership() {
+        val post = CommunityPost("p1", "alice", "Alice", CommunityPostKind.QUOTE, "Words", 20)
+        assertEquals(true, post.canBeDeletedBy("alice"))
+        assertEquals(false, post.canBeDeletedBy("bob"))
+        val comment = CommunityComment("c1", "p1", "bob", "Bob", "Reply", 21)
+        assertEquals(true, comment.canBeEditedBy("bob"))
+        assertEquals(false, comment.canBeDeletedBy("alice"))
+        assertFailsWith<IllegalArgumentException> {
+            CommunityPost("empty", "alice", "Alice", CommunityPostKind.POST, " ", 20)
+        }
+    }
+
+    @Test
+    fun articleDraftsPublishAndRespectAuthorVisibility() {
+        val article = CommunityArticle("a1", "alice", "Alice", "Title", body = "Draft", createdAtEpochMillis = 100)
+        assertEquals(true, article.isVisibleTo("alice"))
+        assertEquals(false, article.isVisibleTo("bob"))
+        val edited = article.saveDraft("alice", "New title", "Subtitle", "Updated body", "", 120)
+        val published = edited.publish("alice")
+        assertEquals(ArticleStatus.PUBLISHED, published.status)
+        assertEquals(true, published.isVisibleTo("bob"))
+        assertFailsWith<IllegalArgumentException> { article.publish("bob") }
+        assertFailsWith<IllegalArgumentException> { article.publish("alice").publish("bob") }
+    }
+
+    @Test
+    fun directChatRequiresFriendshipAndNoBlock() {
+        assertEquals(true, canStartDirectChat("alice", "bob", areFriends = true, eitherBlocked = false))
+        assertEquals(false, canStartDirectChat("alice", "bob", areFriends = false, eitherBlocked = false))
+        assertEquals(false, canStartDirectChat("alice", "bob", areFriends = true, eitherBlocked = true))
+        assertEquals(false, canStartDirectChat("alice", "alice", areFriends = true, eitherBlocked = false))
+    }
+
+    @Test
     fun parsesMultipleLrcTimestampsAndMillisecondPrecision() {
         val lines = LrcParser.parse("[00:01.2][00:02.34]hello\n[01:03.456]world")
         assertEquals(listOf(1200L, 2340L, 63456L), lines.map { it.timeMs })
