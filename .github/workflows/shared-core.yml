@@ -1,4 +1,4 @@
-name: Whisper Player shared core (Android + iOS)
+name: Whisper Player shared core (Android)
 
 on:
   workflow_dispatch:
@@ -43,19 +43,3 @@ jobs:
         run: |
           gradle -p cross-platform :shared-core:testDebugUnitTest
           gradle -p cross-platform :composeApp:assembleDebug
-
-  ios:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.9"
-      - name: Verify Xcode toolchain
-        run: xcodebuild -version
-      - name: Compile shared iOS framework
-        run: gradle -p cross-platform :composeApp:linkDebugFrameworkIosSimulatorArm64
