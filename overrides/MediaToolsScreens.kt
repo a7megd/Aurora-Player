@@ -175,52 +175,9 @@ fun WhisperFileManagerScreen(songs: List<Song>, recordingsOnly: Boolean = false,
 fun WhisperDownloadsScreen(onOpenConverter: () -> Unit = {}) {
     val context = LocalContext.current
     val manager = remember { context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager }
-    val prefs = remember { context.getSharedPreferences("whisper_downloads", Context.MODE_PRIVATE) }
-    var link by remember { mutableStateOf("") }
-    var name by remember { mutableStateOf("") }
-    var autoStart by remember { mutableStateOf(prefs.getBoolean("auto_start", false)) }
     var tab by remember { mutableIntStateOf(0) }
     var rows by remember { mutableStateOf<List<DownloadRow>>(emptyList()) }
     var notice by remember { mutableStateOf<String?>(null) }
-    var lastAuto by remember { mutableStateOf("") }
-    val youtubeUri = remember(link) {
-        runCatching {
-            val parsed = Uri.parse(link.trim())
-            val host = parsed.host?.lowercase(Locale.ROOT).orEmpty()
-            parsed.takeIf { it.scheme in listOf("http", "https") && (host == "youtube.com" || host.endsWith(".youtube.com") || host == "youtu.be" || host.endsWith(".youtu.be")) }
-        }.getOrNull()
-    }
-
-    fun startDownload(raw: String) {
-        val uri = runCatching { Uri.parse(raw.trim()) }.getOrNull()
-        val host = uri?.host?.lowercase(Locale.ROOT).orEmpty()
-        if (uri == null || uri.scheme !in listOf("http", "https") || host.isBlank()) {
-            notice = "الصق رابط تنزيل مباشر صالحًا يبدأ بـ https://"; return
-        }
-        if (host == "youtube.com" || host.endsWith(".youtube.com") || host == "youtu.be" || host.endsWith(".youtu.be")) {
-            notice = "لا يمكن استخراج الصوت من يوتيوب هنا. استخدم تنزيل يوتيوب الرسمي أو رابط ملف تملك حق تنزيله."; return
-        }
-        val path = uri.lastPathSegment.orEmpty()
-        val ext = path.substringAfterLast('.', "").lowercase(Locale.ROOT)
-        if (ext !in setOf("mp3", "m4a", "aac", "flac", "wav", "ogg", "opus", "amr", "3gp", "wma")) {
-            notice = "الرابط ليس ملفًا صوتيًا مباشرًا بصيغة مدعومة (MP3/M4A/AAC/FLAC/WAV/OGG/OPUS/AMR)."; return
-        }
-        val decoded = runCatching { URLDecoder.decode(path.substringBeforeLast('.'), "UTF-8") }.getOrDefault(path.substringBeforeLast('.'))
-        val safeName = (name.trim().ifBlank { decoded.ifBlank { "Whisper Audio" } })
-            .replace(Regex("[\\\\/:*?\"<>|]"), "_").take(90)
-        runCatching {
-            val request = DownloadManager.Request(uri)
-                .setTitle(safeName)
-                .setDescription("Whisper Player • تنزيل صوتي")
-                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setDestinationInExternalPublicDir(Environment.DIRECTORY_MUSIC, "Whisper Downloads/" + safeName + "." + ext)
-                .setAllowedOverMetered(true)
-                .setAllowedOverRoaming(false)
-            manager.enqueue(request)
-            link = ""; name = ""; notice = "أُضيف الملف إلى قائمة التنزيلات"
-        }.onFailure { notice = "تعذر بدء التنزيل: " + it.localizedMessage }
-    }
-
     fun refresh(): List<DownloadRow> {
         val found = mutableListOf<DownloadRow>()
         val statuses = DownloadManager.STATUS_PENDING or DownloadManager.STATUS_RUNNING or DownloadManager.STATUS_PAUSED or DownloadManager.STATUS_SUCCESSFUL or DownloadManager.STATUS_FAILED
@@ -240,15 +197,6 @@ fun WhisperDownloadsScreen(onOpenConverter: () -> Unit = {}) {
     }
 
     LaunchedEffect(Unit) { while (true) { rows = refresh(); delay(900) } }
-    LaunchedEffect(link, autoStart) {
-        val candidate = link.trim()
-        if (autoStart && youtubeUri == null && candidate != lastAuto && (candidate.startsWith("http://") || candidate.startsWith("https://")) && Uri.parse(candidate).host != null) {
-            lastAuto = candidate
-            delay(500)
-            if (link.trim() == candidate) startDownload(candidate)
-        }
-    }
-
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.size(48.dp)) {
@@ -257,54 +205,13 @@ fun WhisperDownloadsScreen(onOpenConverter: () -> Unit = {}) {
             Spacer(Modifier.width(12.dp))
             Column {
                 Text("التنزيلات", style = MaterialTheme.typography.headlineMedium)
-                Text("تنزيل الملفات الصوتية المباشرة", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("متابعة التنزيلات وتحويل ملفات الفيديو إلى MP3", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         OutlinedButton(onClick = onOpenConverter, modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
             Icon(Icons.Rounded.AudioFile, null)
             Spacer(Modifier.width(8.dp))
             Text("اختيار فيديو وتحويله إلى MP3")
-        }
-        Card(Modifier.fillMaxWidth().padding(top = 14.dp)) {
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("إضافة رابط", style = MaterialTheme.typography.titleMedium)
-                OutlinedTextField(
-                    value = link, onValueChange = { link = it }, modifier = Modifier.fillMaxWidth(),
-                    label = { Text("صندوق لصق الرابط") }, placeholder = { Text("https://example.com/audio.mp3") },
-                    singleLine = true,
-                    trailingIcon = {
-                        IconButton(onClick = {
-                            val clip = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                            link = clip.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()
-                        }) { Icon(Icons.Rounded.ContentPaste, "لصق") }
-                    }
-                )
-                OutlinedTextField(name, { name = it }, modifier = Modifier.fillMaxWidth(), label = { Text("اسم الملف (اختياري)") }, singleLine = true)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("بدء التنزيل تلقائيًا")
-                        Text("ابدأ عند اكتشاف رابط صالح", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Switch(checked = autoStart, onCheckedChange = { autoStart = it; prefs.edit().putBoolean("auto_start", it).apply() })
-                }
-                Button(onClick = { lastAuto = link.trim(); startDownload(link) }, modifier = Modifier.fillMaxWidth(), enabled = link.isNotBlank()) {
-                    Icon(Icons.Rounded.Download, null); Spacer(Modifier.width(8.dp)); Text("بدء التنزيل")
-                }
-                if (youtubeUri != null) {
-                    OutlinedButton(onClick = {
-                        runCatching {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, youtubeUri).setPackage("com.google.android.youtube"))
-                        }.onFailure {
-                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, youtubeUri)) }
-                                .onFailure { notice = "تعذر فتح رابط يوتيوب." }
-                        }
-                    }, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Rounded.OpenInNew, null); Spacer(Modifier.width(8.dp)); Text("فتح الفيديو في تطبيق YouTube")
-                    }
-                    Text("للتنزيل دون اتصال استخدم خيار التنزيل داخل YouTube إذا كان متاحًا للفيديو وحسابك. لا يحوّل هذا الخيار الفيديو إلى ملف صوتي مستقل.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Text("يدعم روابط ملفات الصوت المباشرة المسموح بتنزيلها، ولا يستخرج الصوت من يوتيوب أو يتجاوز قيود المنصات.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
         }
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 12.dp)) {
             listOf("التنزيلات" to 0, "قائمة الانتظار" to 1, "المكتملة" to 2).forEachIndexed { i, item ->
