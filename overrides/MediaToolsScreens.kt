@@ -172,7 +172,7 @@ fun WhisperFileManagerScreen(songs: List<Song>, recordingsOnly: Boolean = false,
 }
 
 @Composable
-fun WhisperDownloadsScreen() {
+fun WhisperDownloadsScreen(onOpenConverter: () -> Unit = {}) {
     val context = LocalContext.current
     val manager = remember { context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager }
     val prefs = remember { context.getSharedPreferences("whisper_downloads", Context.MODE_PRIVATE) }
@@ -259,6 +259,11 @@ fun WhisperDownloadsScreen() {
                 Text("التنزيلات", style = MaterialTheme.typography.headlineMedium)
                 Text("تنزيل الملفات الصوتية المباشرة", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+        }
+        OutlinedButton(onClick = onOpenConverter, modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
+            Icon(Icons.Rounded.AudioFile, null)
+            Spacer(Modifier.width(8.dp))
+            Text("اختيار فيديو وتحويله إلى MP3")
         }
         Card(Modifier.fillMaxWidth().padding(top = 14.dp)) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
