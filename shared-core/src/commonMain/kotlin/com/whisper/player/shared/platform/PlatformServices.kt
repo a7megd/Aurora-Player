@@ -140,8 +140,24 @@ interface AccountService {
     suspend fun signOut()
 }
 
-/** Social/community operations are shared; each platform SDK only transports these requests. */
+/** Social/community operations are shared; platform SDKs only transport these requests. */
 interface CommunityService {
+    val feed: Flow<List<com.whisper.player.shared.model.CommunityPost>>
+    val incomingFriendRequests: Flow<List<com.whisper.player.shared.model.FriendRequest>>
+    val outgoingFriendRequests: Flow<List<com.whisper.player.shared.model.FriendRequest>>
+    val articles: Flow<List<com.whisper.player.shared.model.CommunityArticle>>
+
+    suspend fun updateProfile(profile: com.whisper.player.shared.model.CommunityProfile)
+    suspend fun followUser(userId: String)
+    suspend fun unfollowUser(userId: String)
+    suspend fun sendFriendRequest(userId: String)
+    suspend fun respondToFriendRequest(requestId: String, accept: Boolean)
+    suspend fun removeFriend(userId: String)
+    suspend fun publishPost(post: com.whisper.player.shared.model.CommunityPost)
+    suspend fun deletePost(postId: String)
+    suspend fun addPostComment(comment: com.whisper.player.shared.model.CommunityComment)
+    suspend fun saveArticle(article: com.whisper.player.shared.model.CommunityArticle)
+    suspend fun deleteArticle(articleId: String)
     suspend fun sendMessage(conversationId: String, text: String)
     suspend fun markConversationRead(conversationId: String)
     suspend fun setConversationArchived(conversationId: String, archived: Boolean)
