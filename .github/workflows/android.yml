@@ -75,6 +75,7 @@ jobs:
           install -D overrides/LibraryRepository.kt AuroraPlayer/app/src/main/java/com/aurora/player/data/repository/LibraryRepository.kt
           install -D overrides/MediaToolsScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/MediaToolsScreens.kt
           install -D overrides/WhisperMediaConverter.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/WhisperMediaConverter.kt
+          install -D overrides/Lame.java AuroraPlayer/app/src/main/java/net/qiujuer/lame/Lame.java
           install -D overrides/SocialScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/SocialScreens.kt
           install -D overrides/PlaybackService.kt AuroraPlayer/app/src/main/java/com/aurora/player/playback/PlaybackService.kt
           install -D overrides/PlaybackConnection.kt AuroraPlayer/app/src/main/java/com/aurora/player/playback/PlaybackConnection.kt
