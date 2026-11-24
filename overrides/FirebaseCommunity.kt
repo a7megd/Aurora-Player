@@ -169,12 +169,9 @@ object FirebaseCommunity {
     suspend fun isBlockedByMe(uid: String, targetUid: String): Boolean =
         db.collection("users").document(uid).collection("blockedUsers").document(targetUid).get().await().exists()
 
-    suspend fun isBlocked(firstUid: String, secondUid: String): Boolean {
-        if (firstUid == secondUid) return false
-        val first = db.collection("users").document(firstUid).collection("blockedUsers").document(secondUid).get().await().exists()
-        if (first) return true
-        return db.collection("users").document(secondUid).collection("blockedUsers").document(firstUid).get().await().exists()
-    }
+    // Reads only the signed-in user's private block list. Firestore rules enforce the reverse direction server-side.
+    suspend fun isBlocked(firstUid: String, secondUid: String): Boolean =
+        db.collection("users").document(firstUid).collection("blockedUsers").document(secondUid).get().await().exists()
 
     suspend fun blockedUsers(uid: String): List<BlockedMember> {
         val docs = db.collection("users").document(uid).collection("blockedUsers").get().await().documents
