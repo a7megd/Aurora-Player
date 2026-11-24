@@ -81,7 +81,7 @@ class SharedCoreTest {
             currentEntryId = "b",
         )
         assertEquals("c", queue.selectNext(RepeatMode.OFF).currentEntryId)
-        assertEquals("b", queue.selectPrevious(RepeatMode.OFF).currentEntryId)
+        assertEquals("a", queue.selectPrevious(RepeatMode.OFF).currentEntryId)
         assertEquals("a", queue.copy(currentEntryId = "c").selectNext(RepeatMode.ALL).currentEntryId)
         assertEquals("c", queue.copy(currentEntryId = "a").selectPrevious(RepeatMode.ALL).currentEntryId)
         assertEquals("b", queue.selectNext(RepeatMode.ONE).currentEntryId)
