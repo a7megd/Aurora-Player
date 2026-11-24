@@ -23,6 +23,8 @@ data class CommunityMember(
 
 data class ChatApprovalRequest(val id: String, val requesterUid: String, val requesterName: String, val targetUid: String, val targetName: String, val status: String, val createdAt: Long = 0L)
 
+data class BlockedMember(val uid: String, val displayName: String, val photoUrl: String = "")
+
 data class FriendRequest(
     val uid: String,
     val displayName: String,
@@ -160,6 +162,40 @@ object FirebaseCommunity {
 
     suspend fun friendCount(uid: String): Int =
         db.collection("users").document(uid).collection("friends").get().await().size()
+
+    suspend fun blockedUserIds(uid: String): Set<String> =
+        db.collection("users").document(uid).collection("blockedUsers").get().await().documents.map { it.id }.toSet()
+
+    suspend fun isBlockedByMe(uid: String, targetUid: String): Boolean =
+        db.collection("users").document(uid).collection("blockedUsers").document(targetUid).get().await().exists()
+
+    suspend fun isBlocked(firstUid: String, secondUid: String): Boolean {
+        if (firstUid == secondUid) return false
+        val first = db.collection("users").document(firstUid).collection("blockedUsers").document(secondUid).get().await().exists()
+        if (first) return true
+        return db.collection("users").document(secondUid).collection("blockedUsers").document(firstUid).get().await().exists()
+    }
+
+    suspend fun blockedUsers(uid: String): List<BlockedMember> {
+        val docs = db.collection("users").document(uid).collection("blockedUsers").get().await().documents
+        return docs.map { doc ->
+            val profile = db.collection("users").document(doc.id).get().await()
+            BlockedMember(doc.id, profile.getString("displayName") ?: "عضو Whisper", profile.getString("photoUrl").orEmpty())
+        }.sortedBy { it.displayName.lowercase() }
+    }
+
+    suspend fun blockUser(uid: String, targetUid: String) {
+        require(uid != targetUid) { "لا يمكنك حظر حسابك." }
+        val profile = db.collection("users").document(targetUid).get().await()
+        check(profile.exists()) { "هذا الحساب لم يعد متاحًا." }
+        db.collection("users").document(uid).collection("blockedUsers").document(targetUid).set(
+            mapOf("uid" to targetUid, "createdAt" to FieldValue.serverTimestamp())
+        ).await()
+    }
+
+    suspend fun unblockUser(uid: String, targetUid: String) {
+        db.collection("users").document(uid).collection("blockedUsers").document(targetUid).delete().await()
+    }
 
     suspend fun friendIds(uid: String): Set<String> =
         db.collection("users").document(uid).collection("friends").get().await().documents.map { it.id }.toSet()
