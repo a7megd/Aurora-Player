@@ -1,6 +1,5 @@
 package com.aurora.player.ui.navigation
 
-import android.app.DownloadManager
 import android.content.ContentValues
 import android.content.Intent
 import android.content.Context
@@ -25,12 +24,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.aurora.player.data.media.RecordingClassifier
 import com.aurora.player.domain.model.Song
-import kotlinx.coroutines.delay
-import java.net.URLDecoder
 import java.util.Locale
 
 private data class AudioEdit(val fileName: String, val title: String, val artist: String, val album: String, val year: String)
-private data class DownloadRow(val id: Long, val title: String, val status: Int, val done: Long, val total: Long, val localUri: String?)
 
 @Composable
 fun WhisperFileManagerScreen(songs: List<Song>, recordingsOnly: Boolean = false, onRefresh: () -> Unit = {}) {
@@ -171,98 +167,100 @@ fun WhisperFileManagerScreen(songs: List<Song>, recordingsOnly: Boolean = false,
     }
 }
 
+data class ConvertedAudioRecord(
+    val outputName: String,
+    val sourceName: String,
+    val convertedAt: Long,
+    val bitrate: Int
+)
+
+object ConvertedAudioHistory {
+    private const val PREFS = "whisper_converted_audio"
+    private const val KEY = "history"
+
+    fun load(context: Context): List<ConvertedAudioRecord> {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, "[]") ?: "[]"
+        return runCatching {
+            val array = org.json.JSONArray(raw)
+            (0 until array.length()).mapNotNull { index ->
+                val item = array.optJSONObject(index) ?: return@mapNotNull null
+                ConvertedAudioRecord(
+                    item.optString("outputName"), item.optString("sourceName"),
+                    item.optLong("convertedAt"), item.optInt("bitrate", 192)
+                ).takeIf { it.outputName.isNotBlank() }
+            }.sortedByDescending { it.convertedAt }
+        }.getOrDefault(emptyList())
+    }
+
+    fun add(context: Context, record: ConvertedAudioRecord) {
+        val existing = load(context).filterNot { it.outputName == record.outputName }
+        val array = org.json.JSONArray()
+        (listOf(record) + existing).take(200).forEach { item ->
+            array.put(org.json.JSONObject().apply {
+                put("outputName", item.outputName)
+                put("sourceName", item.sourceName)
+                put("convertedAt", item.convertedAt)
+                put("bitrate", item.bitrate)
+            })
+        }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, array.toString()).apply()
+    }
+}
+
 @Composable
 fun WhisperDownloadsScreen(onOpenConverter: () -> Unit = {}) {
     val context = LocalContext.current
-    val manager = remember { context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager }
-    var tab by remember { mutableIntStateOf(0) }
-    var rows by remember { mutableStateOf<List<DownloadRow>>(emptyList()) }
-    var notice by remember { mutableStateOf<String?>(null) }
-    fun refresh(): List<DownloadRow> {
-        val found = mutableListOf<DownloadRow>()
-        val statuses = DownloadManager.STATUS_PENDING or DownloadManager.STATUS_RUNNING or DownloadManager.STATUS_PAUSED or DownloadManager.STATUS_SUCCESSFUL or DownloadManager.STATUS_FAILED
-        manager.query(DownloadManager.Query().setFilterByStatus(statuses))?.use { cursor ->
-            val id = cursor.getColumnIndex(DownloadManager.COLUMN_ID)
-            val title = cursor.getColumnIndex(DownloadManager.COLUMN_TITLE)
-            val status = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
-            val done = cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
-            val total = cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
-            val local = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
-            while (cursor.moveToNext()) found += DownloadRow(
-                cursor.getLong(id), cursor.getString(title).orEmpty(), cursor.getInt(status),
-                cursor.getLong(done), cursor.getLong(total), if (cursor.isNull(local)) null else cursor.getString(local)
-            )
-        }
-        return found.sortedByDescending { it.id }
-    }
-
-    LaunchedEffect(Unit) { while (true) { rows = refresh(); delay(900) } }
+    var history by remember { mutableStateOf(ConvertedAudioHistory.load(context)) }
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.medium, modifier = Modifier.size(48.dp)) {
-                Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Download, null, tint = MaterialTheme.colorScheme.onPrimaryContainer) }
+                Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.AudioFile, null, tint = MaterialTheme.colorScheme.onPrimaryContainer) }
             }
             Spacer(Modifier.width(12.dp))
-            Column {
-                Text("التنزيلات", style = MaterialTheme.typography.headlineMedium)
-                Text("متابعة التنزيلات وتحويل ملفات الفيديو إلى MP3", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(Modifier.weight(1f)) {
+                Text("تحويلاتي الصوتية", style = MaterialTheme.typography.headlineMedium)
+                Text("سجل ملفات الصوت الناتجة عن تحويل الفيديو", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            IconButton(onClick = { history = ConvertedAudioHistory.load(context) }) {
+                Icon(Icons.Rounded.Refresh, "تحديث السجل")
             }
         }
-        OutlinedButton(onClick = onOpenConverter, modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
-            Icon(Icons.Rounded.AudioFile, null)
+        Button(onClick = onOpenConverter, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+            Icon(Icons.Rounded.VideoFile, null)
             Spacer(Modifier.width(8.dp))
             Text("اختيار فيديو وتحويله إلى MP3")
         }
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 12.dp)) {
-            listOf("التنزيلات" to 0, "قائمة الانتظار" to 1, "المكتملة" to 2).forEachIndexed { i, item ->
-                SegmentedButton(selected = tab == item.second, onClick = { tab = item.second }, shape = SegmentedButtonDefaults.itemShape(i, 3)) { Text(item.first) }
-            }
-        }
-        val shown = when (tab) {
-            1 -> rows.filter { it.status == DownloadManager.STATUS_PENDING || it.status == DownloadManager.STATUS_RUNNING || it.status == DownloadManager.STATUS_PAUSED }
-            2 -> rows.filter { it.status == DownloadManager.STATUS_SUCCESSFUL }
-            else -> rows
-        }
-        if (shown.isEmpty()) {
+        Text("سجل التحويلات", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 18.dp, bottom = 8.dp))
+        if (history.isEmpty()) {
             Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                Text(if (tab == 1) "قائمة الانتظار فارغة" else if (tab == 2) "لا توجد تنزيلات مكتملة بعد" else "لا توجد تنزيلات بعد", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Rounded.AudioFile, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(42.dp))
+                    Text("لا توجد تحويلات بعد", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("ستظهر هنا ملفات MP3 التي تنشئها من الفيديوهات", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-        } else LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(shown, key = { it.id }) { item ->
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(if (item.status == DownloadManager.STATUS_SUCCESSFUL) Icons.Rounded.CheckCircle else Icons.Rounded.AudioFile, null, tint = MaterialTheme.colorScheme.primary)
+        } else {
+            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(history, key = { it.outputName + it.convertedAt }) { item ->
+                    Card(Modifier.fillMaxWidth()) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.AudioFile, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
                             Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
-                                Text(item.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(downloadStatus(item.status), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(item.outputName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("من: " + item.sourceName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    java.text.SimpleDateFormat("yyyy/MM/dd • hh:mm a", Locale.getDefault()).format(java.util.Date(item.convertedAt)) + " • " + item.bitrate + " kbps",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text("Music/Whisper Downloads", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            IconButton(onClick = { manager.remove(item.id); rows = refresh() }) { Icon(Icons.Rounded.Delete, "إزالة") }
-                        }
-                        if (item.status == DownloadManager.STATUS_PENDING || item.status == DownloadManager.STATUS_RUNNING || item.status == DownloadManager.STATUS_PAUSED) {
-                            val progress = if (item.total > 0) item.done.toFloat() / item.total else 0f
-                            LinearProgressIndicator(progress = progress.coerceIn(0f, 1f), modifier = Modifier.fillMaxWidth())
-                            Text((progress * 100).toInt().toString() + "% • " + item.done / 1024 + " / " + item.total / 1024 + " KB", style = MaterialTheme.typography.labelSmall)
-                        }
-                        if (item.status == DownloadManager.STATUS_SUCCESSFUL && item.localUri != null) {
-                            Text("حُفظ في Music/Whisper Downloads", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(Icons.Rounded.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
             }
         }
     }
-    notice?.let { text ->
-        AlertDialog(onDismissRequest = { notice = null }, title = { Text("التنزيل") }, text = { Text(text) },
-            confirmButton = { TextButton(onClick = { notice = null }) { Text("حسنًا") } })
-    }
 }
 
-private fun downloadStatus(status: Int): String = when (status) {
-    DownloadManager.STATUS_PENDING -> "في الانتظار"
-    DownloadManager.STATUS_RUNNING -> "جارٍ التنزيل"
-    DownloadManager.STATUS_PAUSED -> "متوقف مؤقتًا"
-    DownloadManager.STATUS_SUCCESSFUL -> "اكتمل التنزيل"
-    DownloadManager.STATUS_FAILED -> "فشل التنزيل"
-    else -> "حالة غير معروفة"
-}
