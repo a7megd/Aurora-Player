@@ -157,6 +157,7 @@ interface CommunityService {
     suspend fun deletePost(postId: String)
     suspend fun addPostComment(comment: com.whisper.player.shared.model.CommunityComment)
     suspend fun saveArticle(article: com.whisper.player.shared.model.CommunityArticle)
+    suspend fun addArticleComment(comment: com.whisper.player.shared.model.CommunityArticleComment)
     suspend fun deleteArticle(articleId: String)
     suspend fun sendMessage(conversationId: String, text: String)
     suspend fun markConversationRead(conversationId: String)
