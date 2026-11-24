@@ -32,6 +32,7 @@ object Routes {
     const val FRIEND_REQUESTS = "friend_requests"
     const val POSTS = "posts"
     const val CHAT = "chat"
+    const val MEDIA_CONVERTER = "media_converter"
 }
 
 data class BottomTab(val route: String, val label: String, val icon: ImageVector)
