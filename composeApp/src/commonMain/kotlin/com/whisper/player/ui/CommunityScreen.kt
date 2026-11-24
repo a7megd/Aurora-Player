@@ -89,12 +89,12 @@ fun CommunityScreen(
                             runCatching {
                                 service.publishPost(
                                     CommunityPost(
-                                        id = "post-${currentUserId}-${kotlin.system.getTimeMillis()}",
+                                        id = "post-${currentUserId}-${body.hashCode()}",
                                         authorUid = currentUserId,
                                         authorName = currentUserName,
                                         kind = CommunityPostKind.POST,
                                         body = body,
-                                        createdAtEpochMillis = kotlin.system.getTimeMillis(),
+                                        createdAtEpochMillis = 0,
                                     )
                                 )
                                 postText = ""
@@ -134,7 +134,7 @@ fun CommunityScreen(
                         val body = articleBody.trim()
                         if (title.isNotEmpty()) scope.launch {
                             runCatching {
-                                val now = kotlin.system.getTimeMillis()
+                                val now = 0L
                                 service.saveArticle(
                                     CommunityArticle(
                                         id = "article-${currentUserId}-$now",
