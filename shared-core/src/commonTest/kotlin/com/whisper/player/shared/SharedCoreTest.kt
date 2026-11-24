@@ -104,6 +104,32 @@ class SharedCoreTest {
     }
 
     @Test
+    fun playlistCanInsertRemoveReorderAndRenameTracks() {
+        val playlist = Playlist(
+            id = "mix",
+            name = "  Road Trip  ",
+            trackIds = listOf(TrackId("a"), TrackId("c")),
+            createdAtEpochMillis = 10,
+        )
+        val edited = playlist
+            .addTrack(TrackId("b"), atIndex = 1)
+            .moveTrack(2, 0)
+            .removeTrackAt(1)
+            .renamed("  Night Drive  ")
+        assertEquals("Night Drive", edited.name)
+        assertEquals(listOf("c", "b"), edited.trackIds.map { it.value })
+        assertEquals(listOf("a", "c"), playlist.trackIds.map { it.value })
+    }
+
+    @Test
+    fun playlistRejectsBlankNamesAndInvalidIndexes() {
+        val playlist = Playlist("mix", "Favorites", emptyList(), 0)
+        assertFailsWith<IllegalArgumentException> { playlist.renamed("   ") }
+        assertFailsWith<IllegalArgumentException> { playlist.addTrack(TrackId("a"), 1) }
+        assertFailsWith<IllegalArgumentException> { playlist.removeTrackAt(0) }
+    }
+
+    @Test
     fun parsesMultipleLrcTimestampsAndMillisecondPrecision() {
         val lines = LrcParser.parse("[00:01.2][00:02.34]hello\n[01:03.456]world")
         assertEquals(listOf(1200L, 2340L, 63456L), lines.map { it.timeMs })
