@@ -71,7 +71,7 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-messaging")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
-    debugImplementation(libs.compose.ui.tooling)
+    implementation("net.qiujuer.lame:lame:1.0.0")\n    debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)
     androidTestImplementation(libs.room.testing)
 }
