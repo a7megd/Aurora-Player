@@ -7,7 +7,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 class SharedCoreTest {
-    private fun track(id: String, title: String, duration: Long = 1000) = Track(
+    private fun track(
+        id: String,
+        title: String,
+        duration: Long = 1000,
+        plays: Long = 0,
+        lastPlayed: Long? = null,
+    ) = Track(
         id = TrackId(id),
         title = title,
         artist = "Artist",
@@ -15,12 +21,25 @@ class SharedCoreTest {
         durationMs = duration,
         source = MediaSource.FILES_IMPORT,
         locator = "file:///$id.mp3",
+        playCount = plays,
+        lastPlayedEpochMillis = lastPlayed,
     )
 
     @Test
     fun sortsTracksWithoutPlatformLocaleDependencies() {
         val sorted = sortTracks(listOf(track("2", "zeta"), track("1", "Alpha")), SongSort.TITLE)
         assertEquals(listOf("Alpha", "zeta"), sorted.map { it.title })
+    }
+
+    @Test
+    fun sortsByMostPlayedAndRecentlyPlayed() {
+        val tracks = listOf(
+            track("a", "Alpha", plays = 2, lastPlayed = 100),
+            track("b", "Beta", plays = 12, lastPlayed = 300),
+            track("c", "Gamma", plays = 5, lastPlayed = 200),
+        )
+        assertEquals(listOf("b", "c", "a"), sortTracks(tracks, SongSort.MOST_PLAYED, ascending = false).map { it.id.value })
+        assertEquals(listOf("b", "c", "a"), sortTracks(tracks, SongSort.RECENTLY_PLAYED, ascending = false).map { it.id.value })
     }
 
     @Test
