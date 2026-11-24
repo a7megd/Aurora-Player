@@ -87,6 +87,59 @@ data class PlaybackQueue(
         return copy(entries = updated)
     }
 
+
+    /**
+     * Selects the next queue occurrence. [shuffleOrder] is an optional ordered list
+     * of entry IDs produced by the platform shuffle adapter; omitted/stale IDs are
+     * ignored and entries missing from that list retain their original order.
+     * Repeat-one keeps the current occurrence, repeat-all wraps, and repeat-off stops
+     * at the end without silently restarting playback.
+     */
+    fun selectNext(
+        repeatMode: RepeatMode,
+        shuffleOrder: List<String>? = null,
+    ): PlaybackQueue {
+        if (entries.isEmpty()) return this
+        if (repeatMode == RepeatMode.ONE && currentEntryId != null) return this
+        val ordered = orderedEntries(shuffleOrder)
+        val currentIndex = ordered.indexOfFirst { it.entryId == currentEntryId }
+        val nextIndex = when {
+            currentIndex < 0 -> 0
+            currentIndex < ordered.lastIndex -> currentIndex + 1
+            repeatMode == RepeatMode.ALL -> 0
+            else -> return this
+        }
+        return copy(currentEntryId = ordered[nextIndex].entryId)
+    }
+
+    /** Selects the previous occurrence, wrapping only when repeat-all is enabled. */
+    fun selectPrevious(
+        repeatMode: RepeatMode,
+        shuffleOrder: List<String>? = null,
+    ): PlaybackQueue {
+        if (entries.isEmpty()) return this
+        if (repeatMode == RepeatMode.ONE && currentEntryId != null) return this
+        val ordered = orderedEntries(shuffleOrder)
+        val currentIndex = ordered.indexOfFirst { it.entryId == currentEntryId }
+        val previousIndex = when {
+            currentIndex < 0 -> 0
+            currentIndex > 0 -> currentIndex - 1
+            repeatMode == RepeatMode.ALL -> ordered.lastIndex
+            else -> 0
+        }
+        return copy(currentEntryId = ordered[previousIndex].entryId)
+    }
+
+    private fun orderedEntries(shuffleOrder: List<String>?): List<QueueEntry> {
+        if (shuffleOrder == null) return entries
+        val byId = entries.associateBy { it.entryId }
+        val seen = mutableSetOf<String>()
+        val ordered = shuffleOrder.mapNotNull { id ->
+            byId[id]?.takeIf { seen.add(id) }
+        }
+        return ordered + entries.filter { seen.add(it.entryId) }
+    }
+
     fun removeAt(index: Int): PlaybackQueue {
         require(index in entries.indices) { "index is outside the queue" }
         val removed = entries[index]
