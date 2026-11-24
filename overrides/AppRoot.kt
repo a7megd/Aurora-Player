@@ -230,15 +230,16 @@ private fun PlayerAppRoot(user: FirebaseUser) {
     LaunchedEffect(hasPermission) { if (hasPermission) repository.refresh() }
 
     val nav = rememberNavController()
-    val incomingShareUri = remember(context) {
-        val intent = context.intent
+    val incomingShareIntent = remember(context) { (context as? android.app.Activity)?.intent }
+    val incomingShareUri = remember(incomingShareIntent) {
+        val intent = incomingShareIntent
         if (intent?.action == android.content.Intent.ACTION_SEND) {
             @Suppress("DEPRECATION")
             intent.getParcelableExtra<android.net.Uri>(android.content.Intent.EXTRA_STREAM)
         } else null
     }
-    val incomingShareText = remember(context) {
-        val intent = context.intent
+    val incomingShareText = remember(incomingShareIntent) {
+        val intent = incomingShareIntent
         if (intent?.action == android.content.Intent.ACTION_SEND) intent.getStringExtra(android.content.Intent.EXTRA_TEXT) else null
     }
     LaunchedEffect(incomingShareUri, incomingShareText) {
