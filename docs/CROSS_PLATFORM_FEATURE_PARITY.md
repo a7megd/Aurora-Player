@@ -47,8 +47,9 @@ This is the acceptance checklist for replacing the Android-only implementation w
 
 ## Current verified state (2026-11-24)
 
-- The shared-core and Compose Android UI CI job passed in workflow run [45461154591](https://github.com/a7megd/Aurora-Player/actions/runs/45461154591).
-- The iOS job in that run was still queued when this status was recorded.
+- The shared-core unit tests and Compose Android UI compilation passed in workflow run [45466360740](https://github.com/a7megd/Aurora-Player/actions/runs/45466360740) (Android job conclusion: success).
+- The iOS simulator framework job in run 45466360740 had not completed when this status was checked.
+- The installable Android debug-APK workflow was enabled for this development branch and started as [run 45466866481](https://github.com/a7megd/Aurora-Player/actions/runs/45466866481); its APK build and artifact upload are pending verification.
 - Shared models, LRC parser, queue navigation/repeat behavior, playlist editing operations, and social/profile/friend-request/post/comment/article domain models, text/audio article-comment validation, expanded `CommunityService` contracts, and an initial shared Compose community UI are in place; they are not yet connected end-to-end to Firebase or authenticated Android/iOS platform adapters. Full parity, media upload/voice comment flows and device validation remain outstanding.
 - The shared Compose UI now includes an initial community feed/friends/requests/articles experience, but it requires authenticated platform service injection and a real Firebase adapter; the remaining player/library screens are still placeholders.
 - No installable iOS IPA, completed Xcode project/signing setup, or cross-platform release has been produced.
