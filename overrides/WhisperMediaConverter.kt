@@ -139,6 +139,15 @@ fun WhisperMediaConverterScreen(initialUri: Uri? = null, initialText: String? = 
                     working = false
                     result.onSuccess {
                         resultName = it
+                        ConvertedAudioHistory.add(
+                            context,
+                            ConvertedAudioRecord(
+                                outputName = safe + ".mp3",
+                                sourceName = displayName(context, input),
+                                convertedAt = System.currentTimeMillis(),
+                                bitrate = bitrate
+                            )
+                        )
                         message = "اكتمل التحويل وحُفظ الملف في Music/Whisper Downloads"
                     }.onFailure {
                         message = "تعذر التحويل: " + (it.localizedMessage ?: "صيغة الفيديو غير مدعومة")
