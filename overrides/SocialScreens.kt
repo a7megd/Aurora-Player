@@ -204,6 +204,12 @@ fun ChatScreen(user: FirebaseUser) {
     }
     var threads by remember { mutableStateOf<List<Pair<String,String>>>(emptyList()) }
     var selected by remember { mutableStateOf<Pair<String,String>?>(null) }
+    var inboxFilter by remember { mutableStateOf("الكل") }
+    val inboxPrefs = remember(user.uid) { context.getSharedPreferences("whisper_chat_inbox_${user.uid}", 0) }
+    var archivedThreadIds by remember(user.uid) {
+        mutableStateOf(inboxPrefs.getStringSet("archived", emptySet())?.toSet() ?: emptySet())
+    }
+    var unreadThreadIds by remember(user.uid) { mutableStateOf<Set<String>>(emptySet()) }
     var messages by remember { mutableStateOf<List<WhisperChatMessage>>(emptyList()) }
     var draft by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
@@ -290,8 +296,23 @@ fun ChatScreen(user: FirebaseUser) {
             val profiles=visibleRows.map{it["otherUid"].orEmpty()}.distinct().associateWith{uid->
                 db.collection("users").document(uid).get().await().getString("displayName") ?: "صديق"
             }
-            threads=visibleRows.map{it["threadId"].orEmpty() to profiles[it["otherUid"].orEmpty()].orEmpty()}
-        }catch(e:Exception){error=e.localizedMessage ?: "تعذر تحميل المحادثات."}
+            val loaded = visibleRows.map{it["threadId"].orEmpty() to profiles[it["otherUid"].orEmpty()].orEmpty()}
+            threads = loaded
+            val unread = mutableSetOf<String>()
+            loaded.forEach { (threadId, _) ->
+                val latest = db.collection("chatThreads").document(threadId).collection("messages")
+                    .orderBy("createdAt", Query.Direction.DESCENDING).limit(1).get().await().documents.firstOrNull()
+                val latestAt = latest?.getTimestamp("createdAt")?.toDate()?.time ?: 0L
+                val lastReadAt = inboxPrefs.getLong("read_$threadId", 0L)
+                if (latest != null && latest.getString("uid") != user.uid && latestAt > lastReadAt) unread.add(threadId)
+            }
+            unreadThreadIds = unread
+        }catch(e:Exception){
+            val detail = e.localizedMessage.orEmpty()
+            error = if (detail.contains("PERMISSION_DENIED", true) || detail.contains("permission", true))
+                "رفضت قاعدة بيانات Firebase الوصول للمحادثات. يلزم نشر قواعد Firestore المحدثة من ملف firestore.rules في مشروع Firebase."
+            else detail.ifBlank { "تعذر تحميل المحادثات." }
+        }
     }
     suspend fun reloadBlockedUsers() {
         try { blockedUsers = FirebaseCommunity.blockedUsers(user.uid) }
@@ -342,10 +363,45 @@ fun ChatScreen(user: FirebaseUser) {
             }
             if(selected==null) {
                 Text("تظهر المحادثات بعد موافقة الإدارة على طلب التواصل.",color=MaterialTheme.colorScheme.onSurfaceVariant)
-                threads.forEach{t->Card(onClick={selected=t}){Row(Modifier.fillMaxWidth().padding(14.dp),verticalAlignment=Alignment.CenterVertically){
-                    Text(t.second,Modifier.weight(1f),fontWeight=FontWeight.SemiBold);Text("فتح المحادثة")
-                }}}
-                if(threads.isEmpty()) Text("لا توجد محادثات معتمدة حتى الآن.")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                    listOf("الكل", "غير مقروء", "مؤرشف").forEach { tab ->
+                        FilterChip(selected = inboxFilter == tab, onClick = { inboxFilter = tab }, label = { Text(tab) })
+                    }
+                }
+                val filteredThreads = threads.filter { row ->
+                    when (inboxFilter) {
+                        "غير مقروء" -> row.first in unreadThreadIds && row.first !in archivedThreadIds
+                        "مؤرشف" -> row.first in archivedThreadIds
+                        else -> row.first !in archivedThreadIds
+                    }
+                }
+                filteredThreads.forEach { t ->
+                    Card(onClick = {
+                        selected = t
+                        inboxPrefs.edit().putLong("read_${t.first}", System.currentTimeMillis()).apply()
+                        unreadThreadIds = unreadThreadIds - t.first
+                    }) {
+                        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment=Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(t.second, fontWeight=FontWeight.SemiBold)
+                                Text(if (t.first in unreadThreadIds) "رسائل غير مقروءة" else "اضغط لفتح المحادثة",
+                                    style=MaterialTheme.typography.bodySmall,
+                                    color=if (t.first in unreadThreadIds) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            TextButton(onClick = {
+                                val next = archivedThreadIds.toMutableSet()
+                                if (t.first in next) next.remove(t.first) else next.add(t.first)
+                                archivedThreadIds = next
+                                inboxPrefs.edit().putStringSet("archived", next).apply()
+                            }) { Text(if (t.first in archivedThreadIds) "إلغاء الأرشفة" else "أرشفة") }
+                        }
+                    }
+                }
+                if(filteredThreads.isEmpty()) Text(when(inboxFilter) {
+                    "غير مقروء" -> "لا توجد رسائل غير مقروءة."
+                    "مؤرشف" -> "لا توجد محادثات مؤرشفة."
+                    else -> "لا توجد محادثات معتمدة حتى الآن."
+                })
             }else if (blockedEitherWay) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment=Alignment.Center) {
                     Text(if (blockedByMe) "لقد حظرت هذا المستخدم. فك الحظر من قائمة المحظورين لاستعادة المحادثة." else "لا يمكن استخدام هذه المحادثة لأن أحد الطرفين حظر الآخر.", color=MaterialTheme.colorScheme.onSurfaceVariant)
