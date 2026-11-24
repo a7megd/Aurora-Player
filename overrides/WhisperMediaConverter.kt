@@ -197,7 +197,8 @@ private fun convertToMp3(context: Context, source: Uri, baseName: String, bitrat
         decoder.start()
 
         var sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
-        var channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT).coerceIn(1, 2)
+        var channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+        if (channels !in 1..2) error("الفيديو يحتوي على أكثر من قناتين صوتيتين؛ حوّله إلى ستيريو أولًا")
         if (sampleRate !in 8000..48000) error("معدل العينة غير مدعوم: $sampleRate Hz")
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, outputName)
@@ -217,8 +218,7 @@ private fun convertToMp3(context: Context, source: Uri, baseName: String, bitrat
             output = file.outputStream()
             outputName = file.absolutePath
         }
-        lame = Lame(sampleRate, channels, sampleRate, bitrate, Lame.LameModel.JOINT_STEREO, Lame.LameQuality.GOOD)
-        val mp3Buffer = ByteArray(lame.getMp3bufferSize())
+        var mp3Buffer = ByteArray(0)
         val info = MediaCodec.BufferInfo()
         var inputDone = false
         var outputDone = false
@@ -242,8 +242,10 @@ private fun convertToMp3(context: Context, source: Uri, baseName: String, bitrat
                 MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                     val decoded = decoder.outputFormat
                     sampleRate = decoded.getInteger(MediaFormat.KEY_SAMPLE_RATE)
-                    channels = decoded.getInteger(MediaFormat.KEY_CHANNEL_COUNT).coerceIn(1, 2)
+                    channels = decoded.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+                    if (channels !in 1..2) error("الفيديو يحتوي على أكثر من قناتين صوتيتين")
                     if (sampleRate !in 8000..48000) error("معدل العينة الناتج غير مدعوم")
+                    if (lame != null) error("تغير تنسيق الصوت أثناء التحويل؛ جرّب ملفًا آخر")
                 }
                 MediaCodec.INFO_TRY_AGAIN_LATER -> Unit
                 else -> if (outputIndex >= 0) {
@@ -255,9 +257,12 @@ private fun convertToMp3(context: Context, source: Uri, baseName: String, bitrat
                         buffer.get(bytes)
                         val pcm = ShortArray(bytes.size / 2)
                         ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(pcm)
+                        val encoder = lame ?: Lame(sampleRate, channels, sampleRate, bitrate,
+                            if (channels == 1) Lame.LameModel.MONO else Lame.LameModel.JOINT_STEREO,
+                            Lame.LameQuality.GOOD).also { lame = it; mp3Buffer = ByteArray(it.getMp3bufferSize()) }
                         val samples = if (channels == 1) pcm.size else pcm.size / channels
-                        val written = if (channels == 1) lame.encode(pcm, pcm, samples, mp3Buffer)
-                            else lame.encodeInterleaved(pcm, samples, mp3Buffer)
+                        val written = if (channels == 1) encoder.encode(pcm, pcm, samples, mp3Buffer)
+                            else encoder.encodeInterleaved(pcm, samples, mp3Buffer)
                         if (written > 0) output!!.write(mp3Buffer, 0, written)
                     }
                     if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) outputDone = true
@@ -265,9 +270,10 @@ private fun convertToMp3(context: Context, source: Uri, baseName: String, bitrat
                 }
             }
         }
+        val encoder = lame ?: error("لم يتم فك أي صوت من الفيديو")
         var flushed: Int
         do {
-            flushed = lame.flush(mp3Buffer)
+            flushed = encoder.flush(mp3Buffer)
             if (flushed > 0) output!!.write(mp3Buffer, 0, flushed)
         } while (flushed > 0)
         output!!.flush()
