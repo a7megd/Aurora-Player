@@ -165,6 +165,20 @@ class SharedCoreTest {
     }
 
     @Test
+    fun articleCommentsSupportTextOrUploadedAudioAndEnforceOwnership() {
+        val text = CommunityArticleComment("c1", "a1", "alice", "Alice", body = "Thoughtful article", createdAtEpochMillis = 30)
+        val audio = CommunityArticleComment("c2", "a1", "bob", "Bob", audioUrl = "https://cdn.example/audio.m4a")
+        assertEquals(true, text.canBeEditedBy("alice"))
+        assertEquals(false, audio.canBeEditedBy("alice"))
+        assertFailsWith<IllegalArgumentException> {
+            CommunityArticleComment("bad", "a1", "bob", "Bob")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            CommunityArticleComment("bad-url", "a1", "bob", "Bob", audioUrl = "file:///private/audio.m4a")
+        }
+    }
+
+    @Test
     fun directChatRequiresFriendshipAndNoBlock() {
         assertEquals(true, canStartDirectChat("alice", "bob", areFriends = true, eitherBlocked = false))
         assertEquals(false, canStartDirectChat("alice", "bob", areFriends = false, eitherBlocked = false))
