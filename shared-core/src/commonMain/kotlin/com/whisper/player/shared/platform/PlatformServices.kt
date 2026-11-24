@@ -146,7 +146,9 @@ interface CommunityService {
     val incomingFriendRequests: Flow<List<com.whisper.player.shared.model.FriendRequest>>
     val outgoingFriendRequests: Flow<List<com.whisper.player.shared.model.FriendRequest>>
     val articles: Flow<List<com.whisper.player.shared.model.CommunityArticle>>
+    val friends: Flow<List<com.whisper.player.shared.model.CommunityProfile>>
 
+    suspend fun searchProfiles(query: String): List<com.whisper.player.shared.model.CommunityProfile>
     suspend fun updateProfile(profile: com.whisper.player.shared.model.CommunityProfile)
     suspend fun followUser(userId: String)
     suspend fun unfollowUser(userId: String)
