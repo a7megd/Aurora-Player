@@ -65,7 +65,38 @@ data class Playlist(
     val name: String,
     val trackIds: List<TrackId>,
     val createdAtEpochMillis: Long,
-)
+) {
+    init {
+        require(id.isNotBlank()) { "Playlist ID must not be blank" }
+        require(name.isNotBlank()) { "Playlist name must not be blank" }
+        require(createdAtEpochMillis >= 0) { "Playlist creation time cannot be negative" }
+    }
+
+    fun addTrack(trackId: TrackId, atIndex: Int = trackIds.size): Playlist {
+        require(atIndex in 0..trackIds.size) { "Playlist insertion index is outside the list" }
+        return copy(trackIds = trackIds.toMutableList().apply { add(atIndex, trackId) })
+    }
+
+    fun removeTrackAt(index: Int): Playlist {
+        require(index in trackIds.indices) { "Playlist index is outside the list" }
+        return copy(trackIds = trackIds.toMutableList().apply { removeAt(index) })
+    }
+
+    fun moveTrack(fromIndex: Int, toIndex: Int): Playlist {
+        require(fromIndex in trackIds.indices) { "Playlist source index is outside the list" }
+        require(toIndex in trackIds.indices) { "Playlist destination index is outside the list" }
+        if (fromIndex == toIndex) return this
+        val updated = trackIds.toMutableList()
+        val moved = updated.removeAt(fromIndex)
+        updated.add(toIndex, moved)
+        return copy(trackIds = updated)
+    }
+
+    fun renamed(newName: String): Playlist {
+        require(newName.isNotBlank()) { "Playlist name must not be blank" }
+        return copy(name = newName.trim())
+    }
+}
 
 data class QueueEntry(
     /** Unique per queue occurrence, even when the same track is queued more than once. */
