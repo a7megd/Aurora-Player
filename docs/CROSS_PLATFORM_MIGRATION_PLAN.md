@@ -105,3 +105,18 @@ These constraints must be handled with transparent platform-aware UI, not by sil
 ## Acceptance gate
 
 A feature is not considered migrated because it compiles. It must pass its platform-specific acceptance tests, including background/lock-screen playback, queue restoration, Bluetooth/headset behavior, file permissions, long media conversion, recording, offline local playback, Arabic RTL, accessibility, auth/community permissions, uploads, and process/app lifecycle. Device behavior must be tested on real Android and iOS hardware before declaring parity.
+
+
+## Implementation progress (2026-11-24)
+
+- Created isolated branch `codex/whisper-player-cross-platform-2026-11` from the verified Android development revision. No changes were made to `main`.
+- Added a unified Gradle build under `cross-platform/` including `shared-core` and `composeApp`.
+- Added common Kotlin models for tracks, albums, artists, folders, app settings, playlists, queue entries and repeat/sort state.
+- Extracted a portable LRC parser and lyric position lookup.
+- Added common interfaces for playback, local media library access/import, recording, video-to-MP3 conversion, file management, settings, playlist/favorite/history persistence, authentication, community/chat, Cloudinary-style media upload, notifications and audio effects.
+- Added a first shared Compose Multiplatform navigation shell and an iOS UIKit/SwiftUI host bridge.
+- Added automated Android and macOS iOS-framework CI. Android CI exposed and corrected a JVM bytecode target mismatch, an incorrect test expectation, and duplicate Kotlin plugin declarations. The latest workflow run is being checked; no green result is claimed until the Android and iOS jobs both finish successfully.
+- The existing Android application has not yet been switched to the shared Compose entry point. This is deliberate: replacing it before platform adapters and feature parity are complete would risk breaking current users.
+- The SwiftUI host source exists, but the Xcode project, signing, entitlements and installable IPA are not yet complete.
+
+Next: complete a green Android/iOS framework build, then move the existing screens and their domain logic incrementally while keeping the Android release workflow intact. Implement and test native iOS adapters for every feature before enabling the shared UI to route to them.
