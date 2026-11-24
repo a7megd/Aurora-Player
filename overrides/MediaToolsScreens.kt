@@ -96,7 +96,7 @@ fun WhisperFileManagerScreen(songs: List<Song>, recordingsOnly: Boolean = false,
     }
 
     val visible = remember(songs, recordingsOnly) {
-        if (recordingsOnly) songs.filter(RecordingClassifier::isRecording) else songs
+        if (recordingsOnly) songs.filter { RecordingClassifier.isRecording(it) } else songs
     }
     Scaffold(snackbarHost = { SnackbarHost(snackbar) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
