@@ -1,0 +1,37 @@
+name: WhisperPlayer
+options:
+  bundleIdPrefix: com.whisper
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    GENERATE_INFOPLIST_FILE: YES
+    INFOPLIST_KEY_CFBundleDisplayName: Whisper Player
+    INFOPLIST_KEY_UILaunchScreen_Generation: YES
+    INFOPLIST_KEY_UIUserInterfaceStyle: Dark
+targets:
+  WhisperPlayer:
+    type: application
+    platform: iOS
+    sources:
+      - path: WhisperPlayer
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.whisper.player.ios
+        PRODUCT_NAME: WhisperPlayer
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ""
+        FRAMEWORK_SEARCH_PATHS:
+          - "$(inherited)"
+          - "$(SRCROOT)/../composeApp/build/bin/iosSimulatorArm64/debugFramework"
+        OTHER_LDFLAGS:
+          - "$(inherited)"
+          - "-framework"
+          - "WhisperPlayerUI"
+    dependencies:
+      - framework: ../composeApp/build/bin/iosSimulatorArm64/debugFramework/WhisperPlayerUI.framework
+        embed: false
