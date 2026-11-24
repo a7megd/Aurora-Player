@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - codex/whisper-player-audio-bluetooth-2026-11
+      - codex/whisper-player-cross-platform-2026-11
 
 permissions:
   contents: read
