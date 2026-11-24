@@ -25,7 +25,10 @@ This is the acceptance checklist for replacing the Android-only implementation w
 | Video-to-MP3 conversion | `MediaToolsScreens.kt`, `WhisperMediaConverter.kt`, `Lame.java` | `VideoToAudioConverter` contract | Not started on iOS | Local file picker, conversion progress, supported formats, history and output |
 | File manager and metadata | Android media screens | `MediaFileManager` contract | Not started on iOS | Rename/delete and metadata edits within OS sandbox/permission limits |
 | Authentication | `AuthScreens.kt` | `AccountService` contract | Not started on iOS | Sign in/out, session restore and error handling |
-| Community, chat and blocking | `SocialScreens.kt`, `FirebaseCommunity.kt` | `CommunityService` contract | Not started on iOS | Messages, unread/read, archive, block/unblock and security rules |
+| Community profiles, follows and friendships | `SocialScreens.kt`, `FirebaseCommunity.kt` | `CommunityProfile`, `FriendRequest`, `CommunityBlock`, relation and direct-chat policy models with unit tests | Not started on iOS | Firebase adapters, profile discovery/editing, follow/unfollow, incoming/outgoing requests, accept/reject, friend list, block/unblock and rules tests |
+| Community posts and comments | `SocialScreens.kt` | `CommunityPost`, `CommunityComment` with ownership/validation rules and unit tests | Not started on iOS | Publish poems/quotes/posts, load feed, comment, edit/delete own content, pagination and moderation |
+| Articles and reader comments | `ArticleScreens.kt` | `CommunityArticle` draft/publish/visibility model and unit tests | Not started on iOS | Article editor, drafts, cover/audio upload, formatting, publish/read/share and text/audio comments |
+| Community chat and blocking | `SocialScreens.kt`, `FirebaseCommunity.kt` | `CommunityService` contract plus shared direct-chat eligibility policy | Not started on iOS | Messages, media, voice, reactions, unread/read, archive, block/unblock and Firestore rules tests |
 | Cloud uploads | `CloudinaryMediaUploader.kt` | `MediaCloudUploader` contract | Not started on iOS | Secure upload configuration, progress, failures and free-tier limits |
 | Notifications | `WhisperMessagingService.kt` | `LocalNotificationService` contract | Not started on iOS | Permission, delivery and deep links |
 | Themes and preferences | Android settings UI | `AppSettings`, `SettingsStore` | Not started on iOS | Persist theme, AMOLED/accent color, sorting and playback preferences |
@@ -46,7 +49,7 @@ This is the acceptance checklist for replacing the Android-only implementation w
 
 - The shared-core and Compose Android UI CI job passed in workflow run [45461154591](https://github.com/a7megd/Aurora-Player/actions/runs/45461154591).
 - The iOS job in that run was still queued when this status was recorded.
-- Shared models, LRC parser, queue navigation/repeat behavior, playlist editing operations and platform service contracts are domain foundations; they are not yet connected end-to-end to Android/iOS UI or platform playback adapters.
+- Shared models, LRC parser, queue navigation/repeat behavior, playlist editing operations, and social/profile/friend-request/post/comment/article domain models are contract foundations with unit tests; they are not yet connected end-to-end to Firebase, Android/iOS UI, or platform adapters.
 - The shared Compose UI is only a navigation/placeholder shell.
 - No installable iOS IPA, completed Xcode project/signing setup, or cross-platform release has been produced.
 - The existing Android implementation remains separate and must not be removed until all acceptance gates pass.
