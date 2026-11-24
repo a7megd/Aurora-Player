@@ -88,6 +88,25 @@ data class CommunityArticle(
     fun isVisibleTo(uid: String): Boolean = status == ArticleStatus.PUBLISHED || uid == authorUid
 }
 
+data class CommunityArticleComment(
+    val id: String,
+    val articleId: String,
+    val authorUid: String,
+    val authorName: String,
+    val body: String = "",
+    val audioUrl: String = "",
+    val createdAtEpochMillis: Long = 0,
+) {
+    init {
+        require(id.isNotBlank() && articleId.isNotBlank() && authorUid.isNotBlank())
+        require(authorName.isNotBlank() && body.length <= 2000)
+        require(audioUrl.isBlank() || audioUrl.startsWith("https://"))
+        require(body.isNotBlank() || audioUrl.isNotBlank())
+        require(createdAtEpochMillis >= 0)
+    }
+    fun canBeEditedBy(uid: String): Boolean = uid == authorUid
+}
+
 data class CommunityBlock(val ownerUid: String, val blockedUid: String, val createdAtEpochMillis: Long = 0) {
     init {
         require(ownerUid.isNotBlank() && blockedUid.isNotBlank() && ownerUid != blockedUid)
