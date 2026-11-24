@@ -1,6 +1,7 @@
 package com.aurora.player.ui.navigation
 
 import android.content.ContentValues
+import android.content.Intent
 import android.content.Context
 import android.media.MediaCodec
 import android.media.MediaExtractor
@@ -79,6 +80,22 @@ fun WhisperMediaConverterScreen(initialUri: Uri? = null, initialText: String? = 
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (isYouTube) {
+                        OutlinedButton(
+                            onClick = {
+                                val uri = Uri.parse(initialText.trim())
+                                runCatching {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, uri).setPackage("com.google.android.youtube"))
+                                }.onFailure {
+                                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
+                                        .onFailure { message = "تعذر فتح رابط YouTube." }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("فتح الفيديو في YouTube")
+                        }
+                    }
                 }
             }
         }
