@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.whisper.player.shared.model.ArticleStatus
 import com.whisper.player.shared.model.CommunityArticle
+import com.whisper.player.shared.model.CommunityComment
 import com.whisper.player.shared.model.CommunityPost
 import com.whisper.player.shared.model.CommunityPostKind
 import com.whisper.player.shared.platform.CommunityService
@@ -103,6 +104,14 @@ fun CommunityScreen(
                     },
                     onDelete = { postId -> scope.launch { runCatching { service.deletePost(postId) }.onFailure { onError(it.message ?: "تعذر حذف المنشور") } } },
                     currentUserId = currentUserId,
+                    currentUserName = currentUserName,
+                    onComment = { postId, body ->
+                        scope.launch {
+                            runCatching {
+                                service.addPostComment(CommunityComment("comment-${kotlin.random.Random.nextLong()}", postId, currentUserId, currentUserName, body, 0))
+                            }.onFailure { onError(it.message ?: "تعذر إضافة التعليق") }
+                        }
+                    },
                 )
                 1 -> MembersTab(
                     query = memberQuery,
@@ -169,6 +178,8 @@ private fun FeedTab(
     onPublish: () -> Unit,
     onDelete: (String) -> Unit,
     currentUserId: String,
+    currentUserName: String,
+    onComment: (String, String) -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
         OutlinedTextField(
@@ -188,6 +199,9 @@ private fun FeedTab(
                         Text(post.authorName, style = MaterialTheme.typography.titleSmall)
                         Text(post.body, modifier = Modifier.padding(vertical = 8.dp))
                         Text(post.commentCount.toString() + " تعليق", style = MaterialTheme.typography.labelSmall)
+                        var commentText by remember(post.id) { mutableStateOf("") }
+                        OutlinedTextField(commentText, { commentText = it }, modifier = Modifier.fillMaxWidth(), label = { Text("اكتب تعليقًا") })
+                        Button(onClick = { onComment(post.id, commentText.trim()); commentText = "" }, enabled = commentText.isNotBlank()) { Text("تعليق") }
                         if (post.authorUid == currentUserId) {
                             OutlinedButton(onClick = { onDelete(post.id) }) { Text("حذف المنشور") }
                         }
