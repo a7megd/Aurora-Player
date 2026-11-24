@@ -7,10 +7,14 @@ on:
       - codex/whisper-player-cross-platform-2026-11
     paths:
       - "shared-core/**"
+      - "composeApp/**"
+      - "cross-platform/**"
       - ".github/workflows/shared-core.yml"
   pull_request:
     paths:
       - "shared-core/**"
+      - "composeApp/**"
+      - "cross-platform/**"
       - ".github/workflows/shared-core.yml"
 
 permissions:
@@ -35,10 +39,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
-      - name: Run shared core Android tests and build
+      - name: Test shared domain and compile shared Android UI
         run: |
-          gradle -p shared-core testDebugUnitTest
-          gradle -p shared-core assembleDebug
+          gradle -p cross-platform :shared-core:testDebugUnitTest
+          gradle -p cross-platform :composeApp:assembleDebug
 
   ios:
     runs-on: macos-latest
@@ -53,5 +57,5 @@ jobs:
           gradle-version: "8.9"
       - name: Verify Xcode toolchain
         run: xcodebuild -version
-      - name: Compile iOS Simulator framework
-        run: gradle -p shared-core linkDebugFrameworkIosSimulatorArm64
+      - name: Compile shared iOS framework
+        run: gradle -p cross-platform :composeApp:linkDebugFrameworkIosSimulatorArm64
