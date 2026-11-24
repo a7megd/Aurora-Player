@@ -126,6 +126,8 @@ fun CommunityScreen(
                     },
                     onAdd = { uid -> scope.launch { runCatching { service.sendFriendRequest(uid) }.onFailure { onError(it.message ?: "تعذر إرسال الطلب") } } },
                     onFollow = { uid -> scope.launch { runCatching { service.followUser(uid) }.onFailure { onError(it.message ?: "تعذرت المتابعة") } } },
+                    onBlock = { uid -> scope.launch { runCatching { service.blockUser(uid) }.onFailure { onError(it.message ?: "تعذر حظر العضو") } } },
+                    onRemoveFriend = { uid -> scope.launch { runCatching { service.removeFriend(uid) }.onFailure { onError(it.message ?: "تعذرت إزالة الصديق") } } },
                 )
                 2 -> RequestsTab(
                     incoming = incoming,
@@ -221,13 +223,25 @@ private fun MembersTab(
     onSearch: () -> Unit,
     onAdd: (String) -> Unit,
     onFollow: (String) -> Unit,
+    onBlock: (String) -> Unit,
+    onRemoveFriend: (String) -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
         OutlinedTextField(query, onQuery, modifier = Modifier.fillMaxWidth(), label = { Text("ابحث عن الأعضاء") })
         Button(onClick = onSearch, enabled = query.isNotBlank(), modifier = Modifier.padding(top = 8.dp)) { Text("بحث") }
         Text("الأصدقاء", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(friends, key = { it.uid }) { member -> MemberCard(member.displayName, "صديق") }
+            items(friends, key = { it.uid }) { member ->
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(member.displayName, style = MaterialTheme.typography.titleSmall)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { onRemoveFriend(member.uid) }) { Text("إزالة") }
+                            OutlinedButton(onClick = { onBlock(member.uid) }) { Text("حظر") }
+                        }
+                    }
+                }
+            }
             items(results.filterNot { candidate -> friends.any { it.uid == candidate.uid } }, key = { it.uid }) { member ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp)) {
@@ -235,6 +249,7 @@ private fun MembersTab(
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(onClick = { onAdd(member.uid) }) { Text("إضافة صديق") }
                             OutlinedButton(onClick = { onFollow(member.uid) }) { Text("متابعة") }
+                            OutlinedButton(onClick = { onBlock(member.uid) }) { Text("حظر") }
                         }
                     }
                 }
