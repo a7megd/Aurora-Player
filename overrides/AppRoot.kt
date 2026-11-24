@@ -60,7 +60,8 @@ private val allRoutes = listOf(
     Routes.FAVORITES to "المفضلة", Routes.RECENT to "شُغّلت مؤخرًا",
     Routes.NOW_PLAYING to "تعمل الآن", Routes.QUEUE to "قائمة التشغيل الحالية", Routes.LYRICS to "كلمات الأغاني", Routes.SEARCH to "بحث",
     Routes.EQUALIZER to "معادل الصوت", Routes.SETTINGS to "الإعدادات", Routes.COMMUNITY to "المجتمع",
-    Routes.WRITE_ARTICLE to "كتابة مقال", Routes.ARTICLES to "المقالات", Routes.FRIEND_REQUESTS to "طلبات الصداقة", Routes.POSTS to "المنشورات", Routes.CHAT to "المحادثات",\n    Routes.MEDIA_CONVERTER to "تحويل الفيديو",
+    Routes.WRITE_ARTICLE to "كتابة مقال", Routes.ARTICLES to "المقالات", Routes.FRIEND_REQUESTS to "طلبات الصداقة", Routes.POSTS to "المنشورات", Routes.CHAT to "المحادثات",
+    Routes.MEDIA_CONVERTER to "تحويل الفيديو",
 )
 
 private fun audioPermission(): String =
