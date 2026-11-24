@@ -6,14 +6,12 @@ package com.whisper.player.shared.model
  */
 @JvmInline
 value class TrackId(val value: String) {
-    init {
-        require(value.isNotBlank()) { "TrackId must not be blank" }
-    }
+    init { require(value.isNotBlank()) { "TrackId must not be blank" } }
 }
 
 enum class RepeatMode { OFF, ALL, ONE }
 enum class ThemeMode { SYSTEM, DARK, LIGHT }
-enum class SongSort { TITLE, ARTIST, ALBUM, DATE_ADDED, DURATION }
+enum class SongSort { TITLE, ARTIST, ALBUM, DATE_ADDED, RECENTLY_PLAYED, MOST_PLAYED, DURATION }
 enum class MediaSource { DEVICE_LIBRARY, FILES_IMPORT, APP_RECORDING, REMOTE }
 
 data class Track(
@@ -31,11 +29,14 @@ data class Track(
     val year: Int? = null,
     val trackNumber: Int? = null,
     val dateAddedEpochSeconds: Long? = null,
+    val playCount: Long = 0,
+    val lastPlayedEpochMillis: Long? = null,
     val artworkLocator: String? = null,
 ) {
     init {
         require(durationMs >= 0) { "durationMs cannot be negative" }
         require(locator.isNotBlank()) { "Track locator must not be blank" }
+        require(playCount >= 0) { "playCount cannot be negative" }
     }
 }
 
@@ -47,17 +48,8 @@ data class Album(
     val artworkLocator: String? = null,
 )
 
-data class Artist(
-    val name: String,
-    val songCount: Int,
-    val albumCount: Int,
-)
-
-data class Folder(
-    val locator: String,
-    val name: String,
-    val songCount: Int,
-)
+data class Artist(val name: String, val songCount: Int, val albumCount: Int)
+data class Folder(val locator: String, val name: String, val songCount: Int)
 
 data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.DARK,
@@ -101,24 +93,21 @@ data class PlaybackQueue(
         val updated = entries.toMutableList().also { it.removeAt(index) }
         val nextCurrent = if (currentEntryId == removed.entryId) {
             updated.getOrNull(index)?.entryId ?: updated.lastOrNull()?.entryId
-        } else {
-            currentEntryId
-        }
+        } else currentEntryId
         return copy(entries = updated, currentEntryId = nextCurrent)
     }
 }
 
-fun sortTracks(
-    tracks: List<Track>,
-    sort: SongSort,
-    ascending: Boolean = true,
-): List<Track> {
+/** Stable shared sorting; adapters provide play-count and last-played metadata. */
+fun sortTracks(tracks: List<Track>, sort: SongSort, ascending: Boolean = true): List<Track> {
     val comparator = when (sort) {
         SongSort.TITLE -> compareBy<Track> { it.title.lowercase() }
         SongSort.ARTIST -> compareBy<Track> { it.artist.lowercase() }.thenBy { it.title.lowercase() }
         SongSort.ALBUM -> compareBy<Track> { it.album.lowercase() }.thenBy { it.trackNumber ?: Int.MAX_VALUE }
         SongSort.DATE_ADDED -> compareBy<Track> { it.dateAddedEpochSeconds ?: Long.MIN_VALUE }
+        SongSort.RECENTLY_PLAYED -> compareBy<Track> { it.lastPlayedEpochMillis ?: Long.MIN_VALUE }
+        SongSort.MOST_PLAYED -> compareBy<Track> { it.playCount }
         SongSort.DURATION -> compareBy<Track> { it.durationMs }
     }
-    return (if (ascending) tracks.sortedWith(comparator) else tracks.sortedWith(comparator.reversed()))
+    return if (ascending) tracks.sortedWith(comparator) else tracks.sortedWith(comparator.reversed())
 }
