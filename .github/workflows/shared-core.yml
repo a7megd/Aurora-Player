@@ -59,21 +59,3 @@ jobs:
         run: xcodebuild -version
       - name: Compile shared iOS framework
         run: gradle -p cross-platform :composeApp:linkDebugFrameworkIosSimulatorArm64
-      - name: Install XcodeGen
-        run: brew install xcodegen
-      - name: Generate Xcode application project
-        run: xcodegen generate --spec iosApp/project.yml --project iosApp/WhisperPlayer.xcodeproj
-      - name: Build iOS Simulator application
-        run: |
-          xcodebuild -project iosApp/WhisperPlayer.xcodeproj -scheme WhisperPlayer -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/ios-simulator CODE_SIGNING_ALLOWED=NO build
-      - name: Package simulator app for testing
-        run: |
-          mkdir -p build/ios-artifacts
-          ditto build/ios-simulator/Build/Products/Debug-iphonesimulator/WhisperPlayer.app build/ios-artifacts/WhisperPlayer-Simulator.app
-      - name: Upload iOS Simulator app
-        uses: actions/upload-artifact@v4
-        with:
-          name: whisper-player-ios-simulator
-          path: build/ios-artifacts/WhisperPlayer-Simulator.app
-          if-no-files-found: error
-          retention-days: 14
