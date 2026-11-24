@@ -71,6 +71,39 @@ class SharedCoreTest {
     }
 
     @Test
+    fun queueNavigationHonorsRepeatAndStopsAtBoundaries() {
+        val queue = PlaybackQueue(
+            entries = listOf(
+                QueueEntry("a", TrackId("a")),
+                QueueEntry("b", TrackId("b")),
+                QueueEntry("c", TrackId("c")),
+            ),
+            currentEntryId = "b",
+        )
+        assertEquals("c", queue.selectNext(RepeatMode.OFF).currentEntryId)
+        assertEquals("b", queue.selectPrevious(RepeatMode.OFF).currentEntryId)
+        assertEquals("a", queue.copy(currentEntryId = "c").selectNext(RepeatMode.ALL).currentEntryId)
+        assertEquals("c", queue.copy(currentEntryId = "a").selectPrevious(RepeatMode.ALL).currentEntryId)
+        assertEquals("b", queue.selectNext(RepeatMode.ONE).currentEntryId)
+        assertEquals("b", queue.selectPrevious(RepeatMode.ONE).currentEntryId)
+    }
+
+    @Test
+    fun queueNavigationUsesShuffleOrderAndRecoversMissingEntries() {
+        val queue = PlaybackQueue(
+            entries = listOf(
+                QueueEntry("a", TrackId("a")),
+                QueueEntry("b", TrackId("b")),
+                QueueEntry("c", TrackId("c")),
+            ),
+            currentEntryId = "c",
+        )
+        // The stale ID is ignored; the omitted entry is appended in its original order.
+        assertEquals("a", queue.selectNext(RepeatMode.OFF, listOf("c", "missing", "a")).currentEntryId)
+        assertEquals("b", queue.selectNext(RepeatMode.OFF, listOf("c", "missing", "a")).selectNext(RepeatMode.OFF, listOf("c", "missing", "a")).currentEntryId)
+    }
+
+    @Test
     fun parsesMultipleLrcTimestampsAndMillisecondPrecision() {
         val lines = LrcParser.parse("[00:01.2][00:02.34]hello\n[01:03.456]world")
         assertEquals(listOf(1200L, 2340L, 63456L), lines.map { it.timeMs })
