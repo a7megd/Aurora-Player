@@ -6,6 +6,8 @@ import android.content.Context
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
+import android.media.MediaCodecList
+import android.media.AudioFormat
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -218,14 +220,25 @@ private fun convertToMp3(context: Context, source: Uri, baseName: String, bitrat
         val format = inputFormat ?: error("الفيديو لا يحتوي على مسار صوتي")
         extractor.selectTrack(audioTrack)
         val mime = format.getString(MediaFormat.KEY_MIME) ?: error("ترميز صوت غير معروف")
-        decoder = MediaCodec.createDecoderByType(mime)
+        // Prefer Android's software decoder when available. Some vendor hardware
+        // decoders crash the whole process on particular AAC/AC3/E-AC3 streams.
+        val codecList = MediaCodecList(MediaCodecList.REGULAR_CODECS)
+        val softwareDecoder = codecList.codecInfos.firstOrNull { info ->
+            !info.isEncoder && info.supportedTypes.any { it.equals(mime, ignoreCase = true) } &&
+                (if (Build.VERSION.SDK_INT >= 29) info.isSoftwareOnly
+                 else info.name.startsWith("OMX.google.", true) || info.name.startsWith("c2.android.", true))
+        }
+        decoder = if (softwareDecoder != null) MediaCodec.createByCodecName(softwareDecoder.name)
+                  else MediaCodec.createDecoderByType(mime)
         decoder.configure(format, null, null, 0)
         decoder.start()
 
         var sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
         var channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
-        if (channels !in 1..2) error("الفيديو يحتوي على أكثر من قناتين صوتيتين؛ حوّله إلى ستيريو أولًا")
+        if (channels !in 1..8) error("عدد قنوات الصوت غير مدعوم: $channels")
         if (sampleRate !in 8000..48000) error("معدل العينة غير مدعوم: $sampleRate Hz")
+        var pcmEncoding = if (Build.VERSION.SDK_INT >= 24 && format.containsKey(MediaFormat.KEY_PCM_ENCODING))
+            format.getInteger(MediaFormat.KEY_PCM_ENCODING) else AudioFormat.ENCODING_PCM_16BIT
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, outputName)
             put(MediaStore.MediaColumns.MIME_TYPE, "audio/mpeg")
@@ -269,9 +282,11 @@ private fun convertToMp3(context: Context, source: Uri, baseName: String, bitrat
                     val decoded = decoder.outputFormat
                     sampleRate = decoded.getInteger(MediaFormat.KEY_SAMPLE_RATE)
                     channels = decoded.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
-                    if (channels !in 1..2) error("الفيديو يحتوي على أكثر من قناتين صوتيتين")
+                    if (channels !in 1..8) error("عدد قنوات الصوت الناتج غير مدعوم: $channels")
                     if (sampleRate !in 8000..48000) error("معدل العينة الناتج غير مدعوم")
-                    if (lame != null) error("تغير تنسيق الصوت أثناء التحويل؛ جرّب ملفًا آخر")
+                    pcmEncoding = if (Build.VERSION.SDK_INT >= 24 && decoded.containsKey(MediaFormat.KEY_PCM_ENCODING))
+                        decoded.getInteger(MediaFormat.KEY_PCM_ENCODING) else AudioFormat.ENCODING_PCM_16BIT
+                    if (lame != null) error("تغير تنسيق الصوت أثناء التحويل؛ تعذر متابعة الترميز بأمان")
                 }
                 MediaCodec.INFO_TRY_AGAIN_LATER -> Unit
                 else -> if (outputIndex >= 0) {
@@ -281,14 +296,22 @@ private fun convertToMp3(context: Context, source: Uri, baseName: String, bitrat
                         buffer.limit(info.offset + info.size)
                         val bytes = ByteArray(buffer.remaining())
                         buffer.get(bytes)
-                        val pcm = ShortArray(bytes.size / 2)
-                        ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(pcm)
-                        val encoder = lame ?: Lame(sampleRate, channels, sampleRate, bitrate,
-                            if (channels == 1) Lame.LameModel.MONO else Lame.LameModel.JOINT_STEREO,
-                            Lame.LameQuality.GOOD).also { lame = it; mp3Buffer = ByteArray(it.getMp3bufferSize()) }
-                        val samples = if (channels == 1) pcm.size else pcm.size / channels
-                        val written = if (channels == 1) encoder.encode(pcm, pcm, samples, mp3Buffer)
-                            else encoder.encodeInterleaved(pcm, samples, mp3Buffer)
+                        // Convert the decoder's actual PCM representation to signed 16-bit.
+                        // Android decoders may emit 8-bit, 16-bit, or float PCM depending on codec.
+                        val decodedPcm = decodePcm16(bytes, pcmEncoding)
+                        val frameCount = decodedPcm.size / channels
+                        if (frameCount == 0) {
+                            decoder.releaseOutputBuffer(outputIndex, false)
+                            continue
+                        }
+                        val outputChannels = if (channels == 1) 1 else 2
+                        val pcm = if (outputChannels == 1) decodedPcm.copyOf(frameCount)
+                            else downmixToStereo(decodedPcm, frameCount, channels)
+                        val encoder = lame ?: Lame(sampleRate, outputChannels, sampleRate, bitrate,
+                            if (outputChannels == 1) Lame.LameModel.MONO else Lame.LameModel.JOINT_STEREO,
+                            Lame.LameQuality.GOOD).also { lame = it; mp3Buffer = ByteArray(maxOf(it.getMp3bufferSize(), 16384)) }
+                        val written = if (outputChannels == 1) encoder.encode(pcm, pcm, frameCount, mp3Buffer)
+                            else encoder.encodeInterleaved(pcm, frameCount, mp3Buffer)
                         if (written > 0) output!!.write(mp3Buffer, 0, written)
                     }
                     if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) outputDone = true
@@ -322,4 +345,48 @@ private fun convertToMp3(context: Context, source: Uri, baseName: String, bitrat
         runCatching { extractor.release() }
         runCatching { lame?.close() }
     }
+}
+
+
+/** Converts Android decoder PCM output into signed 16-bit samples. */
+private fun decodePcm16(bytes: ByteArray, encoding: Int): ShortArray {
+    return when (encoding) {
+        AudioFormat.ENCODING_PCM_FLOAT -> {
+            val count = bytes.size / 4
+            val floats = ByteBuffer.wrap(bytes, 0, count * 4).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+            ShortArray(count) {
+                val value = floats.get().coerceIn(-1.0f, 1.0f)
+                (value * if (value < 0f) 32768f else 32767f).toInt().toShort()
+            }
+        }
+        AudioFormat.ENCODING_PCM_8BIT -> ShortArray(bytes.size) {
+            (((bytes[it].toInt() and 0xff) - 128) shl 8).toShort()
+        }
+        else -> {
+            val count = bytes.size / 2
+            val shorts = ByteBuffer.wrap(bytes, 0, count * 2).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
+            ShortArray(count) { shorts.get() }
+        }
+    }
+}
+
+/** Downmixes interleaved multichannel PCM to stereo to satisfy the MP3 encoder. */
+private fun downmixToStereo(input: ShortArray, frames: Int, channels: Int): ShortArray {
+    val stereo = ShortArray(frames * 2)
+    for (frame in 0 until frames) {
+        var left = 0L
+        var right = 0L
+        var leftCount = 0
+        var rightCount = 0
+        for (channel in 0 until channels) {
+            val sample = input[frame * channels + channel].toLong()
+            if (channel % 2 == 0) { left += sample; leftCount++ }
+            else { right += sample; rightCount++ }
+        }
+        if (rightCount == 0) right = left
+        stereo[frame * 2] = (left / maxOf(1, leftCount)).coerceIn(-32768L, 32767L).toShort()
+        stereo[frame * 2 + 1] = (if (rightCount == 0) right else right / rightCount)
+            .coerceIn(-32768L, 32767L).toShort()
+    }
+    return stereo
 }
