@@ -6,6 +6,14 @@ service cloud.firestore {
     function areFriends(a, b) {
       return exists(/databases/$(database)/documents/users/$(a)/friends/$(b));
     }
+    function isBlocked(a, b) {
+      return exists(/databases/$(database)/documents/users/$(a)/blockedUsers/$(b))
+        || exists(/databases/$(database)/documents/users/$(b)/blockedUsers/$(a));
+    }
+    function threadAllowsChat(threadId) {
+      let participants = get(/databases/$(database)/documents/chatThreads/$(threadId)).data.participants;
+      return participants.size() == 2 && !isBlocked(participants[0], participants[1]);
+    }
 
     match /users/{userId} {
       // Community profiles are readable by signed-in members; suspended profiles are hidden
@@ -110,6 +118,13 @@ service cloud.firestore {
         );
         allow delete: if signedIn() && request.auth.uid == userId;
       }
+      match /blockedUsers/{blockedUid} {
+        allow read: if signedIn() && request.auth.uid == userId;
+        allow create: if signedIn() && request.auth.uid == userId && blockedUid != userId
+          && request.resource.data.uid == blockedUid;
+        allow update: if false;
+        allow delete: if signedIn() && request.auth.uid == userId;
+      }
       match /friends/{friendUid} {
         allow read: if signedIn();
         allow create: if signedIn() && (request.auth.uid == userId || request.auth.uid == friendUid)
@@ -148,9 +163,11 @@ service cloud.firestore {
         && request.resource.data.targetUid is string
         && request.resource.data.targetUid != request.auth.uid
         && areFriends(request.auth.uid, request.resource.data.targetUid)
+        && !isBlocked(request.auth.uid, request.resource.data.targetUid)
         && request.resource.data.status == 'pending';
       allow read: if isAdmin() || (signedIn() &&
-        (resource.data.requesterUid == request.auth.uid || resource.data.targetUid == request.auth.uid));
+        ((resource.data.requesterUid == request.auth.uid || resource.data.targetUid == request.auth.uid)
+          && !isBlocked(resource.data.requesterUid, resource.data.targetUid)));
       allow update: if isAdmin()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedAt','threadId'])
         && request.resource.data.status in ['approved','rejected'];
@@ -158,14 +175,14 @@ service cloud.firestore {
     }
 
     match /chatThreads/{threadId} {
-      allow read: if signedIn() && request.auth.uid in resource.data.participants;
+      allow read: if signedIn() && request.auth.uid in resource.data.participants && threadAllowsChat(threadId);
       allow create, update, delete: if isAdmin();
       match /messages/{messageId} {
         function threadData() {
           return get(/databases/$(database)/documents/chatThreads/$(threadId)).data;
         }
-        allow read: if signedIn() && request.auth.uid in threadData().participants;
-        allow create: if signedIn() && request.auth.uid in threadData().participants
+        allow read: if signedIn() && request.auth.uid in threadData().participants && threadAllowsChat(threadId);
+        allow create: if signedIn() && request.auth.uid in threadData().participants && threadAllowsChat(threadId)
           && request.resource.data.uid == request.auth.uid
           && request.resource.data.type in ['text','image','audio','file']
           && request.resource.data.get('body', '') is string
@@ -176,8 +193,8 @@ service cloud.firestore {
           && (request.resource.data.get('body', '').size() > 0 || request.resource.data.get('mediaUrl', '').size() > 0);
         allow update, delete: if signedIn() && request.auth.uid == resource.data.uid;
         match /reactions/{reactionUid} {
-          allow read: if signedIn() && request.auth.uid in threadData().participants;
-          allow create, update: if signedIn() && request.auth.uid in threadData().participants
+          allow read: if signedIn() && request.auth.uid in threadData().participants && threadAllowsChat(threadId);
+          allow create, update: if signedIn() && request.auth.uid in threadData().participants && threadAllowsChat(threadId)
             && request.auth.uid == reactionUid
             && request.resource.data.uid == request.auth.uid
             && request.resource.data.emoji is string
