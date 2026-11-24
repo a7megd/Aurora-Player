@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.whisper.player.shared.model.ArticleStatus
 import com.whisper.player.shared.model.CommunityArticle
 import com.whisper.player.shared.model.CommunityComment
+import com.whisper.player.shared.model.CommunityArticleComment
 import com.whisper.player.shared.model.CommunityPost
 import com.whisper.player.shared.model.CommunityPostKind
 import com.whisper.player.shared.platform.CommunityService
@@ -165,6 +166,13 @@ fun CommunityScreen(
                     },
                     onDelete = { id -> scope.launch { runCatching { service.deleteArticle(id) }.onFailure { onError(it.message ?: "تعذر حذف المقال") } } },
                     onPublish = { id -> scope.launch { runCatching { service.publishArticle(id) }.onFailure { onError(it.message ?: "تعذر نشر المقال") } } },
+                    onComment = { articleId, body ->
+                        scope.launch {
+                            runCatching {
+                                service.addArticleComment(CommunityArticleComment("article-comment-${kotlin.random.Random.nextLong()}", articleId, currentUserId, currentUserName, body = body, createdAtEpochMillis = 0))
+                            }.onFailure { onError(it.message ?: "تعذر إضافة تعليق المقال") }
+                        }
+                    },
                     currentUserId = currentUserId,
                 )
             }
@@ -304,6 +312,7 @@ private fun ArticlesTab(
     onSave: () -> Unit,
     onDelete: (String) -> Unit,
     onPublish: (String) -> Unit,
+    onComment: (String, String) -> Unit,
     currentUserId: String,
 ) {
     Column(Modifier.fillMaxSize()) {
@@ -317,6 +326,9 @@ private fun ArticlesTab(
                         Text(article.title, style = MaterialTheme.typography.titleMedium)
                         Text(article.authorName, style = MaterialTheme.typography.labelSmall)
                         Text(article.body, maxLines = 5, modifier = Modifier.padding(vertical = 6.dp))
+                        var commentText by remember(article.id) { mutableStateOf("") }
+                        OutlinedTextField(commentText, { commentText = it }, modifier = Modifier.fillMaxWidth(), label = { Text("تعليق على المقال") })
+                        Button(onClick = { onComment(article.id, commentText.trim()); commentText = "" }, enabled = commentText.isNotBlank()) { Text("إرسال التعليق") }
                         if (article.authorUid == currentUserId) {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 if (article.status == ArticleStatus.DRAFT) {
