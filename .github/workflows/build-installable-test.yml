@@ -34,6 +34,13 @@ jobs:
           install -D overrides/MediaToolsScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/MediaToolsScreens.kt
           install -D overrides/WhisperMediaConverter.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/WhisperMediaConverter.kt
           install -D overrides/Lame.java AuroraPlayer/app/src/main/java/net/qiujuer/lame/Lame.java
+      - name: Bundle native LAME encoder libraries
+        run: |
+          curl -fsSL https://repo.maven.apache.org/maven2/net/qiujuer/lame/lame/1.0.0/lame-1.0.0.aar -o /tmp/lame.aar
+          mkdir -p /tmp/lame-aar AuroraPlayer/app/src/main/jniLibs
+          unzip -o /tmp/lame.aar 'jni/*' -d /tmp/lame-aar
+          test -d /tmp/lame-aar/jni
+          cp -R /tmp/lame-aar/jni/. AuroraPlayer/app/src/main/jniLibs/
           install -D overrides/SocialScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/SocialScreens.kt
           install -D overrides/PlaybackService.kt AuroraPlayer/app/src/main/java/com/aurora/player/playback/PlaybackService.kt
           install -D overrides/PlaybackConnection.kt AuroraPlayer/app/src/main/java/com/aurora/player/playback/PlaybackConnection.kt
