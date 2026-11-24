@@ -212,6 +212,7 @@ fun ChatScreen(user: FirebaseUser) {
     var reactionsByMessage by remember { mutableStateOf<Map<String, Map<String, Int>>>(emptyMap()) }
     var blockedUsers by remember { mutableStateOf<List<BlockedMember>>(emptyList()) }
     var showBlockedDialog by remember { mutableStateOf(false) }
+    var showBlockConfirm by remember { mutableStateOf(false) }
     var blockedByMe by remember { mutableStateOf(false) }
     var blockedEitherWay by remember { mutableStateOf(false) }
     var attachmentUri by remember { mutableStateOf<Uri?>(null) }
@@ -333,19 +334,9 @@ fun ChatScreen(user: FirebaseUser) {
                 TextButton(onClick={showBlockedDialog=true}) { Text("المحظورون") }
                 if (selected != null) {
                     val otherUid = selected!!.first.split("_").firstOrNull { it != user.uid }.orEmpty()
-                    TextButton(enabled=otherUid.isNotBlank() && !blockedByMe, onClick={
-                        scope.launch {
-                            try {
-                                FirebaseCommunity.blockUser(user.uid, otherUid)
-                                selected=null
-                                blockedByMe=true
-                                blockedEitherWay=true
-                                reloadBlockedUsers()
-                                reloadThreads()
-                                error="تم حظر المستخدم ومنع التواصل معه."
-                            } catch(e:Exception) { error=e.localizedMessage ?: "تعذر حظر المستخدم." }
-                        }
-                    }) { Text(if(blockedByMe) "محظور" else "حظر", color=MaterialTheme.colorScheme.error) }
+                    TextButton(enabled=otherUid.isNotBlank() && !blockedByMe, onClick={showBlockConfirm=true}) {
+                        Text(if(blockedByMe) "محظور" else "حظر", color=MaterialTheme.colorScheme.error)
+                    }
                 }
                 IconButton(onClick={scope.launch{if(selected==null){reloadThreads();reloadBlockedUsers()} else reloadChatMessages(db,selected!!.first){messages=it}}}){Text("↻")}
             }
@@ -488,6 +479,31 @@ fun ChatScreen(user: FirebaseUser) {
             }
             error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
         }
+    }
+    if (showBlockConfirm) {
+        AlertDialog(
+            onDismissRequest={showBlockConfirm=false},
+            title={Text("حظر هذا المستخدم؟")},
+            text={Text("لن تتمكن أنت وهذا المستخدم من متابعة المحادثة أو إرسال الرسائل لبعضكما. يمكنك فك الحظر لاحقًا من قائمة المحظورين.")},
+            confirmButton={
+                TextButton(onClick={
+                    showBlockConfirm=false
+                    val otherUid=selected?.first?.split("_")?.firstOrNull { it != user.uid }.orEmpty()
+                    scope.launch {
+                        try {
+                            FirebaseCommunity.blockUser(user.uid, otherUid)
+                            selected=null
+                            blockedByMe=true
+                            blockedEitherWay=true
+                            reloadBlockedUsers()
+                            reloadThreads()
+                            error="تم حظر المستخدم ومنع التواصل معه."
+                        } catch(e:Exception) { error=e.localizedMessage ?: "تعذر حظر المستخدم." }
+                    }
+                }) { Text("حظر", color=MaterialTheme.colorScheme.error) }
+            },
+            dismissButton={TextButton(onClick={showBlockConfirm=false}){Text("إلغاء")}}
+        )
     }
     if (showBlockedDialog) {
         AlertDialog(
