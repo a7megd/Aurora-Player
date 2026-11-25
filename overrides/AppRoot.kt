@@ -465,7 +465,7 @@ private fun PlayerAppRoot(user: FirebaseUser) {
                             prefs.edit().putStringSet("ids", ids).apply()
                         },
                         onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } }, activeSongId = playingSongId)
-                        r == Routes.PLAYLISTS -> WhisperPlaylistsScreen(songs) { song -> playback.play(song, songs); nav.navigate(Routes.NOW_PLAYING) }
+                        r == Routes.PLAYLISTS -> WhisperPlaylistsScreen(songs) { playlistTracks, startIndex -> playback.playQueue(playlistTracks, startIndex); nav.navigate(Routes.NOW_PLAYING) }
                         r == Routes.FAVORITES -> WhisperFavoritesScreen(songs) { song -> playback.play(song, songs); nav.navigate(Routes.NOW_PLAYING) }
                         r == Routes.RECENT -> WhisperRecentScreen(songs) { song -> playback.play(song, songs); nav.navigate(Routes.NOW_PLAYING) }
                         r == Routes.QUEUE -> WhisperQueueScreen(controller, songs)
