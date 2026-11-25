@@ -47,7 +47,7 @@ import com.aurora.player.domain.model.ThemeMode
 import kotlinx.coroutines.launch
 
 @Composable
-fun WhisperPlaylistsScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
+fun WhisperPlaylistsScreen(songs: List<Song>, onPlay: (List<Song>, Int) -> Unit) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("whisper_playlists", Context.MODE_PRIVATE) }
     var refresh by remember { mutableIntStateOf(0) }
@@ -119,7 +119,7 @@ fun WhisperPlaylistsScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
                                 Text(playlist, style = MaterialTheme.typography.titleMedium)
                                 Text("${tracks.size} مقطعًا", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            IconButton(onClick = { if (tracks.isNotEmpty()) onPlay(tracks.first()) }, enabled = tracks.isNotEmpty()) { Icon(Icons.Rounded.PlayArrow, "تشغيل القائمة") }
+                            IconButton(onClick = { if (tracks.isNotEmpty()) onPlay(tracks, 0) }, enabled = tracks.isNotEmpty()) { Icon(Icons.Rounded.PlayArrow, "تشغيل القائمة") }
                             Box {
                                 IconButton(onClick = { menuPlaylist = playlist }) { Icon(Icons.Rounded.MoreVert, "خيارات القائمة") }
                                 DropdownMenu(expanded = menuPlaylist == playlist, onDismissRequest = { menuPlaylist = null }) {
@@ -144,8 +144,8 @@ fun WhisperPlaylistsScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
                                     leadingContent = { Text("${index + 1}", color = MaterialTheme.colorScheme.primary) },
                                     headlineContent = { Text(song.title, maxLines = 1) },
                                     supportingContent = { Text(song.artist, maxLines = 1) },
-                                    trailingContent = { IconButton(onClick = { onPlay(song) }) { Icon(Icons.Rounded.PlayArrow, "تشغيل") } },
-                                    modifier = Modifier.clickable { onPlay(song) }
+                                    trailingContent = { IconButton(onClick = { onPlay(tracks, index) }) { Icon(Icons.Rounded.PlayArrow, "تشغيل") } },
+                                    modifier = Modifier.clickable { onPlay(tracks, index) }
                                 )
                             }
                         }
