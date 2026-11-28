@@ -1,6 +1,10 @@
 package com.aurora.player.ui.navigation
 
 import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.provider.MediaStore
+import android.content.ContentUris
 import android.graphics.BitmapFactory
 import android.util.Base64
 import android.net.Uri
@@ -829,12 +833,13 @@ private fun SongLongPressRow(
     song: Song,
     onPlay: () -> Unit,
     onLongPress: () -> Unit,
-    activeSongId: Long? = null
+    activeSongId: Long? = null,
+    selected: Boolean = false
 ) {
     val active = activeSongId == song.id
-    val bubbleColor by animateColorAsState(if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.20f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f), label = "songBubbleColor")
-    val borderColor by animateColorAsState(if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.88f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.18f), label = "songBubbleBorder")
-    val elevation = if (active) 7.dp else 1.dp
+    val bubbleColor by animateColorAsState(if (selected) MaterialTheme.colorScheme.secondary.copy(alpha = 0.22f) else if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.20f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f), label = "songBubbleColor")
+    val borderColor by animateColorAsState(if (selected) MaterialTheme.colorScheme.secondary.copy(alpha = 0.9f) else if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.88f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.18f), label = "songBubbleBorder")
+    val elevation = if (active || selected) 7.dp else 1.dp
     Surface(
         modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp).animateContentSize()
             .border(if (active) 1.5.dp else 0.7.dp, borderColor, RoundedCornerShape(22.dp)),
@@ -951,9 +956,25 @@ fun WhisperSongListScreen(
     notificationCount: Int = 0
 ) {
     var selectedSong by remember { mutableStateOf<Song?>(null) }
+    val selectedIds = remember { mutableStateListOf<Long>() }
+    var showPlaylistPicker by remember { mutableStateOf(false) }
+    var playlistDraft by remember { mutableStateOf("") }
+    var playlistRefresh by remember { mutableIntStateOf(0) }
+    var actionMessage by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val playlistPrefs = remember(context) { context.getSharedPreferences("whisper_playlists", Context.MODE_PRIVATE) }
+    val deleteLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            actionMessage = "تم إرسال طلب حذف الملفات المحددة."
+            selectedIds.clear()
+        } else {
+            actionMessage = "لم يتم حذف الملفات."
+        }
+    }
     var playHistoryVersion by remember { mutableIntStateOf(0) }
     LaunchedEffect(activeSongId) { playHistoryVersion++ }
-    val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("whisper_preferences", Context.MODE_PRIVATE) }
     var sort by remember { mutableStateOf(prefs.getString("song_sort", "newest") ?: "newest") }
     val sortedSongs = remember(songs, sort, playHistoryVersion) { when (sort) {
@@ -968,28 +989,113 @@ fun WhisperSongListScreen(
         else -> songs.sortedByDescending { it.id }
     } }
     val listState = rememberLazyListState()
+    val selectedSongs = remember(selectedIds.size, songs) { songs.filter { it.id in selectedIds } }
+    val playlistNames = remember(playlistRefresh) {
+        playlistPrefs.all.keys.filter { it.startsWith("playlist:") }.map { it.removePrefix("playlist:") }.sorted()
+    }
+    fun toggleSelection(song: Song) {
+        if (song.id in selectedIds) selectedIds.remove(song.id) else selectedIds.add(song.id)
+        selectedSong = null
+    }
     LaunchedEffect(activeSongId, sortedSongs) {
         val activeIndex = sortedSongs.indexOfFirst { it.id == activeSongId }
-        if (activeIndex >= 0) listState.animateScrollToItem(activeIndex)
+        if (activeIndex >= 0 && selectedIds.isEmpty()) listState.animateScrollToItem(activeIndex)
     }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("كل الأصوات", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(vertical = 16.dp))
-            var expanded by remember { mutableStateOf(false) }
-            Box {
-                IconButton(onClick = { expanded = true }) { Icon(Icons.Rounded.Sort, contentDescription = "ترتيب") }
-                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                    listOf("newest" to "الأحدث", "oldest" to "الأقدم", "name" to "الاسم تصاعديًا", "name_desc" to "الاسم تنازليًا", "artist" to "الفنان تصاعديًا", "artist_desc" to "الفنان تنازليًا", "plays" to "الأكثر تشغيلًا", "least_plays" to "الأقل تشغيلًا", "recently_played" to "آخر تشغيل").forEach { (key, label) ->
-                        DropdownMenuItem(text = { Text(label) }, onClick = { sort = key; prefs.edit().putString("song_sort", key).apply(); expanded = false })
+            Text(if (selectedIds.isEmpty()) "كل الأصوات" else "تم تحديد ${selectedIds.size} صوت", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(vertical = 16.dp))
+            if (selectedIds.isNotEmpty()) {
+                Row {
+                    IconButton(onClick = { showPlaylistPicker = true }) { Icon(Icons.Rounded.PlaylistAdd, contentDescription = "إضافة المحدد إلى قائمة") }
+                    IconButton(onClick = {
+                        val uris = ArrayList(selectedSongs.map { android.net.Uri.parse(it.contentUri) })
+                        if (uris.isNotEmpty()) {
+                            val share = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                                type = "audio/*"
+                                putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(share, "مشاركة الملفات الصوتية").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        }
+                    }) { Icon(Icons.Rounded.Share, contentDescription = "مشاركة المحدد") }
+                    IconButton(onClick = {
+                        if (Build.VERSION.SDK_INT >= 30) {
+                            runCatching {
+                                val uris = selectedSongs.map { ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, it.id) }
+                                val request = MediaStore.createDeleteRequest(context.contentResolver, uris)
+                                deleteLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(request.intentSender).build())
+                            }.onFailure { actionMessage = it.localizedMessage ?: "تعذر طلب حذف الملفات" }
+                        } else {
+                            actionMessage = "الحذف الجماعي يتطلب Android 11 أو أحدث في هذا الإصدار."
+                        }
+                    }) { Icon(Icons.Rounded.Delete, contentDescription = "حذف المحدد", tint = MaterialTheme.colorScheme.error) }
+                    IconButton(onClick = { selectedIds.clear() }) { Icon(Icons.Rounded.Close, contentDescription = "إلغاء التحديد") }
+                }
+            } else {
+                var expanded by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(onClick = { expanded = true }) { Icon(Icons.Rounded.Sort, contentDescription = "ترتيب") }
+                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        listOf("newest" to "الأحدث", "oldest" to "الأقدم", "name" to "الاسم تصاعديًا", "name_desc" to "الاسم تنازليًا", "artist" to "الفنان تصاعديًا", "artist_desc" to "الفنان تنازليًا", "plays" to "الأكثر تشغيلًا", "least_plays" to "الأقل تشغيلًا", "recently_played" to "آخر تشغيل").forEach { (key, label) ->
+                            DropdownMenuItem(text = { Text(label) }, onClick = { sort = key; prefs.edit().putString("song_sort", key).apply(); expanded = false })
+                        }
                     }
                 }
             }
         }
-        LazyColumn(state = listState) {
-            items(sortedSongs) { song ->
-                SongLongPressRow(song, onPlay = { onPlay(song) }, onLongPress = { selectedSong = song }, activeSongId = activeSongId)
+        actionMessage?.let { message ->
+            Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(message, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(onClick = { actionMessage = null }) { Text("حسنًا") }
             }
         }
+        LazyColumn(state = listState) {
+            items(sortedSongs, key = { it.id }) { song ->
+                SongLongPressRow(
+                    song,
+                    onPlay = { if (selectedIds.isNotEmpty()) toggleSelection(song) else onPlay(song) },
+                    onLongPress = { toggleSelection(song) },
+                    activeSongId = activeSongId,
+                    selected = song.id in selectedIds
+                )
+            }
+        }
+    }
+    if (showPlaylistPicker) {
+        AlertDialog(
+            onDismissRequest = { showPlaylistPicker = false },
+            title = { Text("إضافة ${selectedIds.size} صوت إلى قائمة تشغيل") },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    if (playlistNames.isEmpty()) Text("أنشئ قائمة تشغيل جديدة لإضافة الملفات المحددة.")
+                    playlistNames.forEach { name ->
+                        TextButton(onClick = {
+                            val old = playlistPrefs.getString("playlist:$name", "").orEmpty().split(',').mapNotNull { it.toLongOrNull() }
+                            playlistPrefs.edit().putString("playlist:$name", (old + selectedIds).distinct().joinToString(",")).apply()
+                            playlistRefresh++
+                            showPlaylistPicker = false
+                            selectedIds.clear()
+                            actionMessage = "تمت إضافة الملفات إلى «$name»."
+                        }) { Text(name) }
+                    }
+                    OutlinedTextField(value = playlistDraft, onValueChange = { playlistDraft = it }, label = { Text("اسم قائمة جديدة") }, singleLine = true)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val name = playlistDraft.trim()
+                    if (name.isNotEmpty() && !playlistPrefs.contains("playlist:$name")) {
+                        playlistPrefs.edit().putString("playlist:$name", selectedIds.joinToString(",")).apply()
+                        playlistRefresh++
+                        playlistDraft = ""
+                        showPlaylistPicker = false
+                        selectedIds.clear()
+                        actionMessage = "تم إنشاء القائمة وإضافة الملفات إليها."
+                    } else if (name.isNotEmpty()) actionMessage = "يوجد بالفعل قائمة بهذا الاسم."
+                }, enabled = playlistDraft.isNotBlank()) { Text("إنشاء وإضافة") }
+            },
+            dismissButton = { TextButton(onClick = { showPlaylistPicker = false }) { Text("إلغاء") } }
+        )
     }
     selectedSong?.let { song ->
         SongContextDialog(song, onDismiss = { selectedSong = null },
