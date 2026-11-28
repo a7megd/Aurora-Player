@@ -32,6 +32,7 @@ object Routes {
     const val FRIEND_REQUESTS = "friend_requests"
     const val POSTS = "posts"
     const val CHAT = "chat"
+    const val STUDY = "study"
     const val MEDIA_CONVERTER = "media_converter"
 }
 
@@ -44,4 +45,5 @@ val bottomTabs = listOf(
     BottomTab(Routes.ARTICLES, "المقالات", Icons.Rounded.Article),
     BottomTab(Routes.POSTS, "المنشورات", Icons.Rounded.Groups),
     BottomTab(Routes.COMMUNITY, "المجتمع", Icons.Rounded.Groups),
+    BottomTab(Routes.STUDY, "المذاكرة", Icons.Rounded.Timer),
 )
