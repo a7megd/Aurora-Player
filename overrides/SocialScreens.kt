@@ -75,7 +75,8 @@ fun SocialPostsScreen(user: FirebaseUser, onNavigate: (String) -> Unit = {}) {
         loading=true
         try {
             val postDocuments = db.collection("communityPosts").orderBy("createdAt",Query.Direction.DESCENDING).limit(80).get().await().documents
-            val authorPhotoCache = postDocuments.map { it.getString("uid").orEmpty() }.filter(String::isNotBlank).distinct()
+            val authorPhotoCache = postDocuments.filter { it.getString("authorPhotoUrl").isNullOrBlank() }
+                .map { it.getString("uid").orEmpty() }.filter(String::isNotBlank).distinct()
                 .associateWith { authorUid ->
                     runCatching { db.collection("users").document(authorUid).get().await().getString("photoUrl").orEmpty() }.getOrDefault("")
                 }
