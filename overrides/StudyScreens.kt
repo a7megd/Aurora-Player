@@ -24,8 +24,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.aurora.player.study.StudyLockController
 import kotlinx.coroutines.delay
+import org.json.JSONArray
+import org.json.JSONObject
 
 private data class LocalStudyTask(val id: Long, val title: String, val proof: Uri? = null)
+
+private fun loadStudyTasks(prefs: android.content.SharedPreferences): List<LocalStudyTask> {
+    val array = runCatching { JSONArray(prefs.getString("tasks", "[]")) }.getOrNull() ?: return emptyList()
+    return buildList {
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val proof = item.optString("proof").takeIf { it.isNotBlank() }?.let(Uri::parse)
+            add(LocalStudyTask(item.optLong("id"), item.optString("title"), proof))
+        }
+    }
+}
 
 @Composable
 fun StudyHubScreen() {
@@ -41,15 +54,23 @@ fun StudyHubScreen() {
     var lockActive by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("جاهز لبدء جلسة تركيز جديدة") }
     var taskDraft by remember { mutableStateOf("") }
-    var tasks by remember { mutableStateOf<List<LocalStudyTask>>(emptyList()) }
+    var tasks by remember { mutableStateOf(loadStudyTasks(prefs)) }
     var proofTarget by remember { mutableStateOf<Long?>(null) }
-    val proofPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    val proofPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val id = proofTarget
         if (uri != null && id != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
             tasks = tasks.map { if (it.id == id) it.copy(proof = uri) else it }
             status = "تم إرفاق الدليل. أصبحت المهمة مؤهلة للإكمال."
         }
         proofTarget = null
+    }
+    LaunchedEffect(tasks) {
+        val array = JSONArray()
+        tasks.forEach { task ->
+            array.put(JSONObject().put("id", task.id).put("title", task.title).put("proof", task.proof?.toString().orEmpty()))
+        }
+        prefs.edit().putString("tasks", array.toString()).apply()
     }
     LaunchedEffect(running) {
         while (running) {
@@ -162,7 +183,7 @@ fun StudyHubScreen() {
                         Text(task.title, fontWeight = FontWeight.SemiBold)
                         Text(if (task.proof == null) "لم يرفق دليل بعد" else "تم إرفاق صورة دليل", style = MaterialTheme.typography.labelSmall)
                     }
-                    if (task.proof == null) TextButton(onClick = { proofTarget = task.id; proofPicker.launch("image/*") }) { Text("إرفاق صورة") }
+                    if (task.proof == null) TextButton(onClick = { proofTarget = task.id; proofPicker.launch(arrayOf("image/*")) }) { Text("إرفاق صورة") }
                     else Text("مكتملة ✓", color = Color(0xFF4CAF50))
                 }
             }
