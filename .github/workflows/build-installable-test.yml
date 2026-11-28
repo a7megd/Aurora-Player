@@ -41,6 +41,7 @@ jobs:
           install -D overrides/PlaybackService.kt AuroraPlayer/app/src/main/java/com/aurora/player/playback/PlaybackService.kt
           install -D overrides/PlaybackConnection.kt AuroraPlayer/app/src/main/java/com/aurora/player/playback/PlaybackConnection.kt
           install -D overrides/StudyScreens.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/StudyScreens.kt
+          install -D overrides/SharedStudyRoom.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/SharedStudyRoom.kt
           install -D overrides/StudyLockController.kt AuroraPlayer/app/src/main/java/com/aurora/player/study/StudyLockController.kt
           install -D overrides/AudioOutputRouteCard.kt AuroraPlayer/app/src/main/java/com/aurora/player/ui/navigation/AudioOutputRouteCard.kt
           install -D overrides/app.build.gradle.kts AuroraPlayer/app/build.gradle.kts
