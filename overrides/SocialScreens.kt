@@ -45,7 +45,7 @@ import java.io.File
 private data class WhisperSocialPost(val id:String,val uid:String,val name:String,val kind:String,val body:String)
 private data class WhisperComment(val id:String,val uid:String,val name:String,val body:String)
 private data class WhisperChatMessage(val id:String,val uid:String,val name:String,val body:String,val type:String,val mediaUrl:String)
-private data class WhisperProfileSummary(val name:String,val bio:String,val favoriteSounds:String,val photoUrl:String,val followers:Int,val following:Int,val totalPlays:Long,val listeningMs:Long,val rankTitle:String,val achievements:List<String>,val posts:List<String>)
+private data class WhisperProfileSummary(val name:String,val bio:String,val favoriteSounds:String,val photoUrl:String,val followers:Int,val following:Int,val isFollowing:Boolean,val totalPlays:Long,val listeningMs:Long,val rankTitle:String,val achievements:List<String>,val posts:List<String>)
 
 @Composable
 fun SocialPostsScreen(user: FirebaseUser, onNavigate: (String) -> Unit = {}) {
@@ -95,6 +95,7 @@ fun SocialPostsScreen(user: FirebaseUser, onNavigate: (String) -> Unit = {}) {
             if (doc.exists()) {
                 val followers = db.collection("users").document(uid).collection("followers").get().await().size()
                 val following = db.collection("users").document(uid).collection("following").get().await().size()
+                val isFollowing = uid != user.uid && db.collection("users").document(user.uid).collection("following").document(uid).get().await().exists()
                 val authoredPosts = db.collection("communityPosts").whereEqualTo("uid", uid).limit(10).get().await().documents
                     .mapNotNull { it.getString("body")?.takeIf(String::isNotBlank) }
                 val achievements = ((doc.get("achievementHistory") as? List<*>) ?: (doc.get("achievements") as? List<*>))
@@ -106,6 +107,7 @@ fun SocialPostsScreen(user: FirebaseUser, onNavigate: (String) -> Unit = {}) {
                     photoUrl = doc.getString("photoUrl").orEmpty(),
                     followers = followers,
                     following = following,
+                    isFollowing = isFollowing,
                     totalPlays = doc.getLong("totalPlays") ?: 0L,
                     listeningMs = doc.getLong("totalListeningMs") ?: 0L,
                     rankTitle = doc.getString("rankTitle") ?: "عضو المجتمع",
@@ -197,6 +199,30 @@ fun SocialPostsScreen(user: FirebaseUser, onNavigate: (String) -> Unit = {}) {
                 if (profile.photoUrl.isNotBlank()) AsyncImage(model=profile.photoUrl,contentDescription="الصورة الشخصية",modifier=Modifier.size(76.dp))
                 Text(profile.bio.ifBlank { "لا توجد نبذة شخصية بعد." })
                 Text("المتابعون: ${profile.followers}  •  يتابع: ${profile.following}")
+                if (profileUid != user.uid) {
+                  OutlinedButton(enabled = !busy, onClick = {
+                    val targetUid = profileUid ?: return@OutlinedButton
+                    busy = true
+                    scope.launch {
+                      try {
+                        val followingRef = db.collection("users").document(user.uid).collection("following").document(targetUid)
+                        val followerRef = db.collection("users").document(targetUid).collection("followers").document(user.uid)
+                        val batch = db.batch()
+                        if (profile.isFollowing) { batch.delete(followingRef); batch.delete(followerRef) }
+                        else {
+                          batch.set(followingRef, mapOf("targetUid" to targetUid, "createdAt" to FieldValue.serverTimestamp()))
+                          batch.set(followerRef, mapOf("uid" to user.uid, "createdAt" to FieldValue.serverTimestamp()))
+                        }
+                        batch.commit().await()
+                        profileData = profile.copy(
+                          isFollowing = !profile.isFollowing,
+                          followers = (profile.followers + if (profile.isFollowing) -1 else 1).coerceAtLeast(0)
+                        )
+                      } catch (e: Exception) { message = e.localizedMessage ?: "تعذر تحديث المتابعة." }
+                      busy = false
+                    }
+                  }) { Text(if (profile.isFollowing) "إلغاء المتابعة" else "متابعة") }
+                }
                 Text("التشغيلات: ${profile.totalPlays}  •  وقت الاستماع: ${profile.listeningMs / 3_600_000L} ساعة")
                 Text("الرتبة: ${profile.rankTitle}",fontWeight=FontWeight.SemiBold)
                 if (profile.favoriteSounds.isNotBlank()) Text("الأصوات المفضلة: ${profile.favoriteSounds}")
