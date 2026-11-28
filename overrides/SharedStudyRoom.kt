@@ -25,6 +25,7 @@ fun SharedStudyRoomCard() {
     var names by remember { mutableStateOf<List<String>>(emptyList()) }
     var owner by remember { mutableStateOf(false) }
     var running by remember { mutableStateOf(false) }
+    var onBreak by remember { mutableStateOf(false) }
     var endsAt by remember { mutableLongStateOf(0L) }
     var secondsLeft by remember { mutableLongStateOf(0L) }
     var message by remember { mutableStateOf<String?>(null) }
@@ -45,6 +46,7 @@ fun SharedStudyRoomCard() {
                     names = members.values.mapNotNull { it as? String }
                     owner = snap.getString("ownerUid") == uid
                     running = snap.getBoolean("running") == true
+                    onBreak = snap.getBoolean("onBreak") == true
                     endsAt = snap.getLong("endsAt") ?: 0L
                 }
             }
@@ -57,9 +59,16 @@ fun SharedStudyRoomCard() {
             secondsLeft = ((endsAt - System.currentTimeMillis()).coerceAtLeast(0L) / 1000L)
             if (secondsLeft == 0L) {
                 if (owner && roomCode != null) {
-                    db.collection("studyRooms").document(roomCode!!).update(
-                        mapOf("running" to false, "endsAt" to 0L, "updatedAt" to System.currentTimeMillis())
-                    )
+                    val now = System.currentTimeMillis()
+                    if (!onBreak) {
+                        db.collection("studyRooms").document(roomCode!!).update(
+                            mapOf("running" to true, "onBreak" to true, "endsAt" to now + 5L * 60_000L, "updatedAt" to now)
+                        )
+                    } else {
+                        db.collection("studyRooms").document(roomCode!!).update(
+                            mapOf("running" to false, "onBreak" to false, "endsAt" to 0L, "updatedAt" to now)
+                        )
+                    }
                 }
                 break
             }
@@ -91,7 +100,7 @@ fun SharedStudyRoomCard() {
                             val now = System.currentTimeMillis()
                             transaction.set(ref, mapOf(
                                 "code" to code, "ownerUid" to uid, "memberIds" to listOf(uid),
-                                "members" to mapOf(uid to name), "running" to false, "endsAt" to 0L,
+                                "members" to mapOf(uid to name), "running" to false, "onBreak" to false, "endsAt" to 0L,
                                 "createdAt" to now, "updatedAt" to now
                             ))
                         }.addOnSuccessListener {
@@ -141,18 +150,18 @@ fun SharedStudyRoomCard() {
                 }) { Text("مشاركة دعوة الغرفة") }
                 Text("المشاركون: " + names.size + " / 10")
                 names.forEach { Text("• " + it) }
-                Text(if (running) "جلسة التركيز المشتركة نشطة" else "الجلسة متوقفة")
+                Text(if (!running) "الجلسة متوقفة" else if (onBreak) "استراحة مشتركة" else "جلسة التركيز المشتركة نشطة")
                 if (running) Text("%02d:%02d".format(secondsLeft / 60L, secondsLeft % 60L), style = MaterialTheme.typography.headlineMedium)
                 if (owner) {
                     Button(onClick = {
                         val end = System.currentTimeMillis() + 25L * 60_000L
                         db.collection("studyRooms").document(roomCode!!).update(
-                            mapOf("running" to true, "endsAt" to end, "updatedAt" to System.currentTimeMillis())
+                            mapOf("running" to true, "onBreak" to false, "endsAt" to end, "updatedAt" to System.currentTimeMillis())
                         )
                     }, enabled = !running) { Text("بدء جلسة تركيز 25 دقيقة") }
                     OutlinedButton(onClick = {
                         db.collection("studyRooms").document(roomCode!!).update(
-                            mapOf("running" to false, "endsAt" to 0L, "updatedAt" to System.currentTimeMillis())
+                            mapOf("running" to false, "onBreak" to false, "endsAt" to 0L, "updatedAt" to System.currentTimeMillis())
                         )
                     }, enabled = running) { Text("إيقاف الجلسة") }
                 }
