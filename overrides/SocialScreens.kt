@@ -8,10 +8,13 @@ import android.net.Uri
 import android.content.Intent
 import com.aurora.player.media.CloudinaryMediaUploader
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -21,6 +24,8 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.ui.zIndex
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -42,10 +47,10 @@ import kotlinx.coroutines.tasks.await
 import java.io.File
 
 
-private data class WhisperSocialPost(val id:String,val uid:String,val name:String,val kind:String,val body:String)
+private data class WhisperSocialPost(val id:String,val uid:String,val name:String,val kind:String,val body:String,val photoUrl:String = "")
 private data class WhisperComment(val id:String,val uid:String,val name:String,val body:String)
 private data class WhisperChatMessage(val id:String,val uid:String,val name:String,val body:String,val type:String,val mediaUrl:String)
-private data class WhisperProfileSummary(val name:String,val bio:String,val favoriteSounds:String,val photoUrl:String,val followers:Int,val following:Int,val isFollowing:Boolean,val totalPlays:Long,val listeningMs:Long,val rankTitle:String,val achievements:List<String>,val posts:List<String>)
+private data class WhisperProfileSummary(val name:String,val bio:String,val favoriteSounds:String,val photoUrl:String,val followers:Int,val following:Int,val isFollowing:Boolean,val totalPlays:Long,val listeningMs:Long,val rankTitle:String,val achievements:List<String>,val posts:List<WhisperSocialPost>)
 
 @Composable
 fun SocialPostsScreen(user: FirebaseUser, onNavigate: (String) -> Unit = {}) {
@@ -71,7 +76,7 @@ fun SocialPostsScreen(user: FirebaseUser, onNavigate: (String) -> Unit = {}) {
         try {
             posts=db.collection("communityPosts").orderBy("createdAt",Query.Direction.DESCENDING).limit(80).get().await().documents.map { d ->
                 WhisperSocialPost(d.id,d.getString("uid").orEmpty(),d.getString("authorName") ?: "عضو Whisper",
-                    d.getString("kind") ?: "منشور",d.getString("body").orEmpty())
+                    d.getString("kind") ?: "منشور",d.getString("body").orEmpty(),d.getString("authorPhotoUrl").orEmpty())
             }
             message=null
         } catch(e:Exception){message=e.localizedMessage ?: "تعذر تحميل المنشورات."}
@@ -96,8 +101,10 @@ fun SocialPostsScreen(user: FirebaseUser, onNavigate: (String) -> Unit = {}) {
                 val followers = db.collection("users").document(uid).collection("followers").get().await().size()
                 val following = db.collection("users").document(uid).collection("following").get().await().size()
                 val isFollowing = uid != user.uid && db.collection("users").document(user.uid).collection("following").document(uid).get().await().exists()
-                val authoredPosts = db.collection("communityPosts").whereEqualTo("uid", uid).limit(10).get().await().documents
-                    .mapNotNull { it.getString("body")?.takeIf(String::isNotBlank) }
+                val authoredPosts = db.collection("communityPosts").whereEqualTo("uid", uid).limit(30).get().await().documents
+                    .sortedByDescending { it.getTimestamp("createdAt")?.toDate()?.time ?: 0L }
+                    .map { d -> WhisperSocialPost(d.id, uid, d.getString("authorName") ?: doc.getString("displayName") ?: "عضو Whisper",
+                        d.getString("kind") ?: "منشور", d.getString("body").orEmpty(), d.getString("authorPhotoUrl").orEmpty()) }
                 val achievements = ((doc.get("achievementHistory") as? List<*>) ?: (doc.get("achievements") as? List<*>))
                     ?.filterIsInstance<String>().orEmpty()
                 profileData = WhisperProfileSummary(
@@ -136,7 +143,14 @@ fun SocialPostsScreen(user: FirebaseUser, onNavigate: (String) -> Unit = {}) {
                 Card {
                     Column(Modifier.fillMaxWidth().padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
-                            TextButton(onClick={ profileUid = post.uid }) { Text(post.name,fontWeight=FontWeight.SemiBold) }
+                            Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                                Box(Modifier.size(42.dp).clip(CircleShape).clickable { profileUid = post.uid }, contentAlignment=Alignment.Center) {
+                                    if (post.photoUrl.isNotBlank()) AsyncImage(model=post.photoUrl,contentDescription="فتح الملف الشخصي",
+                                        modifier=Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
+                                    else Text(post.name.firstOrNull()?.toString() ?: "؟",style=MaterialTheme.typography.titleMedium)
+                                }
+                                TextButton(onClick={ profileUid = post.uid }) { Text(post.name,fontWeight=FontWeight.SemiBold) }
+                            }
                             AssistChip(onClick={},label={Text(post.kind)})
                         }
                         Text(post.body,style=MaterialTheme.typography.bodyLarge)
@@ -187,18 +201,46 @@ fun SocialPostsScreen(user: FirebaseUser, onNavigate: (String) -> Unit = {}) {
             containerColor = MaterialTheme.colorScheme.primary
         ) { Icon(Icons.Rounded.Add, contentDescription = "إضافة منشور أو مقال") }
       }
+      BackHandler(enabled = profileUid != null) { profileUid = null; profileData = null }
       if (profileUid != null) {
         val profile = profileData
-        AlertDialog(
-          onDismissRequest = { profileUid = null; profileData = null },
-          title = { Text(profile?.name ?: "الملف الشخصي") },
-          text = {
-            Column(Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-              if (profileLoading) CircularProgressIndicator()
-              if (profile != null) {
-                if (profile.photoUrl.isNotBlank()) AsyncImage(model=profile.photoUrl,contentDescription="الصورة الشخصية",modifier=Modifier.size(76.dp))
-                Text(profile.bio.ifBlank { "لا توجد نبذة شخصية بعد." })
-                Text("المتابعون: ${profile.followers}  •  يتابع: ${profile.following}")
+        Surface(
+          modifier = Modifier.fillMaxSize().zIndex(5f),
+          color = MaterialTheme.colorScheme.background
+        ) {
+          Column(Modifier.fillMaxSize()) {
+            Row(
+              Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+              TextButton(onClick = { profileUid = null; profileData = null }) { Text("‹ رجوع") }
+              Text(profile?.name ?: "الملف الشخصي", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            }
+            HorizontalDivider()
+            Column(
+              Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+              verticalArrangement = Arrangement.spacedBy(14.dp),
+              horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+              if (profileLoading) {
+                CircularProgressIndicator()
+                Text("جارٍ تحميل الملف الشخصي…")
+              } else if (profile == null) {
+                Text("تعذر العثور على بيانات هذا المستخدم.")
+              } else {
+                if (profile.photoUrl.isNotBlank()) {
+                  AsyncImage(model=profile.photoUrl,contentDescription="الصورة الشخصية",
+                    modifier=Modifier.size(112.dp).clip(CircleShape),contentScale=ContentScale.Crop)
+                } else {
+                  Surface(modifier=Modifier.size(112.dp),shape=CircleShape,color=MaterialTheme.colorScheme.secondaryContainer) {
+                    Box(contentAlignment=Alignment.Center) {
+                      Text(profile.name.firstOrNull()?.toString() ?: "؟",style=MaterialTheme.typography.displayMedium)
+                    }
+                  }
+                }
+                Text(profile.name,style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold)
+                Text(profile.bio.ifBlank { "لا توجد نبذة شخصية بعد." },color=MaterialTheme.colorScheme.onSurfaceVariant)
                 if (profileUid != user.uid) {
                   OutlinedButton(enabled = !busy, onClick = {
                     val targetUid = profileUid ?: return@OutlinedButton
@@ -223,20 +265,53 @@ fun SocialPostsScreen(user: FirebaseUser, onNavigate: (String) -> Unit = {}) {
                     }
                   }) { Text(if (profile.isFollowing) "إلغاء المتابعة" else "متابعة") }
                 }
-                Text("التشغيلات: ${profile.totalPlays}  •  وقت الاستماع: ${profile.listeningMs / 3_600_000L} ساعة")
-                Text("الرتبة: ${profile.rankTitle}",fontWeight=FontWeight.SemiBold)
-                if (profile.favoriteSounds.isNotBlank()) Text("الأصوات المفضلة: ${profile.favoriteSounds}")
-                Text("الإنجازات السابقة",fontWeight=FontWeight.SemiBold)
-                if (profile.achievements.isEmpty()) Text("لا توجد إنجازات مسجلة على الحساب حتى الآن.")
-                else profile.achievements.forEach { Text("• $it") }
-                Text("أحدث المشاركات",fontWeight=FontWeight.SemiBold)
-                if (profile.posts.isEmpty()) Text("لا توجد مشاركات منشورة.")
-                else profile.posts.forEach { Text(it) }
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly) {
+                  Column(horizontalAlignment=Alignment.CenterHorizontally) {
+                    Text(profile.followers.toString(),fontWeight=FontWeight.Bold)
+                    Text("المتابعون")
+                  }
+                  Column(horizontalAlignment=Alignment.CenterHorizontally) {
+                    Text(profile.following.toString(),fontWeight=FontWeight.Bold)
+                    Text("يتابع")
+                  }
+                  Column(horizontalAlignment=Alignment.CenterHorizontally) {
+                    Text(profile.posts.size.toString(),fontWeight=FontWeight.Bold)
+                    Text("المنشورات")
+                  }
+                }
+                Card(Modifier.fillMaxWidth()) {
+                  Column(Modifier.fillMaxWidth().padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                    Text("عن العضو",fontWeight=FontWeight.Bold)
+                    Text("الرتبة: ${profile.rankTitle}")
+                    Text("التشغيلات: ${profile.totalPlays}  •  وقت الاستماع: ${profile.listeningMs / 3_600_000L} ساعة")
+                    if (profile.favoriteSounds.isNotBlank()) Text("الأصوات المفضلة: ${profile.favoriteSounds}")
+                  }
+                }
+                Card(Modifier.fillMaxWidth()) {
+                  Column(Modifier.fillMaxWidth().padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                    Text("الإنجازات السابقة",fontWeight=FontWeight.Bold)
+                    if (profile.achievements.isEmpty()) Text("لا توجد إنجازات مسجلة على الحساب حتى الآن.")
+                    else profile.achievements.forEach { Text("• $it") }
+                  }
+                }
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
+                  Text("منشورات العضو",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)
+                  Text(profile.posts.size.toString(),color=MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (profile.posts.isEmpty()) {
+                  Text("لا توجد مشاركات منشورة حتى الآن.",color=MaterialTheme.colorScheme.onSurfaceVariant)
+                } else profile.posts.forEach { post ->
+                  Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.fillMaxWidth().padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                      AssistChip(onClick={},label={Text(post.kind)})
+                      Text(post.body,style=MaterialTheme.typography.bodyLarge)
+                    }
+                  }
+                }
               }
             }
-          },
-          confirmButton = { TextButton(onClick={ profileUid = null; profileData = null }) { Text("إغلاق") } }
-        )
+          }
+        }
       }
       if (showComposer) AlertDialog(
         onDismissRequest = { showComposer = false },
@@ -258,7 +333,7 @@ fun SocialPostsScreen(user: FirebaseUser, onNavigate: (String) -> Unit = {}) {
             busy = true
             scope.launch {
               try {
-                db.collection("communityPosts").add(mapOf("uid" to user.uid, "authorName" to (user.displayName ?: "عضو Whisper"), "kind" to kind, "body" to draft.trim(), "createdAt" to FieldValue.serverTimestamp())).await()
+                db.collection("communityPosts").add(mapOf("uid" to user.uid, "authorName" to (user.displayName ?: "عضو Whisper"), "authorPhotoUrl" to (user.photoUrl?.toString() ?: ""), "kind" to kind, "body" to draft.trim(), "createdAt" to FieldValue.serverTimestamp())).await()
                 draft = ""; showComposer = false; reload()
               } catch (e: Exception) { message = e.localizedMessage ?: "تعذر نشر المشاركة." }
               busy = false
