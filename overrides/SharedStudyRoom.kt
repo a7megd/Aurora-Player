@@ -1,6 +1,8 @@
 package com.aurora.player.ui.navigation
 
 import android.content.Intent
+import android.net.Uri
+import java.util.UUID
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,6 +24,7 @@ fun SharedStudyRoomCard() {
     val db = remember { FirebaseFirestore.getInstance() }
     var codeInput by remember { mutableStateOf("") }
     var roomCode by remember { mutableStateOf<String?>(null) }
+    var meetingRoom by remember { mutableStateOf("") }
     var names by remember { mutableStateOf<List<String>>(emptyList()) }
     var owner by remember { mutableStateOf(false) }
     var running by remember { mutableStateOf(false) }
@@ -44,6 +47,7 @@ fun SharedStudyRoomCard() {
                 } else {
                     val members = snap.get("members") as? Map<*, *> ?: emptyMap<Any, Any>()
                     names = members.values.mapNotNull { it as? String }
+                    meetingRoom = snap.getString("meetingRoom").orEmpty()
                     owner = snap.getString("ownerUid") == uid
                     running = snap.getBoolean("running") == true
                     onBreak = snap.getBoolean("onBreak") == true
@@ -94,12 +98,13 @@ fun SharedStudyRoomCard() {
                     Button(enabled = !busy, onClick = {
                         busy = true
                         val code = kotlin.random.Random.nextInt(100000, 1_000_000).toString()
+                        val meetingSlug = "WhisperStudy-" + UUID.randomUUID().toString().replace("-", "")
                         val ref = db.collection("studyRooms").document(code)
                         db.runTransaction { transaction ->
                             check(!transaction.get(ref).exists()) { "تعارض رمز الغرفة. حاول مرة أخرى." }
                             val now = System.currentTimeMillis()
                             transaction.set(ref, mapOf(
-                                "code" to code, "ownerUid" to uid, "memberIds" to listOf(uid),
+                                "code" to code, "ownerUid" to uid, "meetingRoom" to meetingSlug, "memberIds" to listOf(uid),
                                 "members" to mapOf(uid to name), "running" to false, "onBreak" to false, "endsAt" to 0L,
                                 "createdAt" to now, "updatedAt" to now
                             ))
@@ -148,6 +153,15 @@ fun SharedStudyRoomCard() {
                         .putExtra(Intent.EXTRA_TEXT, "انضم إلى غرفة المذاكرة في Whisper Player. رمز الغرفة: $roomCode")
                     context.startActivity(Intent.createChooser(invite, "مشاركة دعوة الغرفة"))
                 }) { Text("مشاركة دعوة الغرفة") }
+                if (meetingRoom.isNotBlank()) {
+                    Button(onClick = {
+                        val meetingUri = Uri.parse("https://meet.jit.si/" + Uri.encode(meetingRoom))
+                        context.startActivity(Intent(Intent.ACTION_VIEW, meetingUri))
+                    }, modifier = Modifier.fillMaxWidth()) {
+                        Text("فتح جلسة الفيديو والصوت")
+                    }
+                    Text("سيتم فتح Jitsi خارج التطبيق. لن تعمل الكاميرا أو الميكروفون إلا بعد موافقتك في الخدمة.", style = MaterialTheme.typography.bodySmall)
+                }
                 Text("المشاركون: " + names.size + " / 10")
                 names.forEach { Text("• " + it) }
                 Text(if (!running) "الجلسة متوقفة" else if (onBreak) "استراحة مشتركة" else "جلسة التركيز المشتركة نشطة")
