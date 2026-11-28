@@ -200,7 +200,7 @@ fun WhisperPlaylistsScreen(songs: List<Song>, onPlay: (List<Song>, Int) -> Unit)
 }
 
 @Composable
-fun WhisperRecentScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
+fun WhisperRecentScreen(songs: List<Song>, onPlay: (List<Song>, Int) -> Unit) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("whisper_preferences", Context.MODE_PRIVATE) }
     var mode by remember { mutableStateOf("recent") }
@@ -230,8 +230,8 @@ fun WhisperRecentScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
                         headlineContent = { Text(song.title, maxLines = 1) },
                         supportingContent = { Text("${song.artist} • ${plays} تشغيل", maxLines = 1) },
                         leadingContent = { Icon(Icons.Rounded.History, null, tint = MaterialTheme.colorScheme.primary) },
-                        trailingContent = { IconButton(onClick = { onPlay(song) }) { Icon(Icons.Rounded.PlayArrow, "تشغيل") } },
-                        modifier = Modifier.clickable { onPlay(song) }
+                        trailingContent = { IconButton(onClick = { onPlay(ordered, ordered.indexOfFirst { it.id == song.id }) }) { Icon(Icons.Rounded.PlayArrow, "تشغيل") } },
+                        modifier = Modifier.clickable { onPlay(ordered, ordered.indexOfFirst { it.id == song.id }) }
                     )
                 }
             }
@@ -240,7 +240,7 @@ fun WhisperRecentScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
 }
 
 @Composable
-fun WhisperFavoritesScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
+fun WhisperFavoritesScreen(songs: List<Song>, onPlay: (List<Song>, Int) -> Unit) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("whisper_favorites", Context.MODE_PRIVATE) }
     var refresh by remember { mutableIntStateOf(0) }
@@ -262,7 +262,7 @@ fun WhisperFavoritesScreen(songs: List<Song>, onPlay: (Song) -> Unit) {
                         prefs.edit().putStringSet("ids", (ids - song.id).map { it.toString() }.toSet()).apply()
                         refresh++
                     }) { Text("إزالة") } },
-                    modifier = Modifier.clickable { onPlay(song) }
+                    modifier = Modifier.clickable { onPlay(favorites, favorites.indexOfFirst { it.id == song.id }) }
                 )
             }
         }
@@ -1080,7 +1080,7 @@ fun WhisperHomeScreen(
 @Composable
 fun WhisperSearchScreen(
     songs: List<Song>,
-    onPlay: (Song) -> Unit,
+    onPlay: (List<Song>, Int) -> Unit,
     onPlayNext: (Song) -> Unit = {},
     onNavigate: (String) -> Unit = {},
     onRadio: (Song) -> Unit = {},
@@ -1119,7 +1119,7 @@ fun WhisperSearchScreen(
             Text("${filtered.size} نتيجة", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
             LazyColumn(state = listState) {
                 items(filtered) { song ->
-                    SongLongPressRow(song, onPlay = { onPlay(song) }, onLongPress = { selectedSong = song })
+                    SongLongPressRow(song, onPlay = { onPlay(filtered, filtered.indexOfFirst { it.id == song.id }) }, onLongPress = { selectedSong = song })
                 }
             }
         }
