@@ -61,7 +61,7 @@ private val allRoutes = listOf(
     Routes.NOW_PLAYING to "تعمل الآن", Routes.QUEUE to "قائمة التشغيل الحالية", Routes.LYRICS to "كلمات الأغاني", Routes.SEARCH to "بحث",
     Routes.EQUALIZER to "معادل الصوت", Routes.SETTINGS to "الإعدادات", Routes.COMMUNITY to "المجتمع",
     Routes.WRITE_ARTICLE to "كتابة مقال", Routes.ARTICLES to "المقالات", Routes.FRIEND_REQUESTS to "طلبات الصداقة", Routes.POSTS to "المنشورات", Routes.CHAT to "المحادثات",
-    Routes.MEDIA_CONVERTER to "تحويل الفيديو",
+    Routes.MEDIA_CONVERTER to "تحويل الفيديو", Routes.STUDY to "المذاكرة",
 )
 
 private fun audioPermission(): String =
@@ -478,6 +478,7 @@ private fun PlayerAppRoot(user: FirebaseUser) {
                         r == Routes.FRIEND_REQUESTS -> FriendRequestsScreen(user)
                         r == Routes.POSTS -> SocialPostsScreen(user)
                         r == Routes.CHAT -> ChatScreen(user)
+                        r == Routes.STUDY -> StudyHubScreen()
                         else -> ScaffoldScreen(title)
                     }
                 }
