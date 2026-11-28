@@ -74,9 +74,16 @@ fun SocialPostsScreen(user: FirebaseUser, onNavigate: (String) -> Unit = {}) {
     suspend fun reload() {
         loading=true
         try {
-            posts=db.collection("communityPosts").orderBy("createdAt",Query.Direction.DESCENDING).limit(80).get().await().documents.map { d ->
-                WhisperSocialPost(d.id,d.getString("uid").orEmpty(),d.getString("authorName") ?: "عضو Whisper",
-                    d.getString("kind") ?: "منشور",d.getString("body").orEmpty(),d.getString("authorPhotoUrl").orEmpty())
+            val postDocuments = db.collection("communityPosts").orderBy("createdAt",Query.Direction.DESCENDING).limit(80).get().await().documents
+            val authorPhotoCache = postDocuments.map { it.getString("uid").orEmpty() }.filter(String::isNotBlank).distinct()
+                .associateWith { authorUid ->
+                    runCatching { db.collection("users").document(authorUid).get().await().getString("photoUrl").orEmpty() }.getOrDefault("")
+                }
+            posts = postDocuments.map { d ->
+                val authorUid = d.getString("uid").orEmpty()
+                WhisperSocialPost(d.id,authorUid,d.getString("authorName") ?: "عضو Whisper",
+                    d.getString("kind") ?: "منشور",d.getString("body").orEmpty(),
+                    d.getString("authorPhotoUrl").orEmpty().ifBlank { authorPhotoCache[authorUid].orEmpty() })
             }
             message=null
         } catch(e:Exception){message=e.localizedMessage ?: "تعذر تحميل المنشورات."}
