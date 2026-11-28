@@ -124,24 +124,6 @@ fun SocialPostsScreen(user: FirebaseUser, onNavigate: (String) -> Unit = {}) {
             verticalArrangement=Arrangement.spacedBy(12.dp)) {
             Text("مساحة Whisper",style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.Bold)
             Text("قصائد واقتباسات وأفكار من مجتمع الكتّاب",color=MaterialTheme.colorScheme.onSurfaceVariant)
-            Card {
-                Column(Modifier.fillMaxWidth().padding(14.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-                    Text("شارك شيئًا يستحق القراءة",fontWeight=FontWeight.SemiBold)
-                    Row(horizontalArrangement=Arrangement.spacedBy(7.dp)) {
-                        listOf("قصيدة","اقتباس","منشور").forEach { v -> FilterChip(selected=kind==v,onClick={kind=v},label={Text(v)}) }
-                    }
-                    OutlinedTextField(value=draft,onValueChange={draft=it},modifier=Modifier.fillMaxWidth(),
-                        minLines=3,placeholder={Text("بماذا تفكر؟")},label={Text(kind)})
-                    Button(enabled=!busy&&draft.isNotBlank(),onClick={
-                        busy=true
-                        scope.launch { try {
-                            db.collection("communityPosts").add(mapOf("uid" to user.uid,"authorName" to (user.displayName ?: "عضو Whisper"),
-                                "kind" to kind,"body" to draft.trim(),"createdAt" to FieldValue.serverTimestamp())).await()
-                            draft="";reload()
-                        } catch(e:Exception){message=e.localizedMessage ?: "تعذر نشر المشاركة."};busy=false }
-                    },modifier=Modifier.fillMaxWidth()){Text(if(busy)"جارٍ النشر…" else "نشر المشاركة")}
-                }
-            }
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
                 Text("أحدث المشاركات",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)
                 TextButton(onClick={scope.launch{reload()}},enabled=!loading){Text("تحديث")}
