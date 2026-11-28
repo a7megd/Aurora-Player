@@ -81,14 +81,17 @@ fun SharedStudyRoomCard() {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(enabled = !busy, onClick = {
                         busy = true
-                        val code = (System.currentTimeMillis() % 900000L + 100000L).toString()
-                        db.collection("studyRooms").document(code).set(
-                            mapOf(
+                        val code = kotlin.random.Random.nextInt(100000, 1_000_000).toString()
+                        val ref = db.collection("studyRooms").document(code)
+                        db.runTransaction { transaction ->
+                            check(!transaction.get(ref).exists()) { "تعارض رمز الغرفة. حاول مرة أخرى." }
+                            val now = System.currentTimeMillis()
+                            transaction.set(ref, mapOf(
                                 "code" to code, "ownerUid" to uid, "memberIds" to listOf(uid),
                                 "members" to mapOf(uid to name), "running" to false, "endsAt" to 0L,
-                                "createdAt" to System.currentTimeMillis(), "updatedAt" to System.currentTimeMillis()
-                            )
-                        ).addOnSuccessListener {
+                                "createdAt" to now, "updatedAt" to now
+                            ))
+                        }.addOnSuccessListener {
                             roomCode = code
                             message = "تم إنشاء الغرفة. شارك الرمز مع أصدقائك."
                             busy = false
@@ -100,38 +103,28 @@ fun SharedStudyRoomCard() {
                     OutlinedButton(enabled = !busy && codeInput.length == 6, onClick = {
                         busy = true
                         val ref = db.collection("studyRooms").document(codeInput)
-                        ref.get().addOnSuccessListener { snap ->
-                            if (!snap.exists()) {
-                                message = "رمز الغرفة غير صحيح."
-                                busy = false
-                            } else {
-                                val ids = (snap.get("memberIds") as? List<*>)?.filterIsInstance<String>().orEmpty()
-                                if (uid !in ids && ids.size >= 10) {
-                                    message = "الغرفة مكتملة (10 طلاب)."
-                                    busy = false
-                                } else {
-                                    val members = (snap.get("members") as? Map<*, *>)?.entries
-                                        ?.mapNotNull { entry -> (entry.key as? String)?.let { it to (entry.value as? String).orEmpty() } }
-                                        ?.toMap()?.toMutableMap() ?: mutableMapOf()
-                                    members[uid] = name
-                                    ref.update(
-                                        mapOf(
-                                            "memberIds" to (ids + uid).distinct(),
-                                            "members" to members,
-                                            "updatedAt" to System.currentTimeMillis()
-                                        )
-                                    ).addOnSuccessListener {
-                                        roomCode = codeInput
-                                        message = "انضممت إلى الغرفة."
-                                        busy = false
-                                    }.addOnFailureListener {
-                                        message = it.localizedMessage ?: "تعذر الانضمام"
-                                        busy = false
-                                    }
-                                }
+                        db.runTransaction { transaction ->
+                            val snap = transaction.get(ref)
+                            check(snap.exists()) { "رمز الغرفة غير صحيح." }
+                            val ids = (snap.get("memberIds") as? List<*>)?.filterIsInstance<String>().orEmpty()
+                            check(uid in ids || ids.size < 10) { "الغرفة مكتملة (10 طلاب)." }
+                            if (uid !in ids) {
+                                val members = (snap.get("members") as? Map<*, *>)?.entries
+                                    ?.mapNotNull { entry -> (entry.key as? String)?.let { it to (entry.value as? String).orEmpty() } }
+                                    ?.toMap()?.toMutableMap() ?: mutableMapOf()
+                                members[uid] = name
+                                transaction.update(ref, mapOf(
+                                    "memberIds" to (ids + uid),
+                                    "members" to members,
+                                    "updatedAt" to System.currentTimeMillis()
+                                ))
                             }
+                        }.addOnSuccessListener {
+                            roomCode = codeInput
+                            message = "انضممت إلى الغرفة."
+                            busy = false
                         }.addOnFailureListener {
-                            message = it.localizedMessage ?: "تعذر البحث عن الغرفة"
+                            message = it.localizedMessage ?: "تعذر الانضمام"
                             busy = false
                         }
                     }) { Text("انضمام") }
