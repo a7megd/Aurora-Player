@@ -1,11 +1,13 @@
 package com.aurora.player.ui.navigation
 
+import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -13,6 +15,7 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun SharedStudyRoomCard() {
+    val context = LocalContext.current
     val user = FirebaseAuth.getInstance().currentUser
     val uid = user?.uid.orEmpty()
     val name = user?.displayName?.takeIf { it.isNotBlank() } ?: user?.email?.substringBefore("@") ?: "طالب"
@@ -131,6 +134,11 @@ fun SharedStudyRoomCard() {
                 }
             } else {
                 Text("رمز الغرفة: " + roomCode, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                OutlinedButton(onClick = {
+                    val invite = Intent(Intent.ACTION_SEND).setType("text/plain")
+                        .putExtra(Intent.EXTRA_TEXT, "انضم إلى غرفة المذاكرة في Whisper Player. رمز الغرفة: $roomCode")
+                    context.startActivity(Intent.createChooser(invite, "مشاركة دعوة الغرفة"))
+                }) { Text("مشاركة دعوة الغرفة") }
                 Text("المشاركون: " + names.size + " / 10")
                 names.forEach { Text("• " + it) }
                 Text(if (running) "جلسة التركيز المشتركة نشطة" else "الجلسة متوقفة")
