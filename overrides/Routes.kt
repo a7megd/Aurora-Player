@@ -9,6 +9,7 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Article
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.ui.graphics.vector.ImageVector
 
 object Routes {
