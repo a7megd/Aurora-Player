@@ -476,7 +476,7 @@ private fun PlayerAppRoot(user: FirebaseUser) {
                         r == Routes.WRITE_ARTICLE -> ArticleWriterScreen(user)
                         r == Routes.ARTICLES -> ArticleReaderScreen(user)
                         r == Routes.FRIEND_REQUESTS -> FriendRequestsScreen(user)
-                        r == Routes.POSTS -> SocialPostsScreen(user)
+                        r == Routes.POSTS -> SocialPostsScreen(user, onNavigate = { target -> nav.navigate(target) { launchSingleTop = true } })
                         r == Routes.CHAT -> ChatScreen(user)
                         r == Routes.STUDY -> StudyHubScreen()
                         else -> ScaffoldScreen(title)
