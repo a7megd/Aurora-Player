@@ -178,7 +178,7 @@ fun SocialPostsScreen(user: FirebaseUser, onNavigate: (String) -> Unit = {}) {
                             HorizontalDivider()
                             comments.forEach { c ->
                                 Column(Modifier.fillMaxWidth().padding(vertical=3.dp)) {
-                                    Text(c.name,style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.SemiBold)
+                                    TextButton(onClick={ if (c.uid.isNotBlank()) profileUid = c.uid },contentPadding=PaddingValues(0.dp)) { Text(c.name,style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.SemiBold) }
                                     Text(c.body,style=MaterialTheme.typography.bodyMedium)
                                 }
                             }
