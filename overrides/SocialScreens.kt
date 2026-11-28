@@ -45,6 +45,7 @@ import java.io.File
 private data class WhisperSocialPost(val id:String,val uid:String,val name:String,val kind:String,val body:String)
 private data class WhisperComment(val id:String,val uid:String,val name:String,val body:String)
 private data class WhisperChatMessage(val id:String,val uid:String,val name:String,val body:String,val type:String,val mediaUrl:String)
+private data class WhisperProfileSummary(val name:String,val bio:String,val favoriteSounds:String,val photoUrl:String,val followers:Int,val following:Int,val totalPlays:Long,val listeningMs:Long,val rankTitle:String,val achievements:List<String>,val posts:List<String>)
 
 @Composable
 fun SocialPostsScreen(user: FirebaseUser) {
@@ -61,6 +62,9 @@ fun SocialPostsScreen(user: FirebaseUser) {
     var commentDraft by remember { mutableStateOf("") }
     var commentBusy by remember { mutableStateOf(false) }
     var showComposer by remember { mutableStateOf(false) }
+    var profileUid by remember { mutableStateOf<String?>(null) }
+    var profileData by remember { mutableStateOf<WhisperProfileSummary?>(null) }
+    var profileLoading by remember { mutableStateOf(false) }
 
     suspend fun reload() {
         loading=true
@@ -82,6 +86,38 @@ fun SocialPostsScreen(user: FirebaseUser) {
         } catch(e:Exception){message=e.localizedMessage ?: "تعذر تحميل التعليقات."}
     }
     LaunchedEffect(user.uid){reload()}
+    LaunchedEffect(profileUid) {
+        val uid = profileUid ?: return@LaunchedEffect
+        profileLoading = true
+        profileData = null
+        try {
+            val doc = db.collection("users").document(uid).get().await()
+            if (doc.exists()) {
+                val followers = db.collection("users").document(uid).collection("followers").get().await().size()
+                val following = db.collection("users").document(uid).collection("following").get().await().size()
+                val authoredPosts = db.collection("communityPosts").whereEqualTo("uid", uid).limit(10).get().await().documents
+                    .mapNotNull { it.getString("body")?.takeIf(String::isNotBlank) }
+                val achievements = ((doc.get("achievementHistory") as? List<*>) ?: (doc.get("achievements") as? List<*>))
+                    ?.filterIsInstance<String>().orEmpty()
+                profileData = WhisperProfileSummary(
+                    name = doc.getString("displayName") ?: "عضو Whisper",
+                    bio = doc.getString("bio").orEmpty(),
+                    favoriteSounds = doc.getString("favoriteSounds").orEmpty(),
+                    photoUrl = doc.getString("photoUrl").orEmpty(),
+                    followers = followers,
+                    following = following,
+                    totalPlays = doc.getLong("totalPlays") ?: 0L,
+                    listeningMs = doc.getLong("totalListeningMs") ?: 0L,
+                    rankTitle = doc.getString("rankTitle") ?: "عضو المجتمع",
+                    achievements = achievements,
+                    posts = authoredPosts
+                )
+            }
+        } catch (e: Exception) {
+            message = e.localizedMessage ?: "تعذر تحميل الملف الشخصي."
+        }
+        profileLoading = false
+    }
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
       Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal=14.dp,vertical=12.dp),
@@ -116,7 +152,7 @@ fun SocialPostsScreen(user: FirebaseUser) {
                 Card {
                     Column(Modifier.fillMaxWidth().padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
-                            Text(post.name,fontWeight=FontWeight.SemiBold)
+                            TextButton(onClick={ profileUid = post.uid }) { Text(post.name,fontWeight=FontWeight.SemiBold) }
                             AssistChip(onClick={},label={Text(post.kind)})
                         }
                         Text(post.body,style=MaterialTheme.typography.bodyLarge)
@@ -166,6 +202,33 @@ fun SocialPostsScreen(user: FirebaseUser) {
             modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp).zIndex(2f),
             containerColor = MaterialTheme.colorScheme.primary
         ) { Icon(Icons.Rounded.Add, contentDescription = "إضافة منشور أو مقال") }
+      }
+      if (profileUid != null) {
+        val profile = profileData
+        AlertDialog(
+          onDismissRequest = { profileUid = null; profileData = null },
+          title = { Text(profile?.name ?: "الملف الشخصي") },
+          text = {
+            Column(Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+              if (profileLoading) CircularProgressIndicator()
+              if (profile != null) {
+                if (profile.photoUrl.isNotBlank()) AsyncImage(model=profile.photoUrl,contentDescription="الصورة الشخصية",modifier=Modifier.size(76.dp))
+                Text(profile.bio.ifBlank { "لا توجد نبذة شخصية بعد." })
+                Text("المتابعون: ${profile.followers}  •  يتابع: ${profile.following}")
+                Text("التشغيلات: ${profile.totalPlays}  •  وقت الاستماع: ${profile.listeningMs / 3_600_000L} ساعة")
+                Text("الرتبة: ${profile.rankTitle}",fontWeight=FontWeight.SemiBold)
+                if (profile.favoriteSounds.isNotBlank()) Text("الأصوات المفضلة: ${profile.favoriteSounds}")
+                Text("الإنجازات السابقة",fontWeight=FontWeight.SemiBold)
+                if (profile.achievements.isEmpty()) Text("لا توجد إنجازات مسجلة على الحساب حتى الآن.")
+                else profile.achievements.forEach { Text("• $it") }
+                Text("أحدث المشاركات",fontWeight=FontWeight.SemiBold)
+                if (profile.posts.isEmpty()) Text("لا توجد مشاركات منشورة.")
+                else profile.posts.forEach { Text(it) }
+              }
+            }
+          },
+          confirmButton = { TextButton(onClick={ profileUid = null; profileData = null }) { Text("إغلاق") } }
+        )
       }
       if (showComposer) AlertDialog(
         onDismissRequest = { showComposer = false },
