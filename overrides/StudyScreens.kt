@@ -63,7 +63,7 @@ fun StudyHubScreen() {
     val badgeActive = lastAchievementAt > 0L && badgeClock - lastAchievementAt < 48L * 60L * 60L * 1000L
     val achievementThresholds = listOf(15, 30, 45, 60, 90, 120, 180, 240, 300, 360, 420, 480, 540, 600, 720)
     val avatars = listOf("🐣", "🦊", "🐼", "🦉", "🦅", "🐉")
-    val unlockedAvatarLevel = (achievementCount / 3).coerceIn(0, avatars.lastIndex)
+    val unlockedAvatarLevel = (completedSessions / 3).coerceIn(0, avatars.lastIndex)
     val achievementTitle = when {
         achievementCount >= 15 && badgeActive -> "الوسام الذهبي — إنجاز محلي"
         streakDays >= 3 && badgeActive -> "الوسام الفضي — سلسلة 3 أيام"
