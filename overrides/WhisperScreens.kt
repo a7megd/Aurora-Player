@@ -989,7 +989,7 @@ fun WhisperSongListScreen(
         else -> songs.sortedByDescending { it.id }
     } }
     val listState = rememberLazyListState()
-    val selectedSongs = remember(selectedIds.size, songs) { songs.filter { it.id in selectedIds } }
+    val selectedSongs = remember(selectedIds.toList(), songs) { songs.filter { it.id in selectedIds } }
     val playlistNames = remember(playlistRefresh) {
         playlistPrefs.all.keys.filter { it.startsWith("playlist:") }.map { it.removePrefix("playlist:") }.sorted()
     }
