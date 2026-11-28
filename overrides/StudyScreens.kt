@@ -116,7 +116,8 @@ fun StudyHubScreen() {
                     val windowStart = if (previousStart == 0L || now - previousStart > 48L * 60L * 60L * 1000L) now else previousStart
                     val windowMinutes = if (windowStart == now) focusMinutes else prefs.getInt("achievement_window_minutes", 0) + focusMinutes
                     val newAchievementCount = achievementThresholds.count { it <= windowMinutes }
-                    val oldAchievementCount = prefs.getInt("achievement_count", 0)
+                    if (windowStart == now) achievementCount = 0
+                    val oldAchievementCount = if (windowStart == now) 0 else prefs.getInt("achievement_count", 0)
                     if (newAchievementCount > oldAchievementCount) {
                         achievementCount = newAchievementCount
                         prefs.edit().putLong("last_achievement_at", now).apply()
