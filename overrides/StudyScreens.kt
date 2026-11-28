@@ -104,8 +104,8 @@ fun StudyHubScreen() {
                     val uploaded = CloudinaryMediaUploader.upload(context, uri, "Whisper-Player/StudyProof")
                     val task = tasks.firstOrNull { it.id == id } ?: error("المهمة غير موجودة.")
                     db.collection("studyTasks").document(uid).collection("tasks").document(id.toString())
-                        .set(mapOf("id" to id, "uid" to uid, "title" to task.title, "proofUrl" to uploaded.secureUrl,
-                            "proofAssetId" to uploaded.assetId, "updatedAt" to System.currentTimeMillis())).await()
+                        .update(mapOf("proofUrl" to uploaded.secureUrl, "proofAssetId" to uploaded.assetId,
+                            "updatedAt" to System.currentTimeMillis())).await()
                     tasks = tasks.map { if (it.id == id) it.copy(proof = Uri.parse(uploaded.secureUrl)) else it }
                     status = "تم رفع صورة الإثبات وحفظها على حسابك."
                     taskSyncMessage = "تم حفظ المهمة وصورة الإثبات سحابيًا."
