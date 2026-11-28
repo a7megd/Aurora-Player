@@ -21,7 +21,7 @@ service cloud.firestore {
       allow read: if signedIn(); // Profiles expose only public community fields; the UI filters suspended accounts.
 
       allow create: if signedIn() && request.auth.uid == userId
-        && request.resource.data.keys().hasOnly(['uid','displayName','photoUrl','bio','favoriteSounds','photoData','totalListeningMs','totalPlays','createdAt','lastActiveAt'])
+        && request.resource.data.keys().hasOnly(['uid','displayName','photoUrl','bio','favoriteSounds','favoriteSoundUrl','favoriteSoundName','photoData','totalListeningMs','totalPlays','createdAt','lastActiveAt'])
         && request.resource.data.uid == userId
         && request.resource.data.displayName is string
         && request.resource.data.displayName.size() >= 2
@@ -40,7 +40,7 @@ service cloud.firestore {
           && request.resource.data.suspended is bool)
         ||
         (request.auth.uid == userId
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName','photoUrl','photoData','bio','favoriteSounds','totalListeningMs','totalPlays','lastActiveAt'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName','photoUrl','photoData','bio','favoriteSounds','favoriteSoundUrl','favoriteSoundName','totalListeningMs','totalPlays','lastActiveAt'])
           && request.resource.data.get('displayName', '') is string
           && request.resource.data.get('displayName', '').size() >= 2
           && request.resource.data.get('displayName', '').size() <= 30
@@ -52,6 +52,11 @@ service cloud.firestore {
           && request.resource.data.get('bio', '').size() <= 160
           && request.resource.data.get('favoriteSounds', '') is string
           && request.resource.data.get('favoriteSounds', '').size() <= 500
+          && request.resource.data.get('favoriteSoundUrl', '') is string
+          && request.resource.data.get('favoriteSoundUrl', '').size() <= 1200
+          && (request.resource.data.get('favoriteSoundUrl', '') == '' || request.resource.data.get('favoriteSoundUrl', '').matches('https://.*'))
+          && request.resource.data.get('favoriteSoundName', '') is string
+          && request.resource.data.get('favoriteSoundName', '').size() <= 180
           && request.resource.data.get('totalListeningMs', 0) is int
           && request.resource.data.get('totalListeningMs', 0) >= resource.data.get('totalListeningMs', 0)
           && request.resource.data.get('totalListeningMs', 0) <= resource.data.get('totalListeningMs', 0) + 120000
