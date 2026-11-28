@@ -23,6 +23,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.aurora.player.study.StudyLockController
+import com.aurora.player.media.CloudinaryMediaUploader
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.delay
 import org.json.JSONArray
 import org.json.JSONObject
@@ -49,6 +54,11 @@ fun StudyHubScreen() {
     val context = LocalContext.current
     val activity = context as? Activity
     val prefs = remember { context.getSharedPreferences("whisper_study_local", 0) }
+    val user = remember { FirebaseAuth.getInstance().currentUser }
+    val uid = user?.uid.orEmpty()
+    val db = remember { FirebaseFirestore.getInstance() }
+    val scope = rememberCoroutineScope()
+    var taskSyncMessage by remember { mutableStateOf<String?>(null) }
     var completedFocusMinutes by remember { mutableIntStateOf(prefs.getInt("completed_focus_minutes", 0)) }
     var completedSessions by remember { mutableIntStateOf(prefs.getInt("completed_sessions", 0)) }
     var streakDays by remember { mutableIntStateOf(prefs.getInt("streak_days", 0)) }
@@ -83,14 +93,44 @@ fun StudyHubScreen() {
     var taskDraft by remember { mutableStateOf("") }
     var tasks by remember { mutableStateOf(loadStudyTasks(prefs)) }
     var proofTarget by remember { mutableStateOf<Long?>(null) }
+    var proofUploading by remember { mutableStateOf(false) }
     val proofPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val id = proofTarget
         if (uri != null && id != null) {
-            runCatching { context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-            tasks = tasks.map { if (it.id == id) it.copy(proof = uri) else it }
-            status = "تم إرفاق الدليل. أصبحت المهمة مؤهلة للإكمال."
+            scope.launch {
+                proofUploading = true
+                try {
+                    require(uid.isNotBlank()) { "سجّل الدخول أولًا لحفظ إثبات المهمة على حسابك." }
+                    val uploaded = CloudinaryMediaUploader.upload(context, uri, "Whisper-Player/StudyProof")
+                    val task = tasks.firstOrNull { it.id == id } ?: error("المهمة غير موجودة.")
+                    db.collection("studyTasks").document(uid).collection("tasks").document(id.toString())
+                        .set(mapOf("id" to id, "uid" to uid, "title" to task.title, "proofUrl" to uploaded.secureUrl,
+                            "proofAssetId" to uploaded.assetId, "updatedAt" to System.currentTimeMillis())).await()
+                    tasks = tasks.map { if (it.id == id) it.copy(proof = Uri.parse(uploaded.secureUrl)) else it }
+                    status = "تم رفع صورة الإثبات وحفظها على حسابك."
+                    taskSyncMessage = "تم حفظ المهمة وصورة الإثبات سحابيًا."
+                } catch (e: Exception) { status = e.localizedMessage ?: "تعذر رفع صورة الإثبات." }
+                proofUploading = false
+            }
         }
         proofTarget = null
+    }
+    DisposableEffect(uid) {
+        if (uid.isBlank()) return@DisposableEffect onDispose { }
+        val registration = db.collection("studyTasks").document(uid).collection("tasks")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    taskSyncMessage = "تعذرت مزامنة المهام: " + (error.localizedMessage ?: "خطأ غير معروف")
+                } else if (snapshot != null) {
+                    tasks = snapshot.documents.mapNotNull { doc ->
+                        val title = doc.getString("title")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                        val proofUrl = doc.getString("proofUrl")?.takeIf { it.startsWith("https://") }
+                        LocalStudyTask(doc.getLong("id") ?: doc.id.toLongOrNull() ?: 0L, title, proofUrl?.let(Uri::parse))
+                    }
+                    taskSyncMessage = "تمت مزامنة مهامك مع حسابك."
+                }
+            }
+        onDispose { registration.remove() }
     }
     LaunchedEffect(tasks) {
         val array = JSONArray()
@@ -252,7 +292,20 @@ fun StudyHubScreen() {
         item {
             Text("مهامي", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             OutlinedTextField(value = taskDraft, onValueChange = { taskDraft = it }, modifier = Modifier.fillMaxWidth(), label = { Text("اكتب مهمة جديدة") }, trailingIcon = {
-                IconButton(onClick = { if (taskDraft.isNotBlank()) { tasks = tasks + LocalStudyTask(System.currentTimeMillis(), taskDraft.trim()); taskDraft = "" } }) { Icon(Icons.Rounded.Add, contentDescription = "إضافة مهمة") }
+                IconButton(onClick = {
+                    if (taskDraft.isNotBlank() && uid.isNotBlank()) {
+                        val id = System.currentTimeMillis()
+                        val title = taskDraft.trim()
+                        scope.launch {
+                            try {
+                                db.collection("studyTasks").document(uid).collection("tasks").document(id.toString())
+                                    .set(mapOf("id" to id, "uid" to uid, "title" to title, "proofUrl" to "",
+                                        "createdAt" to System.currentTimeMillis(), "updatedAt" to System.currentTimeMillis())).await()
+                                taskDraft = ""
+                            } catch (e: Exception) { taskSyncMessage = e.localizedMessage ?: "تعذر حفظ المهمة." }
+                        }
+                    } else if (uid.isBlank()) taskSyncMessage = "سجّل الدخول لحفظ المهام ومزامنتها."
+                }) { Icon(Icons.Rounded.Add, contentDescription = "إضافة مهمة") }
             })
         }
         items(tasks, key = { it.id }) { task ->
@@ -262,11 +315,20 @@ fun StudyHubScreen() {
                         Text(task.title, fontWeight = FontWeight.SemiBold)
                         Text(if (task.proof == null) "لم يرفق دليل بعد" else "تم إرفاق صورة دليل", style = MaterialTheme.typography.labelSmall)
                     }
-                    if (task.proof == null) TextButton(onClick = { proofTarget = task.id; proofPicker.launch(arrayOf("image/*")) }) { Text("إرفاق صورة") }
-                    else Text("مكتملة ✓", color = Color(0xFF4CAF50))
+                    if (task.proof == null) TextButton(enabled = !proofUploading, onClick = { proofTarget = task.id; proofPicker.launch(arrayOf("image/*")) }) { Text(if (proofUploading) "جارٍ الرفع…" else "إرفاق صورة") }
+                    else {
+                        Text("مكتملة ✓", color = Color(0xFF4CAF50))
+                        TextButton(onClick = { task.proof?.toString()?.let { runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(it))) } } }) { Text("عرض الإثبات") }
+                    }
+                    IconButton(onClick = {
+                        scope.launch {
+                            try { db.collection("studyTasks").document(uid).collection("tasks").document(task.id.toString()).delete().await() }
+                            catch (e: Exception) { taskSyncMessage = e.localizedMessage ?: "تعذر حذف المهمة." }
+                        }
+                    }) { Text("×") }
                 }
             }
         }
-        item { Text("يلزم ربط الغرف والمهام والإنجازات بـ Firebase لتصبح مشتركة وموثوقة بين الطلاب.", style = MaterialTheme.typography.bodySmall) }
+        item { taskSyncMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) } }
     }
 }
