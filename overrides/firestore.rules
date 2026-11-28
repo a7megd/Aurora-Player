@@ -137,6 +137,25 @@ service cloud.firestore {
     }
 
 
+    match /studyTasks/{ownerUid}/tasks/{taskId} {
+      allow read: if signedIn() && request.auth.uid == ownerUid;
+      allow create: if signedIn() && request.auth.uid == ownerUid
+        && request.resource.data.keys().hasOnly(['id','uid','title','proofUrl','proofAssetId','createdAt','updatedAt'])
+        && request.resource.data.uid == ownerUid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 1
+        && request.resource.data.title.size() <= 180
+        && request.resource.data.proofUrl is string
+        && request.resource.data.proofUrl.size() <= 1200
+        && (request.resource.data.proofUrl == '' || request.resource.data.proofUrl.matches('https://.*'));
+      allow update: if signedIn() && request.auth.uid == ownerUid
+        && request.resource.data.uid == ownerUid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title','proofUrl','proofAssetId','updatedAt'])
+        && request.resource.data.title is string && request.resource.data.title.size() >= 1 && request.resource.data.title.size() <= 180
+        && request.resource.data.proofUrl is string && request.resource.data.proofUrl.size() <= 1200
+        && (request.resource.data.proofUrl == '' || request.resource.data.proofUrl.matches('https://.*'));
+      allow delete: if signedIn() && request.auth.uid == ownerUid;
+    }
     match /communityPosts/{postId} {
       allow read: if signedIn();
       allow create: if signedIn() && request.resource.data.uid == request.auth.uid
