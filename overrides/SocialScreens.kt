@@ -134,12 +134,12 @@ fun SocialPostsScreen(user: FirebaseUser, onNavigate: (String) -> Unit = {}) {
                 val achievements = ((doc.get("achievementHistory") as? List<*>) ?: (doc.get("achievements") as? List<*>))
                     ?.filterIsInstance<String>().orEmpty()
                 profileData = WhisperProfileSummary(
-                    name = doc.getString("displayName") ?: "عضو Whisper",
+                    name = doc.getString("displayName") ?: authoredPosts.firstOrNull()?.name ?: "عضو Whisper",
                     bio = doc.getString("bio").orEmpty(),
                     favoriteSounds = doc.getString("favoriteSounds").orEmpty(),
                     favoriteSoundUrl = doc.getString("favoriteSoundUrl").orEmpty(),
                     favoriteSoundName = doc.getString("favoriteSoundName").orEmpty(),
-                    photoUrl = doc.getString("photoUrl").orEmpty(),
+                    photoUrl = doc.getString("photoUrl").orEmpty().ifBlank { authoredPosts.firstOrNull()?.photoUrl.orEmpty() }.ifBlank { if (uid == user.uid) user.photoUrl?.toString().orEmpty() else "" },
                     followers = followers,
                     following = following,
                     isFollowing = isFollowing,
