@@ -50,12 +50,14 @@ import java.io.File
 private data class WhisperSocialPost(val id:String,val uid:String,val name:String,val kind:String,val body:String,val photoUrl:String = "")
 private data class WhisperComment(val id:String,val uid:String,val name:String,val body:String)
 private data class WhisperChatMessage(val id:String,val uid:String,val name:String,val body:String,val type:String,val mediaUrl:String)
-private data class WhisperProfileSummary(val name:String,val bio:String,val favoriteSounds:String,val photoUrl:String,val followers:Int,val following:Int,val isFollowing:Boolean,val totalPlays:Long,val listeningMs:Long,val rankTitle:String,val achievements:List<String>,val posts:List<WhisperSocialPost>)
+private data class WhisperProfileSummary(val name:String,val bio:String,val favoriteSounds:String,val favoriteSoundUrl:String,val favoriteSoundName:String,val photoUrl:String,val followers:Int,val following:Int,val isFollowing:Boolean,val totalPlays:Long,val listeningMs:Long,val rankTitle:String,val achievements:List<String>,val posts:List<WhisperSocialPost>)
 
 @Composable
 fun SocialPostsScreen(user: FirebaseUser, onNavigate: (String) -> Unit = {}) {
     val db= remember { FirebaseFirestore.getInstance() }
     val scope= rememberCoroutineScope()
+    val context = LocalContext.current
+    var favoriteSoundUploading by remember { mutableStateOf(false) }
     var kind by remember { mutableStateOf("اقتباس") }
     var draft by remember { mutableStateOf("") }
     var posts by remember { mutableStateOf<List<WhisperSocialPost>>(emptyList()) }
@@ -70,6 +72,22 @@ fun SocialPostsScreen(user: FirebaseUser, onNavigate: (String) -> Unit = {}) {
     var profileUid by remember { mutableStateOf<String?>(null) }
     var profileData by remember { mutableStateOf<WhisperProfileSummary?>(null) }
     var profileLoading by remember { mutableStateOf(false) }
+    val favoriteSoundPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null && profileUid == user.uid) {
+            favoriteSoundUploading = true
+            scope.launch {
+                try {
+                    val uploaded = CloudinaryMediaUploader.upload(context, uri, "Whisper-Player/ProfileSounds")
+                    val soundName = uploaded.originalName.ifBlank { "الصوت المفضل" }
+                    db.collection("users").document(user.uid).update(mapOf(
+                        "favoriteSoundUrl" to uploaded.secureUrl, "favoriteSoundName" to soundName
+                    )).await()
+                    profileData = profileData?.copy(favoriteSoundUrl = uploaded.secureUrl, favoriteSoundName = soundName)
+                } catch (e: Exception) { message = e.localizedMessage ?: "تعذر رفع الصوت المفضل." }
+                favoriteSoundUploading = false
+            }
+        }
+    }
 
     suspend fun reload() {
         loading=true
@@ -119,6 +137,8 @@ fun SocialPostsScreen(user: FirebaseUser, onNavigate: (String) -> Unit = {}) {
                     name = doc.getString("displayName") ?: "عضو Whisper",
                     bio = doc.getString("bio").orEmpty(),
                     favoriteSounds = doc.getString("favoriteSounds").orEmpty(),
+                    favoriteSoundUrl = doc.getString("favoriteSoundUrl").orEmpty(),
+                    favoriteSoundName = doc.getString("favoriteSoundName").orEmpty(),
                     photoUrl = doc.getString("photoUrl").orEmpty(),
                     followers = followers,
                     following = following,
@@ -293,6 +313,16 @@ fun SocialPostsScreen(user: FirebaseUser, onNavigate: (String) -> Unit = {}) {
                     Text("الرتبة: ${profile.rankTitle}")
                     Text("التشغيلات: ${profile.totalPlays}  •  وقت الاستماع: ${profile.listeningMs / 3_600_000L} ساعة")
                     if (profile.favoriteSounds.isNotBlank()) Text("الأصوات المفضلة: ${profile.favoriteSounds}")
+                    Text("الصوت المفضل",fontWeight=FontWeight.SemiBold)
+                    if (profile.favoriteSoundUrl.isNotBlank()) {
+                      Text(profile.favoriteSoundName.ifBlank { "تسجيل صوتي مفضل" })
+                      WhisperAudioBubble(profile.favoriteSoundUrl)
+                    } else Text("لم يرفع هذا العضو صوتًا مفضلًا بعد.",color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (profileUid == user.uid) {
+                      OutlinedButton(enabled = !favoriteSoundUploading, onClick = { favoriteSoundPicker.launch(arrayOf("audio/*")) }) {
+                        Text(if (favoriteSoundUploading) "جارٍ رفع الصوت…" else "رفع / تغيير الصوت المفضل")
+                      }
+                    }
                   }
                 }
                 Card(Modifier.fillMaxWidth()) {
