@@ -48,7 +48,7 @@ private data class WhisperChatMessage(val id:String,val uid:String,val name:Stri
 private data class WhisperProfileSummary(val name:String,val bio:String,val favoriteSounds:String,val photoUrl:String,val followers:Int,val following:Int,val totalPlays:Long,val listeningMs:Long,val rankTitle:String,val achievements:List<String>,val posts:List<String>)
 
 @Composable
-fun SocialPostsScreen(user: FirebaseUser) {
+fun SocialPostsScreen(user: FirebaseUser, onNavigate: (String) -> Unit = {}) {
     val db= remember { FirebaseFirestore.getInstance() }
     val scope= rememberCoroutineScope()
     var kind by remember { mutableStateOf("اقتباس") }
@@ -236,6 +236,7 @@ fun SocialPostsScreen(user: FirebaseUser) {
         text = {
           Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("اختر نوع المشاركة")
+            TextButton(onClick = { showComposer = false; onNavigate(Routes.WRITE_ARTICLE) }) { Text("أو ابدأ كتابة مقال طويل") }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
               listOf("قصيدة","اقتباس","منشور").forEach { v ->
                 FilterChip(selected = kind == v, onClick = { kind = v }, label = { Text(v) })
