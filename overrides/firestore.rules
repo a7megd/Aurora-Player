@@ -290,9 +290,12 @@ service cloud.firestore {
       allow get: if signedIn();
       allow list: if false;
       allow create: if signedIn()
-        && request.resource.data.keys().hasOnly(['code','ownerUid','memberIds','members','running','onBreak','endsAt','createdAt','updatedAt'])
+        && request.resource.data.keys().hasOnly(['code','ownerUid','meetingRoom','memberIds','members','running','onBreak','endsAt','createdAt','updatedAt'])
         && request.resource.data.ownerUid == request.auth.uid
         && request.resource.data.code == roomId
+        && request.resource.data.meetingRoom is string
+        && request.resource.data.meetingRoom.size() >= 20
+        && request.resource.data.meetingRoom.size() <= 80
         && request.resource.data.memberIds == [request.auth.uid]
         && request.resource.data.members.keys().hasOnly([request.auth.uid])
         && request.resource.data.running == false
