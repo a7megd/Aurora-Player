@@ -16,6 +16,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.ui.zIndex
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,6 +60,7 @@ fun SocialPostsScreen(user: FirebaseUser) {
     var comments by remember { mutableStateOf<List<WhisperComment>>(emptyList()) }
     var commentDraft by remember { mutableStateOf("") }
     var commentBusy by remember { mutableStateOf(false) }
+    var showComposer by remember { mutableStateOf(false) }
 
     suspend fun reload() {
         loading=true
@@ -79,6 +83,7 @@ fun SocialPostsScreen(user: FirebaseUser) {
     }
     LaunchedEffect(user.uid){reload()}
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+      Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal=14.dp,vertical=12.dp),
             verticalArrangement=Arrangement.spacedBy(12.dp)) {
             Text("مساحة Whisper",style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.Bold)
@@ -156,6 +161,40 @@ fun SocialPostsScreen(user: FirebaseUser) {
             }
             if(!loading&&posts.isEmpty()) Text("لا توجد مشاركات بعد. ابدأ أول مشاركة.")
         }
+        FloatingActionButton(
+            onClick = { showComposer = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp).zIndex(2f),
+            containerColor = MaterialTheme.colorScheme.primary
+        ) { Icon(Icons.Rounded.Add, contentDescription = "إضافة منشور أو مقال") }
+      }
+      if (showComposer) AlertDialog(
+        onDismissRequest = { showComposer = false },
+        title = { Text("إضافة محتوى جديد") },
+        text = {
+          Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("اختر نوع المشاركة")
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+              listOf("قصيدة","اقتباس","منشور").forEach { v ->
+                FilterChip(selected = kind == v, onClick = { kind = v }, label = { Text(v) })
+              }
+            }
+            OutlinedTextField(value = draft, onValueChange = { draft = it }, modifier = Modifier.fillMaxWidth(), minLines = 4, label = { Text("اكتب محتواك") })
+          }
+        },
+        confirmButton = {
+          TextButton(enabled = !busy && draft.isNotBlank(), onClick = {
+            busy = true
+            scope.launch {
+              try {
+                db.collection("communityPosts").add(mapOf("uid" to user.uid, "authorName" to (user.displayName ?: "عضو Whisper"), "kind" to kind, "body" to draft.trim(), "createdAt" to FieldValue.serverTimestamp())).await()
+                draft = ""; showComposer = false; reload()
+              } catch (e: Exception) { message = e.localizedMessage ?: "تعذر نشر المشاركة." }
+              busy = false
+            }
+          }) { Text(if (busy) "جارٍ النشر…" else "نشر") }
+        },
+        dismissButton = { TextButton(onClick = { showComposer = false }) { Text("إلغاء") } }
+      )
     }
 }
 
