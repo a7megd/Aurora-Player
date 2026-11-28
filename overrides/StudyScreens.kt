@@ -59,6 +59,7 @@ fun StudyHubScreen() {
     val db = remember { FirebaseFirestore.getInstance() }
     val scope = rememberCoroutineScope()
     var taskSyncMessage by remember { mutableStateOf<String?>(null) }
+    var migratingLegacyTasks by remember { mutableStateOf(false) }
     var completedFocusMinutes by remember { mutableIntStateOf(prefs.getInt("completed_focus_minutes", 0)) }
     var completedSessions by remember { mutableIntStateOf(prefs.getInt("completed_sessions", 0)) }
     var streakDays by remember { mutableIntStateOf(prefs.getInt("streak_days", 0)) }
@@ -122,12 +123,38 @@ fun StudyHubScreen() {
                 if (error != null) {
                     taskSyncMessage = "تعذرت مزامنة المهام: " + (error.localizedMessage ?: "خطأ غير معروف")
                 } else if (snapshot != null) {
-                    tasks = snapshot.documents.mapNotNull { doc ->
-                        val title = doc.getString("title")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-                        val proofUrl = doc.getString("proofUrl")?.takeIf { it.startsWith("https://") }
-                        LocalStudyTask(doc.getLong("id") ?: doc.id.toLongOrNull() ?: 0L, title, proofUrl?.let(Uri::parse))
+                    if (snapshot.isEmpty && tasks.isNotEmpty() && !migratingLegacyTasks) {
+                        migratingLegacyTasks = true
+                        val legacyTasks = tasks.toList()
+                        scope.launch {
+                            try {
+                                val batch = db.batch()
+                                legacyTasks.forEach { task ->
+                                    var proofUrl = task.proof?.toString()?.takeIf { it.startsWith("https://") }.orEmpty()
+                                    if (proofUrl.isBlank() && task.proof != null) {
+                                        runCatching { CloudinaryMediaUploader.upload(context, task.proof, "Whisper-Player/StudyProof").secureUrl }
+                                            .onSuccess { proofUrl = it }
+                                    }
+                                    val ref = db.collection("studyTasks").document(uid).collection("tasks").document(task.id.toString())
+                                    batch.set(ref, mapOf("id" to task.id, "uid" to uid, "title" to task.title,
+                                        "proofUrl" to proofUrl, "createdAt" to System.currentTimeMillis(),
+                                        "updatedAt" to System.currentTimeMillis()))
+                                }
+                                batch.commit().await()
+                                taskSyncMessage = "تم نقل مهامك القديمة إلى حسابك ومزامنتها."
+                            } catch (e: Exception) {
+                                taskSyncMessage = e.localizedMessage ?: "تعذر نقل المهام القديمة إلى السحابة."
+                                migratingLegacyTasks = false
+                            }
+                        }
+                    } else {
+                        tasks = snapshot.documents.mapNotNull { doc ->
+                            val title = doc.getString("title")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                            val proofUrl = doc.getString("proofUrl")?.takeIf { it.startsWith("https://") }
+                            LocalStudyTask(doc.getLong("id") ?: doc.id.toLongOrNull() ?: 0L, title, proofUrl?.let(Uri::parse))
+                        }
+                        taskSyncMessage = "تمت مزامنة مهامك مع حسابك."
                     }
-                    taskSyncMessage = "تمت مزامنة مهامك مع حسابك."
                 }
             }
         onDispose { registration.remove() }
