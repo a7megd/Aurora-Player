@@ -26,6 +26,10 @@ import com.aurora.player.study.StudyLockController
 import kotlinx.coroutines.delay
 import org.json.JSONArray
 import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 private data class LocalStudyTask(val id: Long, val title: String, val proof: Uri? = null)
 
@@ -45,6 +49,23 @@ fun StudyHubScreen() {
     val context = LocalContext.current
     val activity = context as? Activity
     val prefs = remember { context.getSharedPreferences("whisper_study_local", 0) }
+    var completedFocusMinutes by remember { mutableIntStateOf(prefs.getInt("completed_focus_minutes", 0)) }
+    var completedSessions by remember { mutableIntStateOf(prefs.getInt("completed_sessions", 0)) }
+    var streakDays by remember { mutableIntStateOf(prefs.getInt("streak_days", 0)) }
+    var achievementCount by remember { mutableIntStateOf(prefs.getInt("achievement_count", 0)) }
+    var avatarIndex by remember { mutableIntStateOf(prefs.getInt("avatar_index", 0).coerceIn(0, 5)) }
+    var avatarMenu by remember { mutableStateOf(false) }
+    val achievementThresholds = listOf(15, 30, 45, 60, 90, 120, 180, 240, 300, 360, 420, 480, 540, 600, 720)
+    val avatars = listOf("🐣", "🦊", "🐼", "🦉", "🦅", "🐉")
+    val unlockedAvatarLevel = (achievementCount / 3).coerceIn(0, avatars.lastIndex)
+    val achievementTitle = when {
+        achievementCount >= 15 -> "الوسام الذهبي — إنجاز محلي"
+        streakDays >= 3 -> "الوسام الفضي — سلسلة 3 أيام"
+        achievementCount >= 8 -> "المجتهد"
+        achievementCount >= 3 -> "المثابر"
+        achievementCount >= 1 -> "بداية قوية"
+        else -> "طالب جديد"
+    }
     var focusMinutes by remember { mutableIntStateOf(prefs.getInt("focus_minutes", 25)) }
     var breakMinutes by remember { mutableIntStateOf(prefs.getInt("break_minutes", 5)) }
     var secondsLeft by remember { mutableIntStateOf(focusMinutes * 60) }
@@ -79,9 +100,40 @@ fun StudyHubScreen() {
             if (secondsLeft == 0) {
                 running = false
                 if (!onBreak) {
+                    val now = System.currentTimeMillis()
+                    val today = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date(now))
+                    val calendar = Calendar.getInstance().apply { timeInMillis = now; add(Calendar.DAY_OF_YEAR, -1) }
+                    val yesterday = SimpleDateFormat("yyyyMMdd", Locale.US).format(calendar.time)
+                    val lastDay = prefs.getString("last_study_day", "").orEmpty()
+                    streakDays = when (lastDay) {
+                        today -> streakDays
+                        yesterday -> streakDays + 1
+                        else -> 1
+                    }
+                    completedSessions += 1
+                    completedFocusMinutes += focusMinutes
+                    val previousStart = prefs.getLong("achievement_window_start", 0L)
+                    val windowStart = if (previousStart == 0L || now - previousStart > 48L * 60L * 60L * 1000L) now else previousStart
+                    val windowMinutes = if (windowStart == now) focusMinutes else prefs.getInt("achievement_window_minutes", 0) + focusMinutes
+                    val newAchievementCount = achievementThresholds.count { it <= windowMinutes }
+                    val oldAchievementCount = prefs.getInt("achievement_count", 0)
+                    if (newAchievementCount > oldAchievementCount) {
+                        achievementCount = newAchievementCount
+                        prefs.edit().putLong("last_achievement_at", now).apply()
+                        status = "إنجاز جديد! حصلت على وسامك رقم " + newAchievementCount
+                    }
+                    prefs.edit()
+                        .putInt("completed_focus_minutes", completedFocusMinutes)
+                        .putInt("completed_sessions", completedSessions)
+                        .putInt("streak_days", streakDays)
+                        .putString("last_study_day", today)
+                        .putLong("achievement_window_start", windowStart)
+                        .putInt("achievement_window_minutes", windowMinutes)
+                        .putInt("achievement_count", achievementCount)
+                        .apply()
                     onBreak = true
                     secondsLeft = breakMinutes * 60
-                    status = "انتهت جلسة التركيز. خذ استراحة."
+                    if (newAchievementCount <= oldAchievementCount) status = "انتهت جلسة التركيز. خذ استراحة."
                 } else {
                     onBreak = false
                     secondsLeft = focusMinutes * 60
@@ -99,6 +151,36 @@ fun StudyHubScreen() {
         item {
             Text("مساحة المذاكرة", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             Text("ذاكر مع أصدقائك وحقق إنجازاتك خطوة بخطوة.")
+        }
+        item {
+            Card {
+                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("شخصيتك وإنجازاتك", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box {
+                            Text(avatars[avatarIndex], style = MaterialTheme.typography.displayMedium, modifier = Modifier.padding(end = 12.dp))
+                            DropdownMenu(expanded = avatarMenu, onDismissRequest = { avatarMenu = false }) {
+                                avatars.forEachIndexed { index, avatar ->
+                                    DropdownMenuItem(
+                                        text = { Text(avatar + if (index <= unlockedAvatarLevel) " — متاح" else " — مقفل") },
+                                        enabled = index <= unlockedAvatarLevel,
+                                        onClick = { avatarIndex = index; prefs.edit().putInt("avatar_index", index).apply(); avatarMenu = false }
+                                    )
+                                }
+                            }
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text(achievementTitle, fontWeight = FontWeight.SemiBold)
+                            Text("المستوى " + (unlockedAvatarLevel + 1) + " • " + achievementCount + " / 15 إنجاز", style = MaterialTheme.typography.bodySmall)
+                            Text("جلسات مكتملة: " + completedSessions + " • دقائق تركيز: " + completedFocusMinutes, style = MaterialTheme.typography.bodySmall)
+                        }
+                        TextButton(onClick = { avatarMenu = true }) { Text("الشخصية") }
+                    }
+                    LinearProgressIndicator(progress = { (completedFocusMinutes.coerceAtMost(720) / 720f) }, modifier = Modifier.fillMaxWidth())
+                    Text("سلسلة المذاكرة: " + streakDays + " يوم • الوسام الذهبي المحلي يتطلب 12 ساعة تركيز خلال نافذة 48 ساعة.", style = MaterialTheme.typography.bodySmall)
+                    Text("الأوسمة محفوظة على هذا الجهاز وليست توثيقًا تنافسيًا موثوقًا بين الحسابات.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
         }
         item {
             Card {
