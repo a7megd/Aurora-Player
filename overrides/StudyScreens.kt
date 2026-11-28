@@ -153,23 +153,7 @@ fun StudyHubScreen() {
                 }
             }
         }
-        item {
-            Card {
-                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("غرفة المذاكرة التجريبية", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("نموذج واجهة محلي؛ مزامنة الأصدقاء بين الأجهزة قيد التطوير.", style = MaterialTheme.typography.bodySmall)
-                    Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                        listOf("📘", "🦊", "🐼", "🚀", "🌙").forEachIndexed { index, avatar ->
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Box(Modifier.size(40.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = .15f), CircleShape), contentAlignment = Alignment.Center) { Text(avatar) }
-                                Text(if (index == 0) "أنت" else "طالب " + (index + 1), style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                    }
-                    Text("5 / 10 مقاعد")
-                }
-            }
-        }
+        item { SharedStudyRoomCard() }
         item {
             Text("مهامي", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             OutlinedTextField(value = taskDraft, onValueChange = { taskDraft = it }, modifier = Modifier.fillMaxWidth(), label = { Text("اكتب مهمة جديدة") }, trailingIcon = {
