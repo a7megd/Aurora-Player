@@ -53,14 +53,20 @@ fun StudyHubScreen() {
     var completedSessions by remember { mutableIntStateOf(prefs.getInt("completed_sessions", 0)) }
     var streakDays by remember { mutableIntStateOf(prefs.getInt("streak_days", 0)) }
     var achievementCount by remember { mutableIntStateOf(prefs.getInt("achievement_count", 0)) }
+    var lastAchievementAt by remember { mutableLongStateOf(prefs.getLong("last_achievement_at", 0L)) }
+    var badgeClock by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var avatarIndex by remember { mutableIntStateOf(prefs.getInt("avatar_index", 0).coerceIn(0, 5)) }
     var avatarMenu by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        while (true) { delay(60_000); badgeClock = System.currentTimeMillis() }
+    }
+    val badgeActive = lastAchievementAt > 0L && badgeClock - lastAchievementAt < 48L * 60L * 60L * 1000L
     val achievementThresholds = listOf(15, 30, 45, 60, 90, 120, 180, 240, 300, 360, 420, 480, 540, 600, 720)
     val avatars = listOf("🐣", "🦊", "🐼", "🦉", "🦅", "🐉")
     val unlockedAvatarLevel = (achievementCount / 3).coerceIn(0, avatars.lastIndex)
     val achievementTitle = when {
-        achievementCount >= 15 -> "الوسام الذهبي — إنجاز محلي"
-        streakDays >= 3 -> "الوسام الفضي — سلسلة 3 أيام"
+        achievementCount >= 15 && badgeActive -> "الوسام الذهبي — إنجاز محلي"
+        streakDays >= 3 && badgeActive -> "الوسام الفضي — سلسلة 3 أيام"
         achievementCount >= 8 -> "المجتهد"
         achievementCount >= 3 -> "المثابر"
         achievementCount >= 1 -> "بداية قوية"
@@ -110,6 +116,10 @@ fun StudyHubScreen() {
                         yesterday -> streakDays + 1
                         else -> 1
                     }
+                    if (streakDays >= 3 && lastDay == yesterday) {
+                        lastAchievementAt = now
+                        prefs.edit().putLong("last_achievement_at", now).apply()
+                    }
                     completedSessions += 1
                     completedFocusMinutes += focusMinutes
                     val previousStart = prefs.getLong("achievement_window_start", 0L)
@@ -120,6 +130,7 @@ fun StudyHubScreen() {
                     val oldAchievementCount = if (windowStart == now) 0 else prefs.getInt("achievement_count", 0)
                     if (newAchievementCount > oldAchievementCount) {
                         achievementCount = newAchievementCount
+                        lastAchievementAt = now
                         prefs.edit().putLong("last_achievement_at", now).apply()
                         status = "إنجاز جديد! حصلت على وسامك رقم " + newAchievementCount
                     }
@@ -179,6 +190,7 @@ fun StudyHubScreen() {
                     }
                     LinearProgressIndicator(progress = { (completedFocusMinutes.coerceAtMost(720) / 720f) }, modifier = Modifier.fillMaxWidth())
                     Text("سلسلة المذاكرة: " + streakDays + " يوم • الوسام الذهبي المحلي يتطلب 12 ساعة تركيز خلال نافذة 48 ساعة.", style = MaterialTheme.typography.bodySmall)
+                    Text(if (badgeActive) "الوسام الحالي ساري لمدة 48 ساعة من آخر إنجاز." else "لا يوجد وسام مؤقت نشط حاليًا.", style = MaterialTheme.typography.bodySmall)
                     Text("الأوسمة محفوظة على هذا الجهاز وليست توثيقًا تنافسيًا موثوقًا بين الحسابات.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
