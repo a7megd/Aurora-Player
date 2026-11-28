@@ -3,6 +3,22 @@ package com.aurora.player.ui.navigation
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.geometry.CornerRadius
+import kotlin.math.abs
+import kotlin.math.sin
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -191,6 +207,7 @@ fun NowPlayingScreen(controller: MediaController?, onNavigate: (String) -> Unit 
                     }
                 }
             }
+            if (playing) WhisperVinylDisc(isPlaying = playing, modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp))
             Box(Modifier.align(Alignment.TopEnd)) {
                 IconButton(onClick = { menuExpanded = true }, enabled = controller?.currentMediaItem != null) {
                     Icon(Icons.Rounded.MoreVert, contentDescription = "المزيد")
@@ -229,6 +246,7 @@ fun NowPlayingScreen(controller: MediaController?, onNavigate: (String) -> Unit 
             valueRange = 0f..duration.coerceAtLeast(1L).toFloat(),
             enabled = controller != null && duration > 0L
         )
+        WhisperSeekWaveform(duration = duration, position = position, onSeek = { controller?.seekTo(it) })
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(formatTime(position), style = MaterialTheme.typography.labelSmall)
             Text(formatTime((duration - position).coerceAtLeast(0L)), style = MaterialTheme.typography.labelSmall)
@@ -358,6 +376,71 @@ fun NowPlayingScreen(controller: MediaController?, onNavigate: (String) -> Unit 
             }
         }
     )
+}
+
+@Composable
+private fun WhisperVinylDisc(isPlaying: Boolean, modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "vinylRotation")
+    val rotation by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(animation = tween(6500, easing = LinearEasing)),
+        label = "vinylAngle"
+    )
+    Surface(
+        modifier = modifier.size(112.dp).graphicsLayer { rotationZ = if (isPlaying) rotation else 0f },
+        shape = CircleShape,
+        color = Color(0xFF17191D),
+        shadowElevation = 9.dp
+    ) {
+        Canvas(Modifier.fillMaxSize().padding(7.dp)) {
+            val center = Offset(size.width / 2f, size.height / 2f)
+            val radius = size.minDimension / 2f
+            for (ring in 1..6) {
+                drawCircle(
+                    color = Color.White.copy(alpha = 0.075f),
+                    radius = radius * ring / 7f,
+                    center = center,
+                    style = Stroke(width = 1.dp.toPx())
+                )
+            }
+            drawCircle(color = Color(0xFFB49A65), radius = radius * 0.22f, center = center)
+            drawCircle(color = Color(0xFF17191D), radius = radius * 0.055f, center = center)
+        }
+    }
+}
+
+@Composable
+private fun WhisperSeekWaveform(duration: Long, position: Long, onSeek: (Long) -> Unit) {
+    val playedColor = MaterialTheme.colorScheme.primary
+    val remainingColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.28f)
+    Canvas(
+        Modifier.fillMaxWidth().height(38.dp).pointerInput(duration, onSeek) {
+            detectTapGestures { tap ->
+                if (duration > 0L && size.width > 0) {
+                    val fraction = (tap.x / size.width).coerceIn(0f, 1f)
+                    onSeek((duration * fraction).toLong())
+                }
+            }
+        }
+    ) {
+        val count = 56
+        val gap = 2.dp.toPx()
+        val barWidth = (size.width - gap * (count - 1)) / count
+        val progress = if (duration > 0L) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
+        for (index in 0 until count) {
+            val wave = abs(sin(index * 0.49) * 0.72 + sin(index * 0.19) * 0.28).toFloat()
+            val height = (size.height * (0.18f + wave * 0.78f)).coerceAtLeast(2.dp.toPx())
+            val x = index * (barWidth + gap)
+            val fraction = (x + barWidth / 2f) / size.width
+            drawRoundRect(
+                color = if (fraction <= progress) playedColor else remainingColor,
+                topLeft = Offset(x, (size.height - height) / 2f),
+                size = Size(barWidth, height),
+                cornerRadius = CornerRadius(barWidth / 2f)
+            )
+        }
+    }
 }
 
 private fun formatTime(ms: Long): String {
