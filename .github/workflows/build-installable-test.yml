@@ -37,7 +37,7 @@ jobs:
           install -D overrides/Lame.java AuroraPlayer/app/src/main/java/net/qiujuer/lame/Lame.java
       - name: Bundle native LAME encoder libraries
         run: |
-          curl -fsSL https://repo.maven.apache.org/maven2/net/qiujuer/lame/lame/1.0.0/lame-1.0.0.aar -o /tmp/lame.aar
+          curl --fail --location --silent --show-error --retry 6 --retry-all-errors --retry-delay 5 https://repo.maven.apache.org/maven2/net/qiujuer/lame/lame/1.0.0/lame-1.0.0.aar -o /tmp/lame.aar
           mkdir -p /tmp/lame-aar AuroraPlayer/app/src/main/jniLibs
           unzip -o /tmp/lame.aar 'jni/*' -d /tmp/lame-aar
           test -d /tmp/lame-aar/jni
